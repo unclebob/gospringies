@@ -24,13 +24,21 @@ func TestLoadXSPSupportsParametersForcesWallsMassesAndSprings(t *testing.T) {
 		"elas 0.4",
 		"kspr 12.5",
 		"kdmp 0.7",
-		"frce gravity true magnitude=10 direction=90",
-		"wall left true",
+		"fixm 1",
+		"shws 0",
+		"cent -1",
+		"frce gravity 2 magnitude=10 direction=90",
+		"visc 0.2",
+		"stck 0.3",
+		"step 0.01",
+		"prec 0.0001",
+		"adpt 1",
+		"gsnp 5",
+		"wall left 1",
 		"mass 1 10 20 -3.0 0.4",
 		"mass 2 30 40 2.0 0.5",
 		"spng 7 1 2 15 12.5 0.7",
-		"",
-	}, "\n"))
+	}, "\n") + "\n")
 	if err != nil {
 		t.Fatalf("LoadXSP returned error: %v", err)
 	}
@@ -39,6 +47,15 @@ func TestLoadXSPSupportsParametersForcesWallsMassesAndSprings(t *testing.T) {
 	assertParameter(t, world, "elasticity", "0.4")
 	assertParameter(t, world, "spring constant", "12.5")
 	assertParameter(t, world, "damping", "0.7")
+	assertParameter(t, world, "fixed mass", "true")
+	assertParameter(t, world, "show springs", "false")
+	assertParameter(t, world, "center mass", "-1")
+	assertParameter(t, world, "viscosity", "0.2")
+	assertParameter(t, world, "stickiness", "0.3")
+	assertParameter(t, world, "timestep", "0.01")
+	assertParameter(t, world, "precision", "0.0001")
+	assertParameter(t, world, "adaptive timestep", "true")
+	assertParameter(t, world, "grid snap", "5")
 	if force, _ := world.Parameters.Force("gravity"); force.Enabled != "true" || force.Values["magnitude"] != "10" {
 		t.Fatalf("gravity = %#v", force)
 	}
@@ -98,6 +115,10 @@ func TestLoadXSPReportsMalformedInput(t *testing.T) {
 		{"duplicate spring id", "#1.0\nmass 1 0 0 1 0.8\nmass 2 1 1 1 0.8\nspng 1 1 2 1 1 0\nspng 1 1 2 1 1 0\n", sim.ErrDuplicateID},
 		{"missing spring endpoint", "#1.0\nmass 1 0 0 1 0.8\nspng 1 1 2 1 1 0\n", sim.ErrMissingSpringEndpoint},
 		{"missing final newline", "#1.0", ErrMissingFinalNewline},
+		{"blank line", "#1.0\n\n", ErrBlankLine},
+		{"non-positive mass id", "#1.0\nmass 0 0 0 1 0.8\n", ErrNonPositiveID},
+		{"non-positive spring id", "#1.0\nmass 1 0 0 1 0.8\nmass 2 1 1 1 0.8\nspng 0 1 2 1 1 0\n", ErrNonPositiveID},
+		{"non-positive center id", "#1.0\ncent 0\n", ErrNonPositiveID},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -138,6 +159,57 @@ func TestLoadXSPPreservesDisabledForceValues(t *testing.T) {
 	force, _ := world.Parameters.Force("gravity")
 	if force.Enabled != "false" || force.Values["magnitude"] != "5" || force.Values["direction"] != "180" {
 		t.Fatalf("gravity = %#v", force)
+	}
+}
+
+func TestSaveXSPWritesDocumentedCommands(t *testing.T) {
+	world, err := LoadXSP(strings.Join([]string{
+		"#1.0",
+		"cmas 3",
+		"elas 0.4",
+		"kspr 12",
+		"kdmp 0.7",
+		"fixm true",
+		"shws false",
+		"cent -1",
+		"frce gravity true magnitude=10 direction=90",
+		"visc 0.2",
+		"stck 0.3",
+		"step 0.01",
+		"prec 0.001",
+		"adpt true",
+		"gsnp 5",
+		"wall left true",
+		"mass 1 10 20 1 0.8",
+	}, "\n") + "\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := SaveXSP(world)
+	for _, command := range []string{"cmas", "elas", "kspr", "kdmp", "fixm", "shws", "cent", "frce", "visc", "stck", "step", "prec", "adpt", "gsnp", "wall", "mass"} {
+		if !strings.Contains(output, "\n"+command+" ") {
+			t.Fatalf("saved output missing %s:\n%s", command, output)
+		}
+	}
+}
+
+func TestResolveXSPFilenameAddsExtensionAndSpringDir(t *testing.T) {
+	cases := []struct {
+		name      string
+		filename  string
+		springDir string
+		want      string
+	}{
+		{"extension", "demo", "", "demo.xsp"},
+		{"existing extension", "demo.xsp", "", "demo.xsp"},
+		{"springdir", "demo", "examples", "examples/demo.xsp"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := ResolveXSPFilename(tc.filename, tc.springDir); got != tc.want {
+				t.Fatalf("ResolveXSPFilename = %q, want %q", got, tc.want)
+			}
+		})
 	}
 }
 
