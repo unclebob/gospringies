@@ -27,6 +27,8 @@ var (
 
 type Game struct {
 	simulation      *sim.Simulation
+	initialState    *sim.Simulation
+	savedState      *sim.Simulation
 	mode            string
 	selected        bool
 	dirty           bool
@@ -45,7 +47,8 @@ type WindowConfig struct {
 }
 
 func NewGame() *Game {
-	return &Game{simulation: sim.NewWorld(), mode: "select"}
+	world := sim.NewWorld()
+	return &Game{simulation: world, initialState: world.Clone(), mode: "select"}
 }
 
 func DefaultWindowConfig() WindowConfig {

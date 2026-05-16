@@ -334,6 +334,10 @@ func TestRunFeatureExecutesSpringModeMouseSemanticsFeature(t *testing.T) {
 	runFeatureFile(t, "features/016_spring_mode_mouse_semantics.feature")
 }
 
+func TestRunFeatureExecutesStateSaveRestoreFeature(t *testing.T) {
+	runFeatureFile(t, "features/017_state_save_restore.feature")
+}
+
 func TestRenderWorldHelpersValidateInputs(t *testing.T) {
 	if err := createApplicationWorldState(&world{}, map[string]string{}); err == nil {
 		t.Fatal("expected missing world state")

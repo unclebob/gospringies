@@ -363,6 +363,50 @@ func TestParameterCommandMarksFileDirty(t *testing.T) {
 	}
 }
 
+func TestSaveStateRestoresObjectsAndParametersRepeatedly(t *testing.T) {
+	game := NewGame()
+	replaceWithAppTestState(game, "saved")
+	game.SaveState()
+
+	replaceWithAppTestState(game, "changed")
+	game.RestoreState()
+	assertAppTestState(t, game, "saved")
+
+	replaceWithAppTestState(game, "changed")
+	game.RestoreState()
+	assertAppTestState(t, game, "saved")
+}
+
+func TestRestoreStateWithoutSavedStateRestoresInitialWorld(t *testing.T) {
+	game := NewGame()
+	replaceWithAppTestState(game, "changed")
+
+	game.RestoreState()
+
+	if len(game.World().Masses) != 0 || len(game.World().Springs) != 0 {
+		t.Fatalf("world = %#v", game.World())
+	}
+	if game.World().Parameters.Value("current mass") != sim.DefaultParameters().Value("current mass") {
+		t.Fatalf("parameters = %#v", game.World().Parameters)
+	}
+}
+
+func TestFileOperationsDoNotReplaceSavedState(t *testing.T) {
+	game := NewGame()
+	replaceWithAppTestState(game, "saved")
+	game.SaveState()
+
+	if err := game.LoadXSP("#1.0\ncmas loaded\nmass 9 10 20 1 0\n"); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := game.World().MassByID(9); !ok {
+		t.Fatal("expected file load to replace current world")
+	}
+	game.RestoreState()
+
+	assertAppTestState(t, game, "saved")
+}
+
 func TestEditorControlsRemainUsableWhilePausedOrRunning(t *testing.T) {
 	game := NewGame()
 	for _, paused := range []bool{true, false} {
@@ -371,5 +415,39 @@ func TestEditorControlsRemainUsableWhilePausedOrRunning(t *testing.T) {
 		if !screen.CanvasVisible || !screen.ControlsUsable {
 			t.Fatalf("paused %t screen = %#v", paused, screen)
 		}
+	}
+}
+
+func replaceWithAppTestState(game *Game, label string) {
+	world := sim.NewWorld()
+	switch label {
+	case "saved":
+		_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 20}, Mass: 2, Elasticity: 0.6, Fixed: true})
+		_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 40, Y: 20}, Mass: 3})
+		_ = world.AddSpring(sim.Spring{ID: 3, MassA: 1, MassB: 2, RestLength: 30, SpringConstant: 8, Damping: 0.4})
+		world.Parameters.Set("current mass", "saved")
+	case "changed":
+		_ = world.AddMass(sim.Mass{ID: 7, Position: sim.Vec2{X: 70, Y: 80}, Mass: 4})
+		world.Parameters.Set("current mass", "changed")
+	}
+	game.ReplaceWorld(world)
+}
+
+func assertAppTestState(t *testing.T, game *Game, label string) {
+	t.Helper()
+	switch label {
+	case "saved":
+		if len(game.World().Masses) != 2 || len(game.World().Springs) != 1 {
+			t.Fatalf("saved world = %#v", game.World())
+		}
+		mass, ok := game.World().MassByID(1)
+		if !ok || mass.Position != (sim.Vec2{X: 10, Y: 20}) || !mass.Fixed {
+			t.Fatalf("saved mass = %#v, %t", mass, ok)
+		}
+		if game.World().Parameters.Value("current mass") != "saved" {
+			t.Fatalf("saved parameters = %#v", game.World().Parameters)
+		}
+	default:
+		t.Fatalf("unsupported app test state %q", label)
 	}
 }
