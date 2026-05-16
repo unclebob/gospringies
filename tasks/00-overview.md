@@ -23,3 +23,11 @@ Suggested order:
 13. `12-controls-and-hotkeys.md`
 14. `13-demo-files.md`
 15. `14-packaging-and-docs.md`
+16. `015-edit-mode-details.md`
+17. `016-spring-mode-mouse-semantics.md`
+18. `017-state-save-restore.md`
+19. `018-selected-object-parameter-editing.md`
+20. `019-wall-collision-and-stickiness.md`
+21. `020-xsp-complete-file-format.md`
+22. `021-force-center-and-force-parameters.md`
+23. `022-adaptive-rk4-numerics.md`
