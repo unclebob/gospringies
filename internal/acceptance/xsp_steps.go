@@ -172,11 +172,7 @@ func assertXSPSaveEndsWithNewline(w *world, _ map[string]string) error {
 }
 
 func createXSPInputWithFileMass(w *world, example map[string]string) error {
-	id, err := stringValue(example, "mass_id")
-	if err != nil {
-		return err
-	}
-	value, err := stringValue(example, "file_mass_value")
+	id, value, err := stringPair(example, "mass_id", "file_mass_value")
 	if err != nil {
 		return err
 	}
@@ -215,11 +211,7 @@ func assertXSPMassFixedState(w *world, example map[string]string) error {
 }
 
 func assertSavedMassSign(w *world, example map[string]string) error {
-	id, err := stringValue(example, "mass_id")
-	if err != nil {
-		return err
-	}
-	sign, err := stringValue(example, "file_mass_sign")
+	id, sign, err := stringPair(example, "mass_id", "file_mass_sign")
 	if err != nil {
 		return err
 	}

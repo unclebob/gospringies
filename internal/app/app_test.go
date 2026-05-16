@@ -176,6 +176,9 @@ func TestEditorScreenHasRequiredRegions(t *testing.T) {
 			t.Fatalf("region %q = %q, %t", region, got, ok)
 		}
 	}
+	if got, ok := screen.RegionPurpose("footer"); ok || got != "" {
+		t.Fatalf("missing region = %q, %t", got, ok)
+	}
 }
 
 func TestEditorScreenHasVisibleModeAndCommandControls(t *testing.T) {
@@ -189,6 +192,12 @@ func TestEditorScreenHasVisibleModeAndCommandControls(t *testing.T) {
 		if !screen.HasCommandControl(command) {
 			t.Fatalf("missing command %q", command)
 		}
+	}
+	if screen.HasModeControl("paint") {
+		t.Fatal("unexpected paint mode")
+	}
+	if screen.HasCommandControl("export") {
+		t.Fatal("unexpected export command")
 	}
 }
 
@@ -236,6 +245,9 @@ func TestKeyboardShortcutsRunVisibleCommands(t *testing.T) {
 		if got := game.LastCommand(); got != command {
 			t.Fatalf("shortcut %q ran %q, want %q", shortcut, got, command)
 		}
+	}
+	if game.HandleShortcut("Ctrl+X") {
+		t.Fatal("unexpected unknown shortcut handling")
 	}
 }
 
