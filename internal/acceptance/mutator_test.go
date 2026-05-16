@@ -57,6 +57,32 @@ func TestBuildMutationsSkipsEquivalentDomainModelCells(t *testing.T) {
 	}
 }
 
+func TestBuildMutationsSkipsEquivalentSystemParameterSetupCells(t *testing.T) {
+	feature := gherkin.Feature{
+		Name: "System parameters",
+		Scenarios: []gherkin.Scenario{
+			{},
+			{},
+			{},
+			{Examples: []map[string]string{{"parameter": "viscosity", "changed_value": "custom", "operation": "reset"}}},
+		},
+	}
+
+	mutations := BuildMutations(feature)
+	if len(mutations) != 1 {
+		t.Fatalf("mutation count = %d: %#v", len(mutations), mutations)
+	}
+	if mutations[0].Key != "operation" {
+		t.Fatalf("mutations = %#v", mutations)
+	}
+	if !isEquivalentSystemParameterMutation(3, "parameter") {
+		t.Fatal("expected system parameter setup mutation to be equivalent")
+	}
+	if isEquivalentSystemParameterMutation(3, "operation") {
+		t.Fatal("operation mutation should remain meaningful")
+	}
+}
+
 func TestBuildMutationReturnsStableMutationOrSkipsEquivalent(t *testing.T) {
 	feature := gherkin.Feature{Scenarios: []gherkin.Scenario{{}}}
 	mutation, ok := buildMutation(feature, 0, 0, "count", "20", 1)

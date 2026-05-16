@@ -57,6 +57,7 @@ func runStep(w *world, step gherkin.Step, example map[string]string) error {
 
 var stepHandlers = map[string]stepHandler{
 	"the domain model task is accepted":                                            acceptStep,
+	"the system parameters task is accepted":                                       acceptStep,
 	"the coder creates a new world":                                                createDomainWorld,
 	"the world should contain <mass_count> masses":                                 assertDomainMassCount,
 	"the world should contain <spring_count> springs":                              assertDomainSpringCount,
@@ -89,6 +90,13 @@ var stepHandlers = map[string]stepHandler{
 	"the coder adds another <object_type> with id <id>":                            addDuplicateDomainObject,
 	"the coder adds spring <spring_id> connecting mass <mass_a> to mass <mass_b>":  addInvalidDomainSpring,
 	"validation should fail with reason <reason>":                                  assertDomainValidationReason,
+	"parameter <parameter> should have default value <value>":                      assertParameterDefault,
+	"force <force> should have enabled state <enabled>":                            assertForceEnabledState,
+	"force <force> should have editable parameters":                                assertForceEditableParameters,
+	"wall <wall> should have enabled state <enabled>":                              assertWallEnabledState,
+	"a world with parameter <parameter> changed to <changed_value>":                changeWorldParameter,
+	"the coder performs <operation>":                                               performWorldOperation,
+	"parameter <parameter> should be <expected_value_source>":                      assertParameterSource,
 	"the acceptance pipeline task is accepted":                                     acceptStep,
 	"the coder runs the acceptance test command":                                   runAcceptanceCommand,
 	"the Gherkin parser should run successfully":                                   assertParserRan,

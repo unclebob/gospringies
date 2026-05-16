@@ -462,18 +462,3 @@ func massFields(example map[string]string, idKey, xKey, yKey string) (int, float
 	}
 	return id, x, y, nil
 }
-
-func boolValue(example map[string]string, key string) (bool, error) {
-	value, ok := example[key]
-	if !ok {
-		return false, fmt.Errorf("missing example value %s", key)
-	}
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "true":
-		return true, nil
-	case "false":
-		return false, nil
-	default:
-		return false, fmt.Errorf("invalid bool %s=%q", key, value)
-	}
-}

@@ -49,17 +49,35 @@ type Spring struct {
 }
 
 type Simulation struct {
-	Masses  []Mass
-	Springs []Spring
-	Damping float64
+	Masses     []Mass
+	Springs    []Spring
+	Damping    float64
+	Parameters Parameters
 }
 
 func NewSimulation() *Simulation {
-	return &Simulation{Damping: 0.98}
+	return &Simulation{Damping: 0.98, Parameters: DefaultParameters()}
 }
 
 func NewWorld() *Simulation {
 	return NewSimulation()
+}
+
+func (s *Simulation) Reset() {
+	s.Masses = nil
+	s.Springs = nil
+	s.Parameters = DefaultParameters()
+}
+
+func (s *Simulation) LoadFrom(other *Simulation) {
+	s.Masses = append([]Mass{}, other.Masses...)
+	s.Springs = append([]Spring{}, other.Springs...)
+	s.Parameters = other.Parameters.Clone()
+}
+
+func (s *Simulation) InsertFrom(other *Simulation) {
+	s.Masses = append(s.Masses, other.Masses...)
+	s.Springs = append(s.Springs, other.Springs...)
 }
 
 func NewDemoSimulation() *Simulation {
