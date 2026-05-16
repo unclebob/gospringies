@@ -509,6 +509,87 @@ func TestForceEvaluationHandlersReportFailures(t *testing.T) {
 	}
 }
 
+func TestSimulationStepHandlerHelpers(t *testing.T) {
+	w := &world{}
+	moveExample := map[string]string{"start_position": "initial", "start_velocity": "zero", "duration": "1 step"}
+	for _, fn := range []stepHandler{
+		createMovableMassAtStart,
+		enableGravity,
+		advanceByDuration,
+		assertMassPositionDiffers,
+		assertMassVelocityDiffers,
+	} {
+		if err := fn(w, moveExample); err != nil {
+			t.Fatalf("simulation step handler returned error: %v", err)
+		}
+	}
+
+	fixedExample := map[string]string{"mass_id": "2", "start_position": "initial", "start_velocity": "zero", "fixed": "true", "force": "gravity", "duration": "10 steps"}
+	w = &world{}
+	if err := createMassFixedState(w, fixedExample); err != nil {
+		t.Fatal(err)
+	}
+	if err := createMassStartPosition(w, fixedExample); err != nil {
+		t.Fatal(err)
+	}
+	if err := enableGravity(w, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := advanceByDuration(w, fixedExample); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertMassPositionRemains(w, fixedExample); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertMassVelocityRemains(w, fixedExample); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, state := range []string{"simple spring", "gravity only"} {
+		example := map[string]string{"initial_state": state, "duration": "1 second", "frame_rate": "30 fps"}
+		w = &world{}
+		if err := createWorldInState(w, example); err != nil {
+			t.Fatal(err)
+		}
+		if err := assertResultDeterministic(w, example); err != nil {
+			t.Fatal(err)
+		}
+		if err := advanceByDurationAtFrameRate(w, example); err != nil {
+			t.Fatal(err)
+		}
+		if err := assertSimulationTime(w, example); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestSimulationStepHandlersReportFailures(t *testing.T) {
+	if err := requireMarker(map[string]string{"value": "wrong"}, "value", "expected"); err == nil {
+		t.Fatal("expected marker mismatch")
+	}
+	if _, err := durationValue(map[string]string{"duration": "forever"}, "duration"); err == nil {
+		t.Fatal("expected unsupported duration")
+	}
+	if _, err := frameRateValue(map[string]string{"frame_rate": "100 fps"}); err == nil {
+		t.Fatal("expected unsupported frame rate")
+	}
+	if _, err := worldForState("unknown"); err == nil {
+		t.Fatal("expected unsupported state")
+	}
+	if sameWorldState(sim.NewWorld(), &sim.Simulation{Time: 1}) {
+		t.Fatal("expected world states to differ")
+	}
+	if err := assertMassPositionDiffers(&world{resultingWorld: sim.NewWorld()}, map[string]string{"start_position": "initial"}); err == nil {
+		t.Fatal("expected missing mass error")
+	}
+	if err := assertMassPositionRemains(&world{resultingWorld: sim.NewWorld()}, map[string]string{"mass_id": "1"}); err == nil {
+		t.Fatal("expected missing mass error")
+	}
+	if err := assertSimulationTime(&world{resultingWorld: &sim.Simulation{Time: 2}}, map[string]string{"duration": "1 second"}); err == nil {
+		t.Fatal("expected simulation time mismatch")
+	}
+}
+
 func TestPackageDirDoesNotImportDetectsGraphicsLibrary(t *testing.T) {
 	dir := t.TempDir()
 	writeSource(t, filepath.Join(dir, "domain.go"), "package domain\n")

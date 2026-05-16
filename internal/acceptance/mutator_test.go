@@ -130,6 +130,27 @@ func TestBuildMutationsSkipsEquivalentSimulationStepMassID(t *testing.T) {
 	}
 }
 
+func TestBuildMutationsSkipsEquivalentSimulationStepSetupCells(t *testing.T) {
+	feature := gherkin.Feature{
+		Name: "Simulation step",
+		Scenarios: []gherkin.Scenario{
+			{},
+			{Examples: []map[string]string{{"mass_id": "1", "fixed": "true", "duration": "1 step"}}},
+		},
+	}
+
+	mutations := BuildMutations(feature)
+	if len(mutations) != 2 {
+		t.Fatalf("mutation count = %d: %#v", len(mutations), mutations)
+	}
+	if !isEquivalentSimulationStepMutation(1, "mass_id") {
+		t.Fatal("expected mass id setup mutation to be equivalent")
+	}
+	if isEquivalentSimulationStepMutation(1, "duration") {
+		t.Fatal("duration mutation should remain meaningful")
+	}
+}
+
 func TestBuildMutationReturnsStableMutationOrSkipsEquivalent(t *testing.T) {
 	feature := gherkin.Feature{Scenarios: []gherkin.Scenario{{}}}
 	mutation, ok := buildMutation(feature, 0, 0, "count", "20", 1)

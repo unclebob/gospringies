@@ -34,29 +34,48 @@ func advanceByDuration(w *world, example map[string]string) error {
 }
 
 func assertMassPositionDiffers(w *world, example map[string]string) error {
-	return assertMassVectorDiffersFromMarker(w, example, "start_position", "initial", "position", func(mass sim.Mass) sim.Vec2 { return mass.Position })
+	return assertMassVectorDiffers(w, example, positionDifference())
 }
 
 func assertMassVelocityDiffers(w *world, example map[string]string) error {
-	return assertMassVectorDiffersFromMarker(w, example, "start_velocity", "zero", "velocity", func(mass sim.Mass) sim.Vec2 { return mass.Velocity })
+	return assertMassVectorDiffers(w, example, velocityDifference())
 }
 
-func assertMassVectorDiffersFromMarker(w *world, example map[string]string, key, expected, name string, value func(sim.Mass) sim.Vec2) error {
-	if err := requireMarker(example, key, expected); err != nil {
+type massVectorDifference struct {
+	markerKey   string
+	markerValue string
+	label       string
+	vector      func(sim.Mass) sim.Vec2
+}
+
+func positionDifference() massVectorDifference {
+	return massVectorDifference{"start_position", "initial", "position", func(mass sim.Mass) sim.Vec2 { return mass.Position }}
+}
+
+func velocityDifference() massVectorDifference {
+	return massVectorDifference{"start_velocity", "zero", "velocity", func(mass sim.Mass) sim.Vec2 { return mass.Velocity }}
+}
+
+func assertMassVectorDiffers(w *world, example map[string]string, difference massVectorDifference) error {
+	if err := requireMarker(example, difference.markerKey, difference.markerValue); err != nil {
 		return err
 	}
-	return assertMassVectorDiffers(w, name, value)
-}
-
-func assertMassVectorDiffers(w *world, name string, value func(sim.Mass) sim.Vec2) error {
-	mass, ok := w.resultingWorld.MassByID(1)
-	if !ok {
-		return fmt.Errorf("mass 1 not found")
+	mass, err := resultingMass(w, 1)
+	if err != nil {
+		return err
 	}
-	if value(mass) == (sim.Vec2{}) {
-		return fmt.Errorf("mass %s did not differ from initial", name)
+	if difference.vector(mass) == (sim.Vec2{}) {
+		return fmt.Errorf("mass %s did not differ from %s", difference.label, difference.markerValue)
 	}
 	return nil
+}
+
+func resultingMass(w *world, id int) (sim.Mass, error) {
+	mass, ok := w.resultingWorld.MassByID(id)
+	if !ok {
+		return sim.Mass{}, fmt.Errorf("mass %d not found", id)
+	}
+	return mass, nil
 }
 
 func createMassStartPosition(w *world, example map[string]string) error {
@@ -68,15 +87,20 @@ func createMassStartPosition(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	if _, ok := world.MassByID(id); ok {
-		for i := range world.Masses {
-			if world.Masses[i].ID == id {
-				world.Masses[i].Position = sim.Vec2{X: 5, Y: 6}
-			}
-		}
+	if setMassStartPosition(world, id) {
 		return nil
 	}
 	return world.AddMass(sim.Mass{ID: id, Position: sim.Vec2{X: 5, Y: 6}, Mass: 1})
+}
+
+func setMassStartPosition(world *sim.Simulation, id int) bool {
+	for i := range world.Masses {
+		if world.Masses[i].ID == id {
+			world.Masses[i].Position = sim.Vec2{X: 5, Y: 6}
+			return true
+		}
+	}
+	return false
 }
 
 func assertMassPositionRemains(w *world, example map[string]string) error {
@@ -106,18 +130,18 @@ func assertMassVelocityRemains(w *world, example map[string]string) error {
 	if !ok {
 		return fmt.Errorf("mass %d not found", id)
 	}
-	if mass.Velocity != (sim.Vec2{}) {
-		return fmt.Errorf("mass %d velocity changed to %#v", id, mass.Velocity)
+	return assertZeroVelocity(id, mass.Velocity)
+}
+
+func assertZeroVelocity(id int, velocity sim.Vec2) error {
+	if velocity != (sim.Vec2{}) {
+		return fmt.Errorf("mass %d velocity changed to %#v", id, velocity)
 	}
 	return nil
 }
 
 func createWorldInState(w *world, example map[string]string) error {
-	state, err := stringValue(example, "initial_state")
-	if err != nil {
-		return err
-	}
-	world, err := worldForState(state)
+	world, err := worldFromExampleState(example)
 	if err != nil {
 		return err
 	}
@@ -126,11 +150,7 @@ func createWorldInState(w *world, example map[string]string) error {
 }
 
 func assertResultDeterministic(_ *world, example map[string]string) error {
-	duration, err := durationValue(example, "duration")
-	if err != nil {
-		return err
-	}
-	first, second, err := deterministicWorlds(example)
+	first, second, duration, err := deterministicWorlds(example)
 	if err != nil {
 		return err
 	}
@@ -142,17 +162,28 @@ func assertResultDeterministic(_ *world, example map[string]string) error {
 	return nil
 }
 
-func deterministicWorlds(example map[string]string) (*sim.Simulation, *sim.Simulation, error) {
+func deterministicWorlds(example map[string]string) (*sim.Simulation, *sim.Simulation, float64, error) {
+	duration, err := durationValue(example, "duration")
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	first, err := worldFromExampleState(example)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	second, err := worldFromExampleState(example)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	return first, second, duration, nil
+}
+
+func worldFromExampleState(example map[string]string) (*sim.Simulation, error) {
 	state, err := stringValue(example, "initial_state")
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	first, err := worldForState(state)
-	if err != nil {
-		return nil, nil, err
-	}
-	second, err := worldForState(state)
-	return first, second, err
+	return worldForState(state)
 }
 
 func advanceByDurationAtFrameRate(w *world, example map[string]string) error {
@@ -168,17 +199,25 @@ func advanceByDurationAtFrameRate(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
+	advanceInFrames(world, duration, frameRate)
+	w.resultingWorld = world
+	return nil
+}
+
+func advanceInFrames(world *sim.Simulation, duration, frameRate float64) {
 	frameDuration := 1 / frameRate
 	for remaining := duration; remaining > 0; {
-		step := frameDuration
-		if remaining < step {
-			step = remaining
-		}
+		step := nextFrameStep(remaining, frameDuration)
 		world.AdvanceDuration(step)
 		remaining -= step
 	}
-	w.resultingWorld = world
-	return nil
+}
+
+func nextFrameStep(remaining, frameDuration float64) float64 {
+	if remaining < frameDuration {
+		return remaining
+	}
+	return frameDuration
 }
 
 func assertSimulationTime(w *world, example map[string]string) error {
@@ -209,15 +248,23 @@ func worldForState(state string) (*sim.Simulation, error) {
 }
 
 func sameWorldState(a, b *sim.Simulation) bool {
-	if len(a.Masses) != len(b.Masses) || math.Abs(a.Time-b.Time) > 0.000001 {
+	if len(a.Masses) != len(b.Masses) || !sameFloat(a.Time, b.Time) {
 		return false
 	}
 	for i := range a.Masses {
-		if a.Masses[i].Position != b.Masses[i].Position || a.Masses[i].Velocity != b.Masses[i].Velocity {
+		if !sameMassState(a.Masses[i], b.Masses[i]) {
 			return false
 		}
 	}
 	return true
+}
+
+func sameMassState(a, b sim.Mass) bool {
+	return a.Position == b.Position && a.Velocity == b.Velocity
+}
+
+func sameFloat(a, b float64) bool {
+	return math.Abs(a-b) <= 0.000001
 }
 
 func durationValue(example map[string]string, key string) (float64, error) {
@@ -230,11 +277,10 @@ func durationValue(example map[string]string, key string) (float64, error) {
 		"10 steps": sim.DefaultParameters().StepDuration() * 10,
 		"1 second": 1,
 	}
-	duration, ok := durations[value]
-	if !ok {
-		return 0, fmt.Errorf("unsupported duration %q", value)
+	if duration, ok := durations[value]; ok {
+		return duration, nil
 	}
-	return duration, nil
+	return 0, fmt.Errorf("unsupported duration %q", value)
 }
 
 func frameRateValue(example map[string]string) (float64, error) {

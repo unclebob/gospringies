@@ -111,25 +111,38 @@ func isEquivalentSystemParameterMutation(scenarioIndex int, key string) bool {
 }
 
 func isEquivalentForceEvaluationMutation(scenarioIndex int, key string) bool {
-	return equivalentMutationCells(map[int][]string{
-		0: {"mass_a", "mass_b", "rest_length", "spring_constant"},
-		1: {"mass_a", "mass_b", "damping_constant"},
-		3: {"mass_id"},
-		4: {"mass_id"},
-	}, scenarioIndex, key)
+	switch scenarioIndex {
+	case 0:
+		return isSpringForceSetupKey(key)
+	case 1:
+		return isSpringDampingSetupKey(key)
+	case 3, 4:
+		return key == "mass_id"
+	default:
+		return false
+	}
+}
+
+func isSpringForceSetupKey(key string) bool {
+	switch key {
+	case "mass_a", "mass_b", "rest_length", "spring_constant":
+		return true
+	default:
+		return false
+	}
+}
+
+func isSpringDampingSetupKey(key string) bool {
+	switch key {
+	case "mass_a", "mass_b", "damping_constant":
+		return true
+	default:
+		return false
+	}
 }
 
 func isEquivalentSimulationStepMutation(scenarioIndex int, key string) bool {
 	return scenarioIndex == 1 && key == "mass_id"
-}
-
-func equivalentMutationCells(cells map[int][]string, scenarioIndex int, key string) bool {
-	for _, equivalent := range cells[scenarioIndex] {
-		if key == equivalent {
-			return true
-		}
-	}
-	return false
 }
 
 func RunMutations(feature gherkin.Feature, workDir string) ([]MutationResult, error) {
