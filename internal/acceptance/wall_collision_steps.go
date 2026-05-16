@@ -171,7 +171,7 @@ func pullMassAwayFromWall(w *world, example map[string]string) error {
 	if !ok {
 		return fmt.Errorf("unsupported release force %q", forceName)
 	}
-	collisionWorld(w).Parameters.EnableForce("center attraction", map[string]string{"magnitude": fmt.Sprintf("%f", force)})
+	collisionWorld(w).Parameters.EnableForce("center attraction", map[string]string{"magnitude": fmt.Sprintf("%f", force), "exponent": "0"})
 	collisionWorld(w).Step(1)
 	return nil
 }
