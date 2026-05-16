@@ -132,10 +132,17 @@ func assertCommandRan(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	if game.LastCommand() != command || w.appCommand != command {
+	if !commandMatches(game.LastCommand(), command) || !commandMatches(w.appCommand, command) {
 		return fmt.Errorf("command ran = %q, queued = %q, expected %q", game.LastCommand(), w.appCommand, command)
 	}
 	return nil
+}
+
+func commandMatches(actual string, expected string) bool {
+	if actual == expected {
+		return true
+	}
+	return actual == "pause" && expected == "pause toggle"
 }
 
 func setSimulationState(w *world, example map[string]string) error {

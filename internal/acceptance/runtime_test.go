@@ -69,6 +69,24 @@ func TestRunFeatureFailsUnsupportedSteps(t *testing.T) {
 	}
 }
 
+func TestRunFeatureReportsOneBasedExampleNumber(t *testing.T) {
+	feature := gherkin.Feature{
+		Scenarios: []gherkin.Scenario{{
+			Name:  "bad examples",
+			Steps: []gherkin.Step{{Keyword: "Then", Text: "something unknown happens"}},
+			Examples: []map[string]string{
+				{"case": "first"},
+				{"case": "second"},
+			},
+		}},
+	}
+
+	err := RunFeature(feature)
+	if err == nil || !strings.Contains(err.Error(), "bad examples/example_1:") {
+		t.Fatalf("expected example_1 error, got %v", err)
+	}
+}
+
 func TestRunFeatureExecutesSimulationSteps(t *testing.T) {
 	feature := gherkin.Feature{Scenarios: []gherkin.Scenario{{
 		Name: "simulation",
@@ -678,6 +696,29 @@ func TestSelectionEditingDuplicateIndependenceReportsFailures(t *testing.T) {
 	}
 }
 
+func TestRunFeatureExecutesControlsHotkeysFeature(t *testing.T) {
+	runFeatureFile(t, "features/012_controls_and_hotkeys.feature")
+}
+
+func TestControlsHotkeysHelpersReportFailures(t *testing.T) {
+	w := &world{}
+	if err := createControlWorldState(w, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertControlWorldState(w, map[string]string{"expected_state": "written to XSP file"}); err == nil {
+		t.Fatal("expected unsaved world state error")
+	}
+	if err := assertControlParameterResult(w, map[string]string{"parameter_result": "replaced by XSP file"}); err == nil {
+		t.Fatal("expected unchanged parameter error")
+	}
+	if err := runNamedFileCommand(w, w.appGame.(*app.Game), "export"); err == nil {
+		t.Fatal("expected unsupported file command")
+	}
+	if _, err := concreteGame(&world{}); err == nil {
+		t.Fatal("expected missing concrete application")
+	}
+}
+
 func runFeatureFile(t *testing.T, path string) {
 	t.Helper()
 	feature, err := gherkin.ReadFile(repoPath(path))
@@ -851,6 +892,11 @@ func TestScreenCommandAndStateHelpersReportFailures(t *testing.T) {
 	}
 	if err := assertCommandRan(&world{appGame: game, appCommand: "pause"}, map[string]string{"command": "pause"}); err != nil {
 		t.Fatal(err)
+	}
+	resetGame := app.NewGame()
+	resetGame.RunCommand("reset")
+	if err := assertCommandRan(&world{appGame: resetGame, appCommand: "reset"}, map[string]string{"command": "pause toggle"}); err == nil {
+		t.Fatal("expected non-pause command mismatch")
 	}
 }
 

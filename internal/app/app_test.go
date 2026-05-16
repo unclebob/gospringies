@@ -237,7 +237,7 @@ func TestEditorScreenHasVisibleModeAndCommandControls(t *testing.T) {
 			t.Fatalf("missing mode %q", mode)
 		}
 	}
-	for _, command := range []string{"run", "pause", "reset", "load", "insert", "save", "quit"} {
+	for _, command := range []string{"run", "pause", "reset", "load", "insert", "save", "quit", "delete", "select all"} {
 		if !screen.HasCommandControl(command) {
 			t.Fatalf("missing command %q", command)
 		}
@@ -277,6 +277,8 @@ func TestKeyboardShortcutsRunVisibleCommands(t *testing.T) {
 	game := NewGame()
 	shortcuts := map[string]string{
 		"Space":  "pause",
+		"Delete": "delete",
+		"Ctrl+A": "select all",
 		"R":      "reset",
 		"Ctrl+S": "save",
 		"Ctrl+O": "load",
@@ -297,6 +299,67 @@ func TestKeyboardShortcutsRunVisibleCommands(t *testing.T) {
 	}
 	if game.HandleShortcut("Ctrl+X") {
 		t.Fatal("unexpected unknown shortcut handling")
+	}
+}
+
+func TestCommandsAffectApplicationState(t *testing.T) {
+	game := NewGame()
+	_ = game.World().AddMass(sim.Mass{ID: 1, Mass: 1})
+	game.World().Parameters.Set("current mass", "custom")
+
+	game.RunCommand("pause")
+	if !game.Paused() {
+		t.Fatal("expected pause command to toggle paused state")
+	}
+
+	game.RunCommand("reset")
+	if len(game.World().Masses) != 0 || game.World().Parameters.Value("current mass") == "custom" {
+		t.Fatalf("reset world = %#v", game.World())
+	}
+
+	game.RunCommand("quit")
+	if !game.Closed() {
+		t.Fatal("expected quit command to close game")
+	}
+}
+
+func TestFileCommandsSaveLoadAndInsertXSP(t *testing.T) {
+	game := NewGame()
+	_ = game.World().AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 1, Y: 2}, Mass: 1})
+
+	saved := game.SaveXSP()
+	if saved == "" || game.EditorScreen().Indicators["file state"] != "saved" {
+		t.Fatalf("saved = %q indicators = %#v", saved, game.EditorScreen().Indicators)
+	}
+
+	loaded := "#1.0\ncmas 7\nmass 9 10 20 1 0\n"
+	if err := game.LoadXSP(loaded); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := game.World().MassByID(9); !ok || game.World().Parameters.Value("current mass") != "7" {
+		t.Fatalf("loaded world = %#v", game.World())
+	}
+
+	game.World().Parameters.Set("current mass", "kept")
+	if err := game.InsertXSP("#1.0\ncmas inserted\nmass 10 30 40 1 0\n"); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := game.World().MassByID(10); !ok || game.World().Parameters.Value("current mass") != "kept" {
+		t.Fatalf("inserted world = %#v", game.World())
+	}
+}
+
+func TestParameterCommandMarksFileDirty(t *testing.T) {
+	game := NewGame()
+	_ = game.SaveXSP()
+
+	game.SetParameter("current mass", "custom")
+
+	if game.World().Parameters.Value("current mass") != "custom" {
+		t.Fatalf("parameters = %#v", game.World().Parameters)
+	}
+	if game.EditorScreen().Indicators["file state"] != "unsaved changes" {
+		t.Fatalf("indicators = %#v", game.EditorScreen().Indicators)
 	}
 }
 

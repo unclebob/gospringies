@@ -226,6 +226,44 @@ func TestBuildMutationsSkipsEquivalentSelectionEditingCells(t *testing.T) {
 	}
 }
 
+func TestEquivalentMutationPredicates(t *testing.T) {
+	for _, check := range []struct {
+		equivalent func(int, string) bool
+		equiv      []mutationCell
+		meaningful mutationCell
+	}{
+		{isEquivalentMouseEditingMutation, []mutationCell{{2, "mass_a"}, {3, "target_position"}}, mutationCell{0, "expected_position"}},
+		{isEquivalentControlsHotkeysMutation, []mutationCell{{1, "initial_state"}, {3, "parameter"}}, mutationCell{0, "shortcut"}},
+	} {
+		for _, cell := range check.equiv {
+			assertEquivalentMutation(t, check.equivalent, cell.scenario, cell.key)
+		}
+		assertMeaningfulMutation(t, check.equivalent, check.meaningful.scenario, check.meaningful.key)
+	}
+	assertMeaningfulMutation(t, isEquivalentControlsHotkeysMutation, 1, "command")
+	assertMeaningfulMutation(t, isEquivalentControlsHotkeysMutation, 0, "parameter")
+	assertMeaningfulMutation(t, isEquivalentControlsHotkeysMutation, 3, "parameter_result")
+}
+
+type mutationCell struct {
+	scenario int
+	key      string
+}
+
+func assertEquivalentMutation(t *testing.T, equivalent func(int, string) bool, scenario int, key string) {
+	t.Helper()
+	if !equivalent(scenario, key) {
+		t.Fatalf("expected %s in scenario %d to be equivalent", key, scenario)
+	}
+}
+
+func assertMeaningfulMutation(t *testing.T, equivalent func(int, string) bool, scenario int, key string) {
+	t.Helper()
+	if equivalent(scenario, key) {
+		t.Fatalf("expected %s in scenario %d to be meaningful", key, scenario)
+	}
+}
+
 func TestBuildMutationReturnsStableMutationOrSkipsEquivalent(t *testing.T) {
 	feature := gherkin.Feature{Scenarios: []gherkin.Scenario{{}}}
 	mutation, ok := buildMutation(feature, 0, 0, "count", "20", 1)
