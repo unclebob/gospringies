@@ -448,6 +448,10 @@ func assertSprings(t *testing.T, actual, expected []sim.Spring) {
 	}
 }
 
+func TestRunFeatureExecutesMouseEditingFeature(t *testing.T) {
+	runFeatureFile(t, "features/010_mouse_editing.feature")
+}
+
 func TestApplicationWindowHelpersReportFailures(t *testing.T) {
 	openErr := errors.New("open failed")
 	if err := assertApplicationWindowOpened(&world{appErr: openErr}, nil); err != openErr {

@@ -174,6 +174,18 @@ func TestBuildMutationsSkipsEquivalentXSPFixedMassSetupCells(t *testing.T) {
 	}
 }
 
+func TestBuildMutationsSkipsEquivalentMouseEditingCells(t *testing.T) {
+	if !isEquivalentMouseEditingMutation(2, "mass_a") {
+		t.Fatal("expected spring endpoint setup mutation to be equivalent")
+	}
+	if !isEquivalentMouseEditingMutation(3, "target_position") {
+		t.Fatal("expected fixed drag target setup mutation to be equivalent")
+	}
+	if isEquivalentMouseEditingMutation(0, "expected_position") {
+		t.Fatal("expected mass placement assertion mutation to be meaningful")
+	}
+}
+
 func TestBuildMutationReturnsStableMutationOrSkipsEquivalent(t *testing.T) {
 	feature := gherkin.Feature{Scenarios: []gherkin.Scenario{{}}}
 	mutation, ok := buildMutation(feature, 0, 0, "count", "20", 1)
