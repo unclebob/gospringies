@@ -312,15 +312,15 @@ func setSpringDirEnvironment(w *world, example map[string]string) error {
 		return err
 	}
 	if springDir == "unset" {
-		w.xspSavedFirst = ""
+		w.xspSpringDir = ""
 		return nil
 	}
-	w.xspSavedFirst = springDir
+	w.xspSpringDir = springDir
 	return nil
 }
 
 func resolveXSPFilename(w *world, _ map[string]string) error {
-	w.xspResolvedFilename = xspfmt.ResolveXSPFilename(w.xspInput, w.xspSavedFirst)
+	w.xspResolvedFilename = xspfmt.ResolveXSPFilename(w.xspInput, w.xspSpringDir)
 	return nil
 }
 

@@ -32,6 +32,7 @@ type world struct {
 	xspSavedFirst        string
 	xspSavedSecond       string
 	xspResolvedFilename  string
+	xspSpringDir         string
 	appGame              appGame
 	appErr               error
 	appBeforeTime        float64

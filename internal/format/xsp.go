@@ -17,6 +17,29 @@ var (
 	ErrNonPositiveID       = errors.New("ids must be positive")
 )
 
+var xspParameterLines = []struct {
+	command string
+	name    string
+}{
+	{"cmas", "current mass"},
+	{"elas", "elasticity"},
+	{"kspr", "spring constant"},
+	{"kdmp", "damping"},
+	{"fixm", "fixed mass"},
+	{"shws", "show springs"},
+	{"cent", "center mass"},
+	{"visc", "viscosity"},
+	{"stck", "stickiness"},
+	{"step", "timestep"},
+	{"prec", "precision"},
+	{"adpt", "adaptive timestep"},
+	{"gsnp", "grid snap"},
+}
+
+var xspForceNames = []string{"gravity", "center attraction", "center of mass attraction", "wall repulsion"}
+var xspForceValueKeys = []string{"magnitude", "direction", "exponent", "damping"}
+var xspWallNames = []string{"top", "left", "right", "bottom"}
+
 func LoadXSP(text string) (*sim.Simulation, error) {
 	if !strings.HasSuffix(text, "\n") {
 		return nil, ErrMissingFinalNewline
@@ -294,31 +317,13 @@ func writeSpringLines(builder *strings.Builder, world *sim.Simulation) {
 }
 
 func writeParameterLines(builder *strings.Builder, world *sim.Simulation) {
-	lines := []struct {
-		command string
-		name    string
-	}{
-		{"cmas", "current mass"},
-		{"elas", "elasticity"},
-		{"kspr", "spring constant"},
-		{"kdmp", "damping"},
-		{"fixm", "fixed mass"},
-		{"shws", "show springs"},
-		{"cent", "center mass"},
-		{"visc", "viscosity"},
-		{"stck", "stickiness"},
-		{"step", "timestep"},
-		{"prec", "precision"},
-		{"adpt", "adaptive timestep"},
-		{"gsnp", "grid snap"},
-	}
-	for _, line := range lines {
+	for _, line := range xspParameterLines {
 		builder.WriteString(fmt.Sprintf("%s %s\n", line.command, world.Parameters.Value(line.name)))
 	}
 }
 
 func writeForceLines(builder *strings.Builder, world *sim.Simulation) {
-	for _, name := range []string{"gravity", "center attraction", "center of mass attraction", "wall repulsion"} {
+	for _, name := range xspForceNames {
 		force, ok := world.Parameters.Force(name)
 		if !ok {
 			continue
@@ -329,7 +334,7 @@ func writeForceLines(builder *strings.Builder, world *sim.Simulation) {
 
 func forceValueSuffix(values map[string]string) string {
 	var parts []string
-	for _, key := range []string{"magnitude", "direction", "exponent", "damping"} {
+	for _, key := range xspForceValueKeys {
 		if value, ok := values[key]; ok {
 			parts = append(parts, key+"="+value)
 		}
@@ -341,7 +346,7 @@ func forceValueSuffix(values map[string]string) string {
 }
 
 func writeWallLines(builder *strings.Builder, world *sim.Simulation) {
-	for _, name := range []string{"top", "left", "right", "bottom"} {
+	for _, name := range xspWallNames {
 		if enabled, _ := world.Parameters.WallEnabled(name); enabled {
 			builder.WriteString(fmt.Sprintf("wall %s true\n", name))
 		}
