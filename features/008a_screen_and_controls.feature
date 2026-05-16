@@ -1,0 +1,85 @@
+Feature: Screen and controls
+
+Background:
+  Given the screen and controls task is accepted
+
+Scenario: the first screen is the simulation editor
+  When the coder starts the desktop application
+  Then the first screen should show the simulation editor
+  And the first screen should not show a landing page
+
+Scenario Outline: the editor screen contains required regions
+  When the coder lays out the editor screen
+  Then screen region <region> should be visible
+  And screen region <region> should have purpose <purpose>
+
+Examples:
+  | region        | purpose                                      |
+  | canvas        | edit and view the simulation world           |
+  | left toolbar  | choose editing modes                         |
+  | top bar       | run commands and file commands               |
+  | right inspector | edit selected objects and world parameters |
+  | status line   | show mode, simulation state, counts, and file state |
+
+Scenario Outline: editing modes are visible controls
+  When the coder shows the left toolbar
+  Then editing mode <mode> should have a visible control
+
+Examples:
+  | mode       |
+  | select     |
+  | add mass   |
+  | add spring |
+  | drag       |
+
+Scenario Outline: commands are visible controls
+  When the coder shows the top command bar
+  Then command <command> should have a visible control
+
+Examples:
+  | command |
+  | run     |
+  | pause   |
+  | reset   |
+  | load    |
+  | insert  |
+  | save    |
+  | quit    |
+
+Scenario Outline: visible state reflects application state
+  Given application state <state> is active
+  When the coder renders the editor controls
+  Then visible indicator <indicator> should reflect <state>
+
+Examples:
+  | state           | indicator        |
+  | select mode     | active mode      |
+  | paused          | simulation state |
+  | running         | simulation state |
+  | object selected | selection        |
+  | unsaved changes | file state       |
+
+Scenario Outline: keyboard shortcuts mirror visible controls
+  Given command <command> has visible control <control>
+  When the coder presses keyboard shortcut <shortcut>
+  Then command <command> should run
+
+Examples:
+  | command | control | shortcut |
+  | pause   | pause   | Space    |
+  | reset   | reset   | R        |
+  | save    | save    | Ctrl+S   |
+  | load    | load    | Ctrl+O   |
+  | insert  | insert  | Ctrl+I   |
+  | quit    | quit    | Q        |
+
+Scenario Outline: controls remain usable during simulation states
+  Given simulation state is <simulation_state>
+  When the coder renders the editor screen
+  Then the canvas should remain visible
+  And the visible controls should remain usable
+
+Examples:
+  | simulation_state |
+  | paused           |
+  | running          |

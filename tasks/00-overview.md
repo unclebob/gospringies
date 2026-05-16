@@ -16,9 +16,10 @@ Suggested order:
 6. `06-simulation-step.md`
 7. `07-xsp-load-save.md`
 8. `08-ebitengine-window.md`
-9. `09-render-world.md`
-10. `10-mouse-editing.md`
-11. `11-selection-and-editing.md`
-12. `12-controls-and-hotkeys.md`
-13. `13-demo-files.md`
-14. `14-packaging-and-docs.md`
+9. `08a-screen-and-controls.md`
+10. `09-render-world.md`
+11. `10-mouse-editing.md`
+12. `11-selection-and-editing.md`
+13. `12-controls-and-hotkeys.md`
+14. `13-demo-files.md`
+15. `14-packaging-and-docs.md`
