@@ -1,6 +1,7 @@
 package acceptance
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -275,6 +276,167 @@ func TestRunFeatureExecutesSystemParameterFeature(t *testing.T) {
 	}
 }
 
+func TestRunFeatureExecutesForceEvaluationFeature(t *testing.T) {
+	feature, err := gherkin.ReadFile(repoPath("features/005_force_evaluation.feature"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RunFeature(feature); err != nil {
+		t.Fatalf("RunFeature returned error: %v", err)
+	}
+}
+
+func TestRunFeatureExecutesSimulationStepFeature(t *testing.T) {
+	feature, err := gherkin.ReadFile(repoPath("features/006_simulation_step.feature"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RunFeature(feature); err != nil {
+		t.Fatalf("RunFeature returned error: %v", err)
+	}
+}
+
+func TestRunFeatureExecutesXSPLoadSaveFeature(t *testing.T) {
+	feature, err := gherkin.ReadFile(repoPath("features/007_xsp_load_save.feature"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RunFeature(feature); err != nil {
+		t.Fatalf("RunFeature returned error: %v", err)
+	}
+}
+
+func TestXSPLoadedStateChecksSuccessfulLoadState(t *testing.T) {
+	w := &world{xspWorld: sim.NewWorld()}
+
+	err := assertXSPLoadedState(w, map[string]string{"loaded_state": "current mass"})
+
+	if err == nil {
+		t.Fatal("expected loaded state mismatch")
+	}
+}
+
+func TestXSPHelpersRejectMissingAndMismatchedState(t *testing.T) {
+	if err := assertXSPLoadResult(&world{}, nil); err == nil {
+		t.Fatal("expected missing load result error")
+	}
+	if err := assertXSPLoadResult(&world{xspLoadErr: errors.New("load failed")}, map[string]string{"result": "pass"}); err == nil {
+		t.Fatal("expected load pass mismatch")
+	}
+
+	loadedWorld := sim.NewWorld()
+	loadedWorld.Parameters.EnableForce("gravity", map[string]string{"magnitude": "5", "direction": "90"})
+	if err := assertForceLoaded(loadedWorld); err == nil {
+		t.Fatal("expected force mismatch")
+	}
+
+	_ = loadedWorld.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 9, Y: 20}, Mass: 1})
+	if err := assertMassLoaded(loadedWorld); err == nil {
+		t.Fatal("expected mass mismatch")
+	}
+
+	_ = loadedWorld.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 10, Y: 20}, Mass: 1})
+	_ = loadedWorld.AddSpring(sim.Spring{ID: 1, MassA: 2, MassB: 1, RestLength: 1, SpringConstant: 1})
+	if err := assertSpringLoaded(loadedWorld); err == nil {
+		t.Fatal("expected spring mismatch")
+	}
+
+	worldWithBadSpringA := sim.NewWorld()
+	_ = worldWithBadSpringA.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{}, Mass: 1})
+	_ = worldWithBadSpringA.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 1}, Mass: 1})
+	_ = worldWithBadSpringA.AddSpring(sim.Spring{ID: 1, MassA: 2, MassB: 2, RestLength: 1, SpringConstant: 1})
+	if err := assertSpringLoaded(worldWithBadSpringA); err == nil {
+		t.Fatal("expected spring mass A mismatch")
+	}
+
+	worldWithBadSpringB := sim.NewWorld()
+	_ = worldWithBadSpringB.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{}, Mass: 1})
+	_ = worldWithBadSpringB.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 1}, Mass: 1})
+	_ = worldWithBadSpringB.AddSpring(sim.Spring{ID: 1, MassA: 1, MassB: 1, RestLength: 1, SpringConstant: 1})
+	if err := assertSpringLoaded(worldWithBadSpringB); err == nil {
+		t.Fatal("expected spring mass B mismatch")
+	}
+
+	if err := assertXSPLoadErrorReason(&world{}, map[string]string{"reason": "duplicate id"}); err == nil {
+		t.Fatal("expected missing load error")
+	}
+
+	fixedWorld := sim.NewWorld()
+	_ = fixedWorld.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{}, Mass: 1, Fixed: false})
+	if err := assertXSPMassFixedState(&world{xspWorld: fixedWorld}, map[string]string{"mass_id": "1", "fixed": "true"}); err == nil {
+		t.Fatal("expected fixed state mismatch")
+	}
+
+	if err := assertSavedMassSign(&world{}, map[string]string{"mass_id": "1", "file_mass_sign": "negative"}); err == nil {
+		t.Fatal("expected missing saved mass")
+	}
+	if err := assertFileMassSign("mass 1 10 20 -3", "negative"); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertFileMassSign("mass 1 10 20 3 0.8", "positive"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestForceEvaluationAndSimulationStepHelperBranches(t *testing.T) {
+	w := &world{}
+	if err := createMovableMassAffectedByForce(w, map[string]string{"force": "center of mass attraction"}); err != nil {
+		t.Fatal(err)
+	}
+	if len(w.domainWorld.Masses) != 2 {
+		t.Fatalf("masses = %#v", w.domainWorld.Masses)
+	}
+	if err := createMassStartPosition(&world{}, map[string]string{"mass_id": "7", "start_position": "initial"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := durationValue(map[string]string{"duration": "forever"}, "duration"); err == nil {
+		t.Fatal("expected unsupported duration")
+	}
+	if _, err := frameRateValue(map[string]string{"frame_rate": "120 fps"}); err == nil {
+		t.Fatal("expected unsupported frame rate")
+	}
+}
+
+func TestSimulationStepHelpersReportFailures(t *testing.T) {
+	if err := createMassStartPosition(&world{}, map[string]string{"mass_id": "1", "start_position": "custom"}); err == nil {
+		t.Fatal("expected unsupported position marker")
+	}
+	if err := assertResultDeterministic(nil, map[string]string{"initial_state": "unknown", "duration": "1 second"}); err == nil {
+		t.Fatal("expected unsupported initial state")
+	}
+	w := &world{domainWorld: sim.NewWorld()}
+	if err := advanceByDurationAtFrameRate(w, map[string]string{"duration": "1 second", "frame_rate": "bad"}); err == nil {
+		t.Fatal("expected unsupported frame rate")
+	}
+	w.resultingWorld = sim.NewWorld()
+	_ = w.resultingWorld.AddMass(sim.Mass{ID: 1, Velocity: sim.Vec2{X: 1}})
+	if err := assertMassVelocityRemains(w, map[string]string{"mass_id": "1", "start_velocity": "zero"}); err == nil {
+		t.Fatal("expected changed velocity error")
+	}
+}
+
+func TestSameWorldStateDetectsDifferences(t *testing.T) {
+	first := sim.NewWorld()
+	second := sim.NewWorld()
+	_ = first.AddMass(sim.Mass{ID: 1})
+	if sameWorldState(first, second) {
+		t.Fatal("expected length mismatch")
+	}
+	_ = second.AddMass(sim.Mass{ID: 1})
+	second.Time = 1
+	if sameWorldState(first, second) {
+		t.Fatal("expected time mismatch")
+	}
+	second.Time = 0
+	second.Masses[0].Position = sim.Vec2{X: 1}
+	if sameWorldState(first, second) {
+		t.Fatal("expected position mismatch")
+	}
+}
+
 func TestSystemParameterHandlersReportFailures(t *testing.T) {
 	w := &world{domainWorld: sim.NewWorld()}
 	if err := assertParameterDefault(w, map[string]string{"parameter": "viscosity", "value": "unset"}); err == nil {
@@ -333,17 +495,6 @@ func TestSystemParameterHandlerHelpers(t *testing.T) {
 	}
 	if err := assertParameterSource(w, map[string]string{"parameter": "viscosity", "expected_value_source": "default value"}); err != nil {
 		t.Fatal(err)
-	}
-}
-
-func TestRunFeatureExecutesForceEvaluationFeature(t *testing.T) {
-	feature, err := gherkin.ReadFile(repoPath("features/005_force_evaluation.feature"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := RunFeature(feature); err != nil {
-		t.Fatalf("RunFeature returned error: %v", err)
 	}
 }
 
@@ -439,17 +590,6 @@ func TestForceEvaluationHandlersReportFailures(t *testing.T) {
 	}
 	if err := assertMassAcceleration(&world{}, map[string]string{"mass_id": "1", "acceleration": "moving"}); err == nil {
 		t.Fatal("expected unsupported acceleration expectation")
-	}
-}
-
-func TestRunFeatureExecutesSimulationStepFeature(t *testing.T) {
-	feature, err := gherkin.ReadFile(repoPath("features/006_simulation_step.feature"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := RunFeature(feature); err != nil {
-		t.Fatalf("RunFeature returned error: %v", err)
 	}
 }
 

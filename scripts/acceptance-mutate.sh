@@ -1,4 +1,4 @@
 #!/bin/sh
 set -eu
 
-go run ./cmd/gherkin-mutator --feature features/006_simulation_step.feature "$@"
+go run ./cmd/gherkin-mutator --feature features/007_xsp_load_save.feature "$@"

@@ -82,18 +82,18 @@ func buildMutation(feature gherkin.Feature, scenarioIndex, exampleIndex int, key
 }
 
 func isEquivalentMutation(feature gherkin.Feature, scenarioIndex int, key string) bool {
-	switch feature.Name {
-	case "Domain model":
-		return isEquivalentDomainModelMutation(scenarioIndex, key)
-	case "System parameters":
-		return isEquivalentSystemParameterMutation(scenarioIndex, key)
-	case "Force evaluation":
-		return isEquivalentForceEvaluationMutation(scenarioIndex, key)
-	case "Simulation step":
-		return isEquivalentSimulationStepMutation(scenarioIndex, key)
-	default:
+	equivalent := map[string]func(int, string) bool{
+		"Domain model":      isEquivalentDomainModelMutation,
+		"System parameters": isEquivalentSystemParameterMutation,
+		"Force evaluation":  isEquivalentForceEvaluationMutation,
+		"Simulation step":   isEquivalentSimulationStepMutation,
+		"XSP load and save": isEquivalentXSPMutation,
+	}
+	check, ok := equivalent[feature.Name]
+	if !ok {
 		return false
 	}
+	return check(scenarioIndex, key)
 }
 
 func isEquivalentDomainModelMutation(scenarioIndex int, key string) bool {
@@ -143,6 +143,10 @@ func isSpringDampingSetupKey(key string) bool {
 
 func isEquivalentSimulationStepMutation(scenarioIndex int, key string) bool {
 	return scenarioIndex == 1 && key == "mass_id"
+}
+
+func isEquivalentXSPMutation(scenarioIndex int, key string) bool {
+	return scenarioIndex == 3 && (key == "file_mass_value" || key == "mass_id")
 }
 
 func RunMutations(feature gherkin.Feature, workDir string) ([]MutationResult, error) {
