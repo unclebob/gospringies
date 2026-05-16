@@ -63,11 +63,114 @@ func TestGameDraw(t *testing.T) {
 	}
 }
 
-func TestMassDrawRectCentersOnMassPosition(t *testing.T) {
-	x, y, width, height := massDrawRect(sim.Mass{Position: sim.Vec2{X: 30, Y: 40}})
+func TestRenderWorldCompletesForEmptyAndNonEmptyWorlds(t *testing.T) {
+	for _, setup := range []func(*Game){func(*Game) {}, addRenderableSpring} {
+		game := NewGame()
+		setup(game)
+		if result := game.RenderWorld(); !result.Completed {
+			t.Fatalf("render result = %#v", result)
+		}
+	}
+}
 
-	if x != 25 || y != 35 || width != 10 || height != 10 {
-		t.Fatalf("draw rect = %f,%f %fx%f", x, y, width, height)
+func TestMassDrawCircleCentersOnMassPosition(t *testing.T) {
+	x, y, radius := massDrawCircle(sim.Mass{Position: sim.Vec2{X: 30, Y: 40}})
+
+	if x != 30 || y != 40 || radius != 5 {
+		t.Fatalf("draw circle = %f,%f radius %f", x, y, radius)
+	}
+}
+
+func TestSelectionOutlineSurroundsMassPosition(t *testing.T) {
+	lines := selectionOutline(sim.Mass{Position: sim.Vec2{X: 30, Y: 40}})
+	expected := []selectionLine{
+		{22, 32, 38, 32},
+		{38, 32, 38, 48},
+		{38, 48, 22, 48},
+		{22, 48, 22, 32},
+	}
+
+	if len(lines) != len(expected) {
+		t.Fatalf("line count = %d", len(lines))
+	}
+	for i, line := range lines {
+		if line != expected[i] {
+			t.Fatalf("line %d = %#v, want %#v", i, line, expected[i])
+		}
+	}
+}
+
+func TestSelectedMassOutlineIsEmptyWithoutMasses(t *testing.T) {
+	if lines := selectedMassOutline(nil); len(lines) != 0 {
+		t.Fatalf("lines = %#v", lines)
+	}
+}
+
+func TestSelectedMassOutlineUsesFirstMass(t *testing.T) {
+	lines := selectedMassOutline([]sim.Mass{
+		{Position: sim.Vec2{X: 30, Y: 40}},
+	})
+	expected := selectionOutline(sim.Mass{Position: sim.Vec2{X: 30, Y: 40}})
+
+	if len(lines) != len(expected) {
+		t.Fatalf("line count = %d", len(lines))
+	}
+	for i, line := range lines {
+		if line != expected[i] {
+			t.Fatalf("line %d = %#v, want %#v", i, line, expected[i])
+		}
+	}
+}
+
+func TestRenderWorldReportsVisibleObjects(t *testing.T) {
+	game := NewGame()
+	addRenderableSpring(game)
+	game.World().Parameters.EnableWall("left")
+	game.SetSelected(true)
+
+	result := game.RenderWorld()
+
+	for _, object := range []string{"movable mass", "fixed mass", "spring", "enabled wall", "selection"} {
+		if !result.HasVisibleRepresentation(object) {
+			t.Fatalf("missing representation for %q: %#v", object, result.Representations)
+		}
+	}
+}
+
+func TestEmptyRenderResultHasNoVisibleRepresentation(t *testing.T) {
+	var result RenderResult
+
+	if result.HasVisibleRepresentation("mass") {
+		t.Fatal("empty render result reported a visible representation")
+	}
+}
+
+func TestShowSpringsControlsSpringVisibility(t *testing.T) {
+	game := NewGame()
+	addRenderableSpring(game)
+	game.World().Parameters.Set("show springs", "false")
+
+	result := game.RenderWorld()
+
+	if result.SpringLinesVisible {
+		t.Fatal("expected spring lines to be hidden")
+	}
+	if !result.MassesVisible {
+		t.Fatal("expected masses to remain visible")
+	}
+}
+
+func TestFixedMassesAreDistinguishable(t *testing.T) {
+	game := NewGame()
+	addRenderableSpring(game)
+
+	result := game.RenderWorld()
+
+	if !result.FixedMassDistinguishable {
+		t.Fatalf("render result = %#v", result)
+	}
+	if result.FixedMassRepresentation == result.MovableMassRepresentation {
+		t.Fatal("expected distinct fixed and movable mass representations")
 	}
 }
 
@@ -76,6 +179,12 @@ func TestWindowConfigIsResizable(t *testing.T) {
 	if !config.Resizable {
 		t.Fatal("window should be resizable")
 	}
+}
+
+func addRenderableSpring(game *Game) {
+	left := game.World().AddMassAt(sim.Vec2{X: 10, Y: 10}, 1, true)
+	right := game.World().AddMassAt(sim.Vec2{X: 30, Y: 10}, 1, false)
+	game.World().AddSpringBetween(left, right, 20, 12)
 }
 
 func TestRenderFrameMarksRenderingActive(t *testing.T) {

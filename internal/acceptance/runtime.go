@@ -35,6 +35,7 @@ type world struct {
 	appBeforeTime   float64
 	appWindowSize   string
 	editorScreen    editorScreen
+	renderResult    renderResult
 	appCommand      string
 }
 
@@ -214,6 +215,18 @@ var stepHandlers = map[string]stepHandler{
 	"the coder renders the editor screen":                                                  layoutEditorScreen,
 	"the canvas should remain visible":                                                     assertCanvasVisible,
 	"the visible controls should remain usable":                                            assertControlsUsable,
+	"the render world task is accepted":                                                    acceptStep,
+	"the application has <world_state>":                                                    createApplicationWorldState,
+	"the coder renders the world":                                                          renderApplicationWorld,
+	"rendering should complete successfully":                                               assertRenderingComplete,
+	"the world contains <object>":                                                          createRenderableObject,
+	"the world contains a spring":                                                          createRenderableSpring,
+	"<object> should have a visible representation":                                        assertVisibleRepresentation,
+	"show springs is <show_springs>":                                                       setShowSprings,
+	"spring lines should be <spring_visibility>":                                           assertSpringLineVisibility,
+	"masses should remain visible":                                                         assertMassesVisible,
+	"the world contains a fixed mass and a movable mass":                                   createFixedAndMovableMasses,
+	"the fixed mass should be visually distinguishable from the movable mass":              assertFixedMassDistinguishable,
 	"a demo spring simulation":                                                             createDemoSimulation,
 	"I advance the simulation <steps> steps":                                               advanceSimulation,
 	"mass <mass> x should be <x>":                                                          assertMassX,

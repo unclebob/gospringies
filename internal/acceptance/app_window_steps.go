@@ -10,6 +10,7 @@ import (
 type appGame interface {
 	Update() error
 	RenderFrame()
+	RenderWorld() renderResult
 	World() *sim.Simulation
 	SetPaused(bool)
 	EditorScreen() editorScreen

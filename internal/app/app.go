@@ -6,6 +6,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"springs/internal/sim"
 )
@@ -20,6 +21,8 @@ var (
 	springColor     = color.RGBA{R: 116, G: 190, B: 222, A: 255}
 	massColor       = color.RGBA{R: 238, G: 212, B: 96, A: 255}
 	fixedMassColor  = color.RGBA{R: 238, G: 116, B: 96, A: 255}
+	wallColor       = color.RGBA{R: 180, G: 186, B: 196, A: 255}
+	selectionColor  = color.RGBA{R: 255, G: 255, B: 255, A: 255}
 )
 
 type Game struct {
@@ -68,15 +71,24 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	g.RenderFrame()
+	result := g.RenderWorld()
 	screen.Fill(backgroundColor)
-	g.drawSprings(screen)
+	if result.SpringLinesVisible {
+		g.drawSprings(screen)
+	}
 	g.drawMasses(screen)
+	g.drawWalls(screen)
+	if g.selected {
+		g.drawSelection(screen)
+	}
 	ebitenutil.DebugPrint(screen, fmt.Sprintf("TPS %.0f", ebiten.ActualTPS()))
 }
 
 func (g *Game) drawSprings(screen *ebiten.Image) {
 	for _, spring := range g.simulation.Springs {
+		if !g.validSpring(spring) {
+			continue
+		}
 		a := g.simulation.Masses[spring.A].Position
 		b := g.simulation.Masses[spring.B].Position
 		ebitenutil.DrawLine(screen, a.X, a.Y, b.X, b.Y, springColor)
@@ -85,20 +97,64 @@ func (g *Game) drawSprings(screen *ebiten.Image) {
 
 func (g *Game) drawMasses(screen *ebiten.Image) {
 	for _, mass := range g.simulation.Masses {
-		x, y, width, height := massDrawRect(mass)
-		ebitenutil.DrawRect(screen, x, y, width, height, massDrawColor(mass))
+		x, y, radius := massDrawCircle(mass)
+		vector.DrawFilledCircle(screen, x, y, radius, massDrawColor(mass), true)
 	}
 }
 
-func massDrawRect(mass sim.Mass) (float64, float64, float64, float64) {
-	return mass.Position.X - 5, mass.Position.Y - 5, 10, 10
+func massDrawCircle(mass sim.Mass) (float32, float32, float32) {
+	return float32(mass.Position.X), float32(mass.Position.Y), 5
 }
 
-func massDrawColor(mass sim.Mass) color.Color {
+func massDrawColor(mass sim.Mass) color.RGBA {
 	if mass.Fixed {
 		return fixedMassColor
 	}
 	return massColor
+}
+
+func (g *Game) drawWalls(screen *ebiten.Image) {
+	bounds := g.simulation.Bounds
+	drawWallLine := func(name string, x1, y1, x2, y2 float64) {
+		if enabled, _ := g.simulation.Parameters.WallEnabled(name); enabled {
+			ebitenutil.DrawLine(screen, x1, y1, x2, y2, wallColor)
+		}
+	}
+	drawWallLine("top", 0, 0, bounds.Width, 0)
+	drawWallLine("bottom", 0, bounds.Height-1, bounds.Width, bounds.Height-1)
+	drawWallLine("left", 0, 0, 0, bounds.Height)
+	drawWallLine("right", bounds.Width-1, 0, bounds.Width-1, bounds.Height)
+}
+
+func (g *Game) drawSelection(screen *ebiten.Image) {
+	for _, line := range selectedMassOutline(g.simulation.Masses) {
+		ebitenutil.DrawLine(screen, line.x1, line.y1, line.x2, line.y2, selectionColor)
+	}
+}
+
+type selectionLine struct {
+	x1 float64
+	y1 float64
+	x2 float64
+	y2 float64
+}
+
+func selectedMassOutline(masses []sim.Mass) []selectionLine {
+	if len(masses) == 0 {
+		return nil
+	}
+	return selectionOutline(masses[0])
+}
+
+func selectionOutline(mass sim.Mass) []selectionLine {
+	x := mass.Position.X
+	y := mass.Position.Y
+	return []selectionLine{
+		{x - 8, y - 8, x + 8, y - 8},
+		{x + 8, y - 8, x + 8, y + 8},
+		{x + 8, y + 8, x - 8, y + 8},
+		{x - 8, y + 8, x - 8, y - 8},
+	}
 }
 
 func (g *Game) Layout(int, int) (int, int) {
