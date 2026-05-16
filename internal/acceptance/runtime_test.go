@@ -294,6 +294,10 @@ func TestRunFeatureExecutesRenderWorldFeature(t *testing.T) {
 	runFeatureFile(t, "features/009_render_world.feature")
 }
 
+func TestRunFeatureExecutesMouseEditingFeature(t *testing.T) {
+	runFeatureFile(t, "features/010_mouse_editing.feature")
+}
+
 func TestApplicationWindowHelpersReportFailures(t *testing.T) {
 	if err := assertApplicationWindowOpened(&world{appErr: errors.New("open failed")}, nil); err == nil {
 		t.Fatal("expected application error")

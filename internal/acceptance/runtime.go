@@ -3,6 +3,7 @@ package acceptance
 import (
 	"fmt"
 
+	"springs/internal/edit"
 	"springs/internal/gherkin"
 	"springs/internal/sim"
 )
@@ -36,6 +37,9 @@ type world struct {
 	appWindowSize   string
 	editorScreen    editorScreen
 	renderResult    renderResult
+	mouseEditor     *edit.Editor
+	createdMassID   int
+	createdSpringID int
 	appCommand      string
 }
 
@@ -161,6 +165,7 @@ var stepHandlers = map[string]stepHandler{
 	"the mass position should differ from <start_position>":                                assertMassPositionDiffers,
 	"the mass velocity should differ from <start_velocity>":                                assertMassVelocityDiffers,
 	"mass <mass_id> starts at position <start_position>":                                   createMassStartPosition,
+	"mass <mass_id> starts at <start_position>":                                            createMassStartPosition,
 	"mass <mass_id> position should remain <start_position>":                               assertMassPositionRemains,
 	"mass <mass_id> velocity should remain <start_velocity>":                               assertMassVelocityRemains,
 	"a world in state <initial_state>":                                                     createWorldInState,
@@ -215,6 +220,23 @@ var stepHandlers = map[string]stepHandler{
 	"the coder renders the editor screen":                                                  layoutEditorScreen,
 	"the canvas should remain visible":                                                     assertCanvasVisible,
 	"the visible controls should remain usable":                                            assertControlsUsable,
+	"the mouse editing task is accepted":                                                   acceptStep,
+	"the editor mode is <mode>":                                                            setMouseEditorMode,
+	"the editor mode is add mass":                                                          setMouseEditorModeAddMass,
+	"the current mass defaults are configured":                                             configureCurrentMassDefaults,
+	"the coder clicks at <pointer_position>":                                               clickMouseEditor,
+	"a mass should be created at <expected_position>":                                      assertCreatedMassPosition,
+	"the mass should use the current mass defaults":                                        assertCreatedMassDefaults,
+	"grid snap is <grid_snap>":                                                             setMouseGridSnap,
+	"the grid snap size is <snap_size>":                                                    setMouseGridSnapSize,
+	"mass <mass_a> exists":                                                                 addMouseMassA,
+	"mass <mass_b> exists":                                                                 addMouseMassB,
+	"the coder creates a spring from mass <mass_a> to mass <mass_b>":                       createMouseSpring,
+	"a spring should connect mass <mass_a> to mass <mass_b>":                               assertMouseSpringEndpoints,
+	"the spring should use the current spring defaults":                                    assertMouseSpringDefaults,
+	"the coder drags mass <mass_id> to <target_position>":                                  dragMouseMass,
+	"mass <mass_id> position should be <expected_position>":                                assertMouseMassPosition,
+	"mass <mass_id> id should remain <mass_id>":                                            assertMouseMassID,
 	"the render world task is accepted":                                                    acceptStep,
 	"the application has <world_state>":                                                    createApplicationWorldState,
 	"the coder renders the world":                                                          renderApplicationWorld,
