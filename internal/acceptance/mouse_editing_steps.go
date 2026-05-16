@@ -14,6 +14,8 @@ const (
 	mouseDefaultElasticity = 0.6
 )
 
+var mouseGridSnapStates = map[string]bool{"enabled": true, "disabled": false}
+
 func setMouseEditorMode(w *world, example map[string]string) error {
 	return updateMouseEditorString(w, example, "mode", func(editor *edit.Editor, value string) { editor.Mode = value })
 }
@@ -45,17 +47,17 @@ func assertCreatedMassPosition(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	mass, ok := w.domainWorld.MassByID(w.createdMassID)
-	if !ok {
-		return fmt.Errorf("created mass %d not found", w.createdMassID)
+	mass, err := createdMouseMass(w)
+	if err != nil {
+		return err
 	}
 	return assertVec("created mass position", mass.Position, position.X, position.Y)
 }
 
 func assertCreatedMassDefaults(w *world, _ map[string]string) error {
-	mass, ok := w.domainWorld.MassByID(w.createdMassID)
-	if !ok {
-		return fmt.Errorf("created mass %d not found", w.createdMassID)
+	mass, err := createdMouseMass(w)
+	if err != nil {
+		return err
 	}
 	if mass.Mass != mouseDefaultMass || mass.Elasticity != mouseDefaultElasticity {
 		return fmt.Errorf("mass defaults = %f, %f", mass.Mass, mass.Elasticity)
@@ -68,14 +70,11 @@ func setMouseGridSnap(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	switch snap {
-	case "enabled":
-		ensureMouseEditor(w).GridSnapEnabled = true
-	case "disabled":
-		ensureMouseEditor(w).GridSnapEnabled = false
-	default:
+	enabled, ok := booleanState(snap, mouseGridSnapStates)
+	if !ok {
 		return fmt.Errorf("unsupported grid snap %q", snap)
 	}
+	ensureMouseEditor(w).GridSnapEnabled = enabled
 	return nil
 }
 
@@ -106,9 +105,9 @@ func assertMouseSpringEndpoints(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	spring, ok := w.domainWorld.SpringByID(w.createdSpringID)
-	if !ok {
-		return fmt.Errorf("created spring %d not found", w.createdSpringID)
+	spring, err := createdMouseSpring(w)
+	if err != nil {
+		return err
 	}
 	if spring.MassA != massA || spring.MassB != massB {
 		return fmt.Errorf("spring endpoints = %d, %d", spring.MassA, spring.MassB)
@@ -117,9 +116,9 @@ func assertMouseSpringEndpoints(w *world, example map[string]string) error {
 }
 
 func assertMouseSpringDefaults(w *world, _ map[string]string) error {
-	spring, ok := w.domainWorld.SpringByID(w.createdSpringID)
-	if !ok {
-		return fmt.Errorf("created spring %d not found", w.createdSpringID)
+	spring, err := createdMouseSpring(w)
+	if err != nil {
+		return err
 	}
 	if spring.SpringConstant != 12 || spring.Damping != 0.7 {
 		return fmt.Errorf("spring defaults = %f, %f", spring.SpringConstant, spring.Damping)
@@ -164,6 +163,23 @@ func ensureMouseEditor(w *world) *edit.Editor {
 		w.mouseEditor = edit.NewEditor(ensureDomainWorld(w))
 	}
 	return w.mouseEditor
+}
+
+func createdMouseMass(w *world) (sim.Mass, error) {
+	return createdMouseObject(w.createdMassID, "mass", w.domainWorld.MassByID)
+}
+
+func createdMouseSpring(w *world) (sim.Spring, error) {
+	return createdMouseObject(w.createdSpringID, "spring", w.domainWorld.SpringByID)
+}
+
+func createdMouseObject[T any](id int, name string, lookup func(int) (T, bool)) (T, error) {
+	object, ok := lookup(id)
+	if !ok {
+		var zero T
+		return zero, fmt.Errorf("created %s %d not found", name, id)
+	}
+	return object, nil
 }
 
 func addMouseMass(w *world, example map[string]string, key string) error {

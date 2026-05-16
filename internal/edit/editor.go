@@ -252,8 +252,9 @@ func nextSpringID(world *sim.Simulation) int {
 func nextID[T any](items []T, itemID func(T) int) int {
 	next := 1
 	for _, item := range items {
-		if itemID(item) >= next {
-			next = itemID(item) + 1
+		id := itemID(item)
+		if id >= next {
+			next = id + 1
 		}
 	}
 	return next

@@ -468,6 +468,166 @@ func assertSprings(t *testing.T, actual, expected []sim.Spring) {
 	}
 }
 
+func TestMouseEditingHelpersReportFailures(t *testing.T) {
+	if err := setMouseEditorMode(&world{}, map[string]string{}); err == nil {
+		t.Fatal("expected missing mode")
+	}
+	if err := clickMouseEditor(&world{}, map[string]string{}); err == nil {
+		t.Fatal("expected missing pointer position")
+	}
+	if err := clickMouseEditor(&world{}, map[string]string{"pointer_position": "1"}); err == nil {
+		t.Fatal("expected invalid pointer position")
+	}
+	if err := setMouseGridSnap(&world{}, map[string]string{}); err == nil {
+		t.Fatal("expected missing grid snap")
+	}
+	if err := setMouseGridSnap(&world{}, map[string]string{"grid_snap": "maybe"}); err == nil {
+		t.Fatal("expected unsupported grid snap")
+	}
+	if enabled, ok := booleanState("enabled", mouseGridSnapStates); !ok || !enabled {
+		t.Fatalf("enabled grid snap = %t, %t", enabled, ok)
+	}
+	if disabled, ok := booleanState("disabled", mouseGridSnapStates); !ok || disabled {
+		t.Fatalf("disabled grid snap = %t, %t", disabled, ok)
+	}
+	if err := setMouseGridSnapSize(&world{}, map[string]string{"snap_size": "bad"}); err == nil {
+		t.Fatal("expected invalid snap size")
+	}
+	if err := createMouseSpring(&world{}, map[string]string{"mass_a": "1"}); err == nil {
+		t.Fatal("expected missing spring endpoint id")
+	}
+	if err := dragMouseMass(&world{}, map[string]string{"mass_id": "1"}); err == nil {
+		t.Fatal("expected missing target position")
+	}
+	if err := assertMouseMassPosition(&world{}, map[string]string{"mass_id": "1"}); err == nil {
+		t.Fatal("expected missing expected position")
+	}
+	if _, err := positionValue(map[string]string{"position": "bad,2"}, "position"); err == nil {
+		t.Fatal("expected invalid x position")
+	}
+	if _, err := positionValue(map[string]string{"position": "1,bad"}, "position"); err == nil {
+		t.Fatal("expected invalid y position")
+	}
+}
+
+func TestMouseEditingHelpersReportMissingCreatedObjects(t *testing.T) {
+	w := &world{domainWorld: sim.NewWorld(), createdMassID: 99, createdSpringID: 77}
+
+	if _, err := createdMouseMass(w); err == nil {
+		t.Fatal("expected missing created mass")
+	}
+	if err := assertCreatedMassPosition(w, map[string]string{"expected_position": "1,2"}); err == nil {
+		t.Fatal("expected missing created mass position")
+	}
+	if err := assertCreatedMassDefaults(w, nil); err == nil {
+		t.Fatal("expected missing created mass defaults")
+	}
+	if _, err := createdMouseSpring(w); err == nil {
+		t.Fatal("expected missing created spring")
+	}
+	if err := assertMouseSpringEndpoints(w, map[string]string{"mass_a": "1", "mass_b": "2"}); err == nil {
+		t.Fatal("expected missing created spring endpoints")
+	}
+	if err := assertMouseSpringDefaults(w, nil); err == nil {
+		t.Fatal("expected missing created spring defaults")
+	}
+	if err := assertMouseMassID(w, map[string]string{"mass_id": "99"}); err == nil {
+		t.Fatal("expected missing mouse mass")
+	}
+}
+
+func TestMouseEditingAssertionsDetectIndividualFieldMismatches(t *testing.T) {
+	w := &world{domainWorld: sim.NewWorld(), createdMassID: 1, createdSpringID: 1}
+	_ = w.domainWorld.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 12, Y: 8}, Mass: mouseDefaultMass, Elasticity: mouseDefaultElasticity})
+	_ = w.domainWorld.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 20, Y: 8}, Mass: 1})
+	_ = w.domainWorld.AddSpring(sim.Spring{ID: 1, MassA: 1, MassB: 2, SpringConstant: 12, Damping: 0.7})
+
+	if err := assertCreatedMassPosition(w, map[string]string{"expected_position": "12,8"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertCreatedMassPosition(w, map[string]string{"expected_position": "13,8"}); err == nil {
+		t.Fatal("expected created mass x mismatch")
+	}
+	if err := assertCreatedMassDefaults(w, nil); err != nil {
+		t.Fatal(err)
+	}
+	setCreatedMass(t, w, sim.Mass{ID: 1, Position: sim.Vec2{X: 12, Y: 8}, Mass: 9, Elasticity: mouseDefaultElasticity})
+	if err := assertCreatedMassDefaults(w, nil); err == nil {
+		t.Fatal("expected created mass mass mismatch")
+	}
+	setCreatedMass(t, w, sim.Mass{ID: 1, Position: sim.Vec2{X: 12, Y: 8}, Mass: mouseDefaultMass, Elasticity: 9})
+	if err := assertCreatedMassDefaults(w, nil); err == nil {
+		t.Fatal("expected created mass elasticity mismatch")
+	}
+
+	if err := assertMouseSpringEndpoints(w, map[string]string{"mass_a": "1", "mass_b": "2"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertMouseSpringEndpoints(w, map[string]string{"mass_a": "2", "mass_b": "2"}); err == nil {
+		t.Fatal("expected spring mass_a mismatch")
+	}
+	if err := assertMouseSpringEndpoints(w, map[string]string{"mass_a": "1", "mass_b": "1"}); err == nil {
+		t.Fatal("expected spring mass_b mismatch")
+	}
+	if err := assertMouseSpringDefaults(w, nil); err != nil {
+		t.Fatal(err)
+	}
+	setCreatedSpring(t, w, sim.Spring{ID: 1, MassA: 1, MassB: 2, SpringConstant: 9, Damping: 0.7})
+	if err := assertMouseSpringDefaults(w, nil); err == nil {
+		t.Fatal("expected spring constant mismatch")
+	}
+	setCreatedSpring(t, w, sim.Spring{ID: 1, MassA: 1, MassB: 2, SpringConstant: 12, Damping: 9})
+	if err := assertMouseSpringDefaults(w, nil); err == nil {
+		t.Fatal("expected spring damping mismatch")
+	}
+}
+
+func TestMouseMassHelpersCreatePositionFromID(t *testing.T) {
+	w := &world{}
+
+	if err := addMouseMassA(w, map[string]string{"mass_a": "3"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := addMouseMassB(w, map[string]string{"mass_b": "4"}); err != nil {
+		t.Fatal(err)
+	}
+	assertMouseMass(t, w, 3, sim.Vec2{X: 60, Y: 20})
+	assertMouseMass(t, w, 4, sim.Vec2{X: 80, Y: 20})
+}
+
+func setCreatedMass(t *testing.T, w *world, mass sim.Mass) {
+	t.Helper()
+	for i := range w.domainWorld.Masses {
+		if w.domainWorld.Masses[i].ID == mass.ID {
+			w.domainWorld.Masses[i] = mass
+			return
+		}
+	}
+	t.Fatalf("mass %d not found", mass.ID)
+}
+
+func setCreatedSpring(t *testing.T, w *world, spring sim.Spring) {
+	t.Helper()
+	for i := range w.domainWorld.Springs {
+		if w.domainWorld.Springs[i].ID == spring.ID {
+			w.domainWorld.Springs[i] = spring
+			return
+		}
+	}
+	t.Fatalf("spring %d not found", spring.ID)
+}
+
+func assertMouseMass(t *testing.T, w *world, id int, position sim.Vec2) {
+	t.Helper()
+	mass, ok := w.domainWorld.MassByID(id)
+	if !ok {
+		t.Fatalf("mass %d not found", id)
+	}
+	if mass.Position != position || mass.Mass != 1 {
+		t.Fatalf("mass %d = %#v", id, mass)
+	}
+}
+
 func TestApplicationWindowHelpersReportFailures(t *testing.T) {
 	openErr := errors.New("open failed")
 	if err := assertApplicationWindowOpened(&world{appErr: openErr}, nil); err != openErr {
@@ -741,11 +901,34 @@ func TestForceEvaluationAndSimulationStepHelperBranches(t *testing.T) {
 	if err := createMassStartPosition(&world{}, map[string]string{"mass_id": "7", "start_position": "initial"}); err != nil {
 		t.Fatal(err)
 	}
+	w = &world{}
+	if err := createMassStartPosition(w, map[string]string{"mass_id": "7", "start_position": "12,13"}); err != nil {
+		t.Fatal(err)
+	}
+	assertSimulationMassPosition(t, w.domainWorld, 7, sim.Vec2{X: 12, Y: 13})
+	if updated := setMassStartPosition(w.domainWorld, 7, sim.Vec2{X: 14, Y: 15}); !updated {
+		t.Fatal("expected existing mass update")
+	}
+	assertSimulationMassPosition(t, w.domainWorld, 7, sim.Vec2{X: 14, Y: 15})
+	if updated := setMassStartPosition(w.domainWorld, 8, sim.Vec2{X: 1, Y: 1}); updated {
+		t.Fatal("expected missing mass update to report false")
+	}
 	if _, err := durationValue(map[string]string{"duration": "forever"}, "duration"); err == nil {
 		t.Fatal("expected unsupported duration")
 	}
 	if _, err := frameRateValue(map[string]string{"frame_rate": "120 fps"}); err == nil {
 		t.Fatal("expected unsupported frame rate")
+	}
+}
+
+func assertSimulationMassPosition(t *testing.T, world *sim.Simulation, id int, position sim.Vec2) {
+	t.Helper()
+	mass, ok := world.MassByID(id)
+	if !ok {
+		t.Fatalf("mass %d not found", id)
+	}
+	if mass.Position != position {
+		t.Fatalf("mass %d position = %#v, want %#v", id, mass.Position, position)
 	}
 }
 
