@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"springs/internal/app"
+	"springs/internal/edit"
 	"springs/internal/gherkin"
 	"springs/internal/sim"
 )
@@ -85,14 +86,7 @@ func TestRunFeatureExecutesSimulationSteps(t *testing.T) {
 }
 
 func TestRunFeatureExecutesDomainModelFeature(t *testing.T) {
-	feature, err := gherkin.ReadFile(repoPath("features/003_domain_model.feature"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := RunFeature(feature); err != nil {
-		t.Fatalf("RunFeature returned error: %v", err)
-	}
+	runFeatureFile(t, "features/003_domain_model.feature")
 }
 
 func TestStepPrerequisitesReturnHelpfulErrors(t *testing.T) {
@@ -267,80 +261,31 @@ func TestDomainValidationHandlers(t *testing.T) {
 }
 
 func TestRunFeatureExecutesSystemParameterFeature(t *testing.T) {
-	feature, err := gherkin.ReadFile(repoPath("features/004_system_parameters.feature"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := RunFeature(feature); err != nil {
-		t.Fatalf("RunFeature returned error: %v", err)
-	}
+	runFeatureFile(t, "features/004_system_parameters.feature")
 }
 
 func TestRunFeatureExecutesForceEvaluationFeature(t *testing.T) {
-	feature, err := gherkin.ReadFile(repoPath("features/005_force_evaluation.feature"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := RunFeature(feature); err != nil {
-		t.Fatalf("RunFeature returned error: %v", err)
-	}
+	runFeatureFile(t, "features/005_force_evaluation.feature")
 }
 
 func TestRunFeatureExecutesSimulationStepFeature(t *testing.T) {
-	feature, err := gherkin.ReadFile(repoPath("features/006_simulation_step.feature"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := RunFeature(feature); err != nil {
-		t.Fatalf("RunFeature returned error: %v", err)
-	}
+	runFeatureFile(t, "features/006_simulation_step.feature")
 }
 
 func TestRunFeatureExecutesXSPLoadSaveFeature(t *testing.T) {
-	feature, err := gherkin.ReadFile(repoPath("features/007_xsp_load_save.feature"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := RunFeature(feature); err != nil {
-		t.Fatalf("RunFeature returned error: %v", err)
-	}
+	runFeatureFile(t, "features/007_xsp_load_save.feature")
 }
 
 func TestRunFeatureExecutesEbitengineWindowFeature(t *testing.T) {
-	feature, err := gherkin.ReadFile(repoPath("features/008_ebitengine_window.feature"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := RunFeature(feature); err != nil {
-		t.Fatalf("RunFeature returned error: %v", err)
-	}
+	runFeatureFile(t, "features/008_ebitengine_window.feature")
 }
 
 func TestRunFeatureExecutesScreenControlsFeature(t *testing.T) {
-	feature, err := gherkin.ReadFile(repoPath("features/008a_screen_and_controls.feature"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := RunFeature(feature); err != nil {
-		t.Fatalf("RunFeature returned error: %v", err)
-	}
+	runFeatureFile(t, "features/008a_screen_and_controls.feature")
 }
 
 func TestRunFeatureExecutesRenderWorldFeature(t *testing.T) {
-	feature, err := gherkin.ReadFile(repoPath("features/009_render_world.feature"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := RunFeature(feature); err != nil {
-		t.Fatalf("RunFeature returned error: %v", err)
-	}
+	runFeatureFile(t, "features/009_render_world.feature")
 }
 
 func TestRunFeatureExecutesMouseEditingFeature(t *testing.T) {
@@ -632,6 +577,134 @@ func assertMouseMass(t *testing.T, w *world, id int, position sim.Vec2) {
 	}
 }
 
+func TestSelectionEditingHelpersReportFailures(t *testing.T) {
+	w := &world{}
+	if err := assertObjectSelected(w, map[string]string{"object_type": "mass", "id": "1"}); err == nil {
+		t.Fatal("expected unselected mass error")
+	}
+	if err := addSelectionObject(w, "mass", 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertObjectDeleted(w, map[string]string{"object_type": "mass", "id": "1"}); err == nil {
+		t.Fatal("expected existing mass error")
+	}
+	if err := assertMassOneDeleted(w, nil); err == nil {
+		t.Fatal("expected mass one to still exist")
+	}
+	if objectSelected(w, "unsupported", 1) {
+		t.Fatal("unsupported object type reported selected")
+	}
+	if objectExists(w, "unsupported", 1) {
+		t.Fatal("unsupported object type reported existing")
+	}
+}
+
+func TestSelectionEditingHelpersCreateExpectedObjects(t *testing.T) {
+	w := &world{}
+	if err := addSelectionObject(w, "mass", 5); err != nil {
+		t.Fatal(err)
+	}
+	mass, _ := w.domainWorld.MassByID(5)
+	if mass.Position != (sim.Vec2{X: 5, Y: 1}) || mass.Mass != 1 {
+		t.Fatalf("mass = %#v", mass)
+	}
+
+	w = &world{}
+	if err := addSelectionObject(w, "spring", 7); err != nil {
+		t.Fatal(err)
+	}
+	spring, _ := w.domainWorld.SpringByID(7)
+	massOne, _ := w.domainWorld.MassByID(1)
+	massTwo, _ := w.domainWorld.MassByID(2)
+	if spring.MassA != 1 || spring.MassB != 2 || massOne.Position.X != 10 || massTwo.Position.X != 20 {
+		t.Fatalf("spring = %#v massOne = %#v massTwo = %#v", spring, massOne, massTwo)
+	}
+}
+
+func TestSelectionEditingSelectedSetHelpersRecordState(t *testing.T) {
+	w := &world{}
+	if err := createSelectedObjectSet(w, map[string]string{"object_set": "one mass"}); err != nil {
+		t.Fatal(err)
+	}
+	if len(w.originalMassIDs) != 1 || w.originalMassIDs[0] != 1 || !w.mouseEditor.MassSelected(1) {
+		t.Fatalf("mass selection state = %#v selected=%t", w.originalMassIDs, w.mouseEditor.MassSelected(1))
+	}
+
+	w = &world{}
+	if err := createSelectedObjectSet(w, map[string]string{"object_set": "two masses and a spring"}); err != nil {
+		t.Fatal(err)
+	}
+	if len(w.originalMassIDs) != 2 || len(w.originalSpringIDs) != 1 || !w.mouseEditor.SpringSelected(3) {
+		t.Fatalf("spring selection state = masses %#v springs %#v", w.originalMassIDs, w.originalSpringIDs)
+	}
+}
+
+func TestSelectionEditingAllSelectedRequiresEveryID(t *testing.T) {
+	w := &world{}
+	if err := addSelectionObject(w, "mass", 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := addSelectionObject(w, "mass", 2); err != nil {
+		t.Fatal(err)
+	}
+	if err := ensureMouseEditor(w).SelectMass(1); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertEveryMassSelected(w, nil); err == nil {
+		t.Fatal("expected mass 2 not selected")
+	}
+}
+
+func TestSelectionEditingDuplicateIDHelpersReportFailures(t *testing.T) {
+	if !repeatedID([]int{4, 4}) {
+		t.Fatal("expected repeated id")
+	}
+	if !anySharedID([]int{4}, []int{4}) {
+		t.Fatal("expected shared id")
+	}
+	if !idSet([]int{9})[9] {
+		t.Fatal("expected id in set")
+	}
+	if err := assertUniqueNewIDs("mass", []int{2, 2}, nil); err == nil {
+		t.Fatal("expected repeated id error")
+	}
+	if err := assertUniqueNewIDs("mass", []int{2}, []int{2}); err == nil {
+		t.Fatal("expected shared id error")
+	}
+
+	w := &world{duplicated: edit.DuplicatedObjects{SpringIDs: []int{3, 3}}}
+	if err := assertDuplicatedUniqueIDs(w, nil); err == nil {
+		t.Fatal("expected duplicated spring id error")
+	}
+}
+
+func TestSelectionEditingDuplicateIndependenceReportsFailures(t *testing.T) {
+	w := &world{domainWorld: sim.NewWorld(), originalMassIDs: []int{1}, duplicated: edit.DuplicatedObjects{MassIDs: []int{2}}}
+	_ = w.domainWorld.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 5}, Mass: 1})
+	if err := assertDuplicatedMassesIndependent(w); err == nil {
+		t.Fatal("expected missing original mass error")
+	}
+
+	w = &world{domainWorld: sim.NewWorld(), originalMassIDs: []int{1}, duplicated: edit.DuplicatedObjects{SpringIDs: []int{3}}}
+	_ = w.domainWorld.AddMass(sim.Mass{ID: 1, Mass: 1})
+	_ = w.domainWorld.AddMass(sim.Mass{ID: 2, Mass: 1})
+	_ = w.domainWorld.AddSpring(sim.Spring{ID: 3, MassA: 1, MassB: 2})
+	if err := assertDuplicatedIndependent(w, nil); err == nil {
+		t.Fatal("expected duplicate spring endpoint error")
+	}
+}
+
+func runFeatureFile(t *testing.T, path string) {
+	t.Helper()
+	feature, err := gherkin.ReadFile(repoPath(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := RunFeature(feature); err != nil {
+		t.Fatalf("RunFeature returned error: %v", err)
+	}
+}
+
 func TestApplicationWindowHelpersReportFailures(t *testing.T) {
 	openErr := errors.New("open failed")
 	if err := assertApplicationWindowOpened(&world{appErr: openErr}, nil); err != openErr {
@@ -809,17 +882,6 @@ func appWorldWithMassAndSpring(includeMass, includeSpring bool) *world {
 		}
 	}
 	return &world{appGame: game}
-}
-
-func runFeatureFile(t *testing.T, path string) {
-	t.Helper()
-	feature, err := gherkin.ReadFile(repoPath(path))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := RunFeature(feature); err != nil {
-		t.Fatalf("RunFeature returned error: %v", err)
-	}
 }
 
 func TestXSPLoadedStateChecksSuccessfulLoadState(t *testing.T) {

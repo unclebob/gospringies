@@ -32,8 +32,12 @@ func TestClickRejectsUnsupportedMode(t *testing.T) {
 	editor := NewEditor(sim.NewWorld())
 	editor.Mode = ModeAddSpring
 
-	if _, err := editor.Click(sim.Vec2{}); err == nil {
+	id, err := editor.Click(sim.Vec2{})
+	if err == nil {
 		t.Fatal("expected unsupported click mode")
+	}
+	if id != 0 {
+		t.Fatalf("id = %d, want 0", id)
 	}
 }
 
@@ -162,6 +166,17 @@ func TestSelectIndividualObjects(t *testing.T) {
 	}
 }
 
+func TestSelectReportsMissingObjects(t *testing.T) {
+	editor := NewEditor(sim.NewWorld())
+
+	if err := editor.SelectMass(1); err == nil {
+		t.Fatal("expected missing mass")
+	}
+	if err := editor.SelectSpring(1); err == nil {
+		t.Fatal("expected missing spring")
+	}
+}
+
 func TestSelectAllObjects(t *testing.T) {
 	world := sim.NewWorld()
 	_ = world.AddMass(sim.Mass{ID: 1, Mass: 1})
@@ -215,6 +230,16 @@ func TestDeleteSelectedMassReindexesRemainingSprings(t *testing.T) {
 	spring, ok := world.SpringByID(4)
 	if !ok || spring.A != 0 || spring.B != 1 {
 		t.Fatalf("spring = %#v, ok = %t", spring, ok)
+	}
+}
+
+func TestWorldIndexByMassIDReportsMissingMass(t *testing.T) {
+	editor := NewEditor(sim.NewWorld())
+
+	index, ok := editor.worldIndexByMassID(99)
+
+	if index != 0 || ok {
+		t.Fatalf("index = %d ok = %t, want 0 false", index, ok)
 	}
 }
 

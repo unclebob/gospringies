@@ -1,0 +1,251 @@
+package edit
+
+import (
+	"fmt"
+
+	"springs/internal/sim"
+)
+
+type DuplicatedObjects struct {
+	MassIDs   []int
+	SpringIDs []int
+}
+
+func (e *Editor) SelectMass(id int) error {
+	return e.selectExisting(id, "mass", e.massExists, func() { e.SelectedMasses[id] = true })
+}
+
+func (e *Editor) SelectSpring(id int) error {
+	return e.selectExisting(id, "spring", e.springExists, func() { e.SelectedSprings[id] = true })
+}
+
+func (e *Editor) SelectNearest(position sim.Vec2, toggle bool) error {
+	id, ok := e.nearestMassID(position)
+	if !ok {
+		return fmt.Errorf("no object near pointer")
+	}
+	if toggle {
+		e.toggleMassSelection(id)
+		return nil
+	}
+	e.clearSelection()
+	e.SelectedMasses[id] = true
+	return nil
+}
+
+func (e *Editor) BoxSelect(min sim.Vec2, max sim.Vec2, add bool) {
+	if !add {
+		e.clearSelection()
+	}
+	for _, mass := range e.World.Masses {
+		if withinBox(mass.Position, min, max) {
+			e.SelectedMasses[mass.ID] = true
+		}
+	}
+}
+
+func (e *Editor) MoveSelected(delta sim.Vec2) {
+	for i := range e.World.Masses {
+		if e.SelectedMasses[e.World.Masses[i].ID] && !e.World.Masses[i].Fixed {
+			e.World.Masses[i].Position = e.World.Masses[i].Position.Add(delta)
+		}
+	}
+}
+
+func (e *Editor) ThrowSelected(velocity sim.Vec2) {
+	for i := range e.World.Masses {
+		if e.SelectedMasses[e.World.Masses[i].ID] && !e.World.Masses[i].Fixed {
+			e.World.Masses[i].Velocity = velocity
+		}
+	}
+}
+
+func (e *Editor) selectExisting(id int, objectType string, exists func(int) bool, selectObject func()) error {
+	if !exists(id) {
+		return fmt.Errorf("%s %d not found", objectType, id)
+	}
+	e.clearSelection()
+	selectObject()
+	return nil
+}
+
+func (e *Editor) SelectAll() {
+	e.clearSelection()
+	for _, mass := range e.World.Masses {
+		e.SelectedMasses[mass.ID] = true
+	}
+	for _, spring := range e.World.Springs {
+		e.SelectedSprings[spring.ID] = true
+	}
+}
+
+func (e *Editor) MassSelected(id int) bool {
+	return e.SelectedMasses[id]
+}
+
+func (e *Editor) SpringSelected(id int) bool {
+	return e.SelectedSprings[id]
+}
+
+func (e *Editor) DeleteSelected() {
+	e.deleteSelectedMasses()
+	e.deleteSelectedSprings()
+	e.reindexSprings()
+	e.clearSelection()
+}
+
+func (e *Editor) DuplicateSelected() (DuplicatedObjects, error) {
+	duplicated := DuplicatedObjects{}
+	massIDs := e.duplicateMasses(&duplicated)
+	if err := e.duplicateSprings(massIDs, &duplicated); err != nil {
+		return DuplicatedObjects{}, err
+	}
+	e.clearSelection()
+	for _, id := range duplicated.MassIDs {
+		e.SelectedMasses[id] = true
+	}
+	for _, id := range duplicated.SpringIDs {
+		e.SelectedSprings[id] = true
+	}
+	return duplicated, nil
+}
+
+func (e *Editor) clearSelection() {
+	e.SelectedMasses = map[int]bool{}
+	e.SelectedSprings = map[int]bool{}
+}
+
+func (e *Editor) toggleMassSelection(id int) {
+	if e.SelectedMasses[id] {
+		delete(e.SelectedMasses, id)
+		return
+	}
+	e.SelectedMasses[id] = true
+}
+
+func (e *Editor) deleteSelectedMasses() {
+	masses := e.World.Masses[:0]
+	for _, mass := range e.World.Masses {
+		if !e.SelectedMasses[mass.ID] {
+			masses = append(masses, mass)
+		}
+	}
+	e.World.Masses = masses
+}
+
+func (e *Editor) deleteSelectedSprings() {
+	springs := e.World.Springs[:0]
+	for _, spring := range e.World.Springs {
+		if e.keepSpring(spring) {
+			springs = append(springs, spring)
+		}
+	}
+	e.World.Springs = springs
+}
+
+func (e *Editor) keepSpring(spring sim.Spring) bool {
+	return !e.SelectedSprings[spring.ID] && !e.SelectedMasses[spring.MassA] && !e.SelectedMasses[spring.MassB]
+}
+
+func (e *Editor) duplicateMasses(duplicated *DuplicatedObjects) map[int]int {
+	next := nextMassID(e.World)
+	massIDs := map[int]int{}
+	for _, mass := range e.World.Masses {
+		if !e.SelectedMasses[mass.ID] {
+			continue
+		}
+		originalID := mass.ID
+		mass.ID = next
+		next++
+		e.World.Masses = append(e.World.Masses, mass)
+		massIDs[originalID] = mass.ID
+		duplicated.MassIDs = append(duplicated.MassIDs, mass.ID)
+	}
+	return massIDs
+}
+
+func (e *Editor) duplicateSprings(massIDs map[int]int, duplicated *DuplicatedObjects) error {
+	next := nextSpringID(e.World)
+	for _, spring := range e.World.Springs {
+		if !e.SelectedSprings[spring.ID] {
+			continue
+		}
+		spring.ID = next
+		next++
+		spring.MassA = replacementID(massIDs, spring.MassA)
+		spring.MassB = replacementID(massIDs, spring.MassB)
+		if err := e.World.AddSpring(spring); err != nil {
+			return err
+		}
+		duplicated.SpringIDs = append(duplicated.SpringIDs, spring.ID)
+	}
+	return nil
+}
+
+func (e *Editor) reindexSprings() {
+	for i := range e.World.Springs {
+		a, okA := e.worldIndexByMassID(e.World.Springs[i].MassA)
+		b, okB := e.worldIndexByMassID(e.World.Springs[i].MassB)
+		if okA && okB {
+			e.World.Springs[i].A = a
+			e.World.Springs[i].B = b
+		}
+	}
+}
+
+func (e *Editor) massExists(id int) bool {
+	return objectExists(func() (sim.Mass, bool) { return e.World.MassByID(id) })
+}
+
+func (e *Editor) springExists(id int) bool {
+	return objectExists(func() (sim.Spring, bool) { return e.World.SpringByID(id) })
+}
+
+func objectExists[T any](lookup func() (T, bool)) bool {
+	_, ok := lookup()
+	return ok
+}
+
+func (e *Editor) worldIndexByMassID(id int) (int, bool) {
+	for i, mass := range e.World.Masses {
+		if mass.ID == id {
+			return i, true
+		}
+	}
+	return 0, false
+}
+
+func (e *Editor) nearestMassID(position sim.Vec2) (int, bool) {
+	if len(e.World.Masses) == 0 {
+		return 0, false
+	}
+	nearestID := e.World.Masses[0].ID
+	nearestDistance := distance(e.World.Masses[0].Position, position)
+	for _, mass := range e.World.Masses[1:] {
+		if d := distance(mass.Position, position); d < nearestDistance {
+			nearestID = mass.ID
+			nearestDistance = d
+		}
+	}
+	return nearestID, true
+}
+
+func withinBox(position sim.Vec2, min sim.Vec2, max sim.Vec2) bool {
+	lowX, highX := ordered(min.X, max.X)
+	lowY, highY := ordered(min.Y, max.Y)
+	return position.X >= lowX && position.X <= highX && position.Y >= lowY && position.Y <= highY
+}
+
+func ordered(a float64, b float64) (float64, float64) {
+	if a > b {
+		return b, a
+	}
+	return a, b
+}
+
+func replacementID(ids map[int]int, id int) int {
+	if replacement, ok := ids[id]; ok {
+		return replacement
+	}
+	return id
+}
