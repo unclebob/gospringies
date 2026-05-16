@@ -306,6 +306,26 @@ func TestRunFeatureExecutesRenderWorldFeature(t *testing.T) {
 	runFeatureFile(t, "features/009_render_world.feature")
 }
 
+func TestRunFeatureExecutesMouseEditingFeature(t *testing.T) {
+	runFeatureFile(t, "features/010_mouse_editing.feature")
+}
+
+func TestRunFeatureExecutesSelectionEditingFeature(t *testing.T) {
+	runFeatureFile(t, "features/011_selection_and_editing.feature")
+}
+
+func TestRunFeatureExecutesControlsHotkeysFeature(t *testing.T) {
+	runFeatureFile(t, "features/012_controls_and_hotkeys.feature")
+}
+
+func TestRunFeatureExecutesDemoFilesFeature(t *testing.T) {
+	runFeatureFile(t, "features/013_demo_files.feature")
+}
+
+func TestRunFeatureExecutesPackagingDocsFeature(t *testing.T) {
+	runFeatureFile(t, "features/014_packaging_and_docs.feature")
+}
+
 func TestRenderWorldHelpersValidateInputs(t *testing.T) {
 	if err := createApplicationWorldState(&world{}, map[string]string{}); err == nil {
 		t.Fatal("expected missing world state")
@@ -387,6 +407,90 @@ func TestRenderableObjectSetupsCreateExpectedWorlds(t *testing.T) {
 	}
 }
 
+func TestDemoFileHelpersReportFailures(t *testing.T) {
+	if err := assertDemoFileAdded(nil, map[string]string{"demo_file": "pendulum.xsp"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertDemoFileAdded(nil, map[string]string{"demo_file": "unknown.xsp"}); err == nil {
+		t.Fatal("expected unknown demo file error")
+	}
+	if err := assertDemoFileValid(nil, map[string]string{"demo_file": "missing.xsp"}); err == nil {
+		t.Fatal("expected missing demo file validity error")
+	}
+	invalidDemoPath := repoPath(filepath.Join("demos", "invalid-test.xsp"))
+	writeSource(t, invalidDemoPath, "not xsp\n")
+	t.Cleanup(func() { _ = os.Remove(invalidDemoPath) })
+	if err := assertDemoFileValid(nil, map[string]string{"demo_file": "invalid-test.xsp"}); err == nil {
+		t.Fatal("expected invalid demo file error")
+	}
+	if err := assertDemoFileHumanReadable(nil, map[string]string{"demo_file": "missing.xsp"}); err == nil {
+		t.Fatal("expected missing demo file readability error")
+	}
+
+	demoPath := repoPath(filepath.Join("demos", "unreadable-test.xsp"))
+	writeSource(t, demoPath, " mass 1 0 0 0 0 1 1 false\n")
+	t.Cleanup(func() { _ = os.Remove(demoPath) })
+	if err := assertDemoFileHumanReadable(nil, map[string]string{"demo_file": "unreadable-test.xsp"}); err == nil {
+		t.Fatal("expected unreadable demo file error")
+	}
+	if err := assertDemoLinesReadable("mass 1 0 0 0 0 1 1 false\n mass 2 0 0 0 0 1 1 false\n"); err == nil || !strings.Contains(err.Error(), "line 2") {
+		t.Fatalf("expected line 2 surrounding whitespace error, got %v", err)
+	}
+	if err := assertDemoLinesReadable("mass 1 0 0 0 0 1 1 false\n\n"); err == nil || !strings.Contains(err.Error(), "line 2") {
+		t.Fatalf("expected line 2 blank line error, got %v", err)
+	}
+
+	if err := assertDemoLoadedFeature(&world{}, nil); err == nil {
+		t.Fatal("expected missing required feature error")
+	}
+	if err := assertDemoLoadedFeature(&world{xspWorld: sim.NewWorld()}, map[string]string{"required_feature": "unsupported"}); err == nil {
+		t.Fatal("expected unsupported demo feature error")
+	}
+}
+
+func TestDemoFeatureHelpersValidateBoundaries(t *testing.T) {
+	if err := assertDemoHasMultipleSprings(&sim.Simulation{Springs: []sim.Spring{{ID: 1}, {ID: 2}}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertDemoHasMultipleSprings(&sim.Simulation{Springs: []sim.Spring{{ID: 1}}}); err == nil {
+		t.Fatal("expected single spring to fail multiple spring assertion")
+	}
+	if err := assertDemoHasFixedMass(&sim.Simulation{Masses: []sim.Mass{{ID: 1, Fixed: true}}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertDemoHasFixedMass(&sim.Simulation{Masses: []sim.Mass{{ID: 1}}}); err == nil {
+		t.Fatal("expected no fixed mass error")
+	}
+}
+
+func TestPackagingDocsHelpersReportFailures(t *testing.T) {
+	w := &world{documentation: "go test"}
+	if err := assertDocumentedCommand(w, nil); err == nil {
+		t.Fatal("expected missing command documentation assertion error")
+	}
+	if err := assertDocumentedCommandPassed(&world{}, nil); err == nil {
+		t.Fatal("expected missing command result assertion error")
+	}
+	if err := assertDocumentationExplains(&world{}, nil); err == nil {
+		t.Fatal("expected missing topic documentation assertion error")
+	}
+	if err := assertDocumentationExplains(&world{documentation: ""}, map[string]string{"topic": "creating a simulation"}); err == nil {
+		t.Fatal("expected missing topic terms error")
+	}
+	if _, err := commandFromExample(nil); err == nil {
+		t.Fatal("expected missing command example error")
+	}
+	if command, err := commandFromExample(map[string]string{"command": "unit tests"}); err != nil || command.name != "go" {
+		t.Fatalf("commandFromExample = %#v, %v", command, err)
+	}
+	if err := assertHandoffIncludesVerificationCommands(&world{handoffVerification: map[string]string{"go test": "passed"}}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertHandoffIncludesVerificationResults(&world{handoffVerification: map[string]string{"go test": "passed"}}, nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func assertMasses(t *testing.T, actual, expected []sim.Mass) {
 	t.Helper()
 	if len(actual) != len(expected) {
@@ -409,10 +513,6 @@ func assertSprings(t *testing.T, actual, expected []sim.Spring) {
 			t.Fatalf("spring %d = %#v, want %#v", i, actual[i], expected[i])
 		}
 	}
-}
-
-func TestRunFeatureExecutesMouseEditingFeature(t *testing.T) {
-	runFeatureFile(t, "features/010_mouse_editing.feature")
 }
 
 func TestMouseEditingHelpersReportFailures(t *testing.T) {
@@ -575,10 +675,6 @@ func assertMouseMass(t *testing.T, w *world, id int, position sim.Vec2) {
 	}
 }
 
-func TestRunFeatureExecutesSelectionEditingFeature(t *testing.T) {
-	runFeatureFile(t, "features/011_selection_and_editing.feature")
-}
-
 func TestSelectionEditingHelpersReportFailures(t *testing.T) {
 	w := &world{}
 	if err := assertObjectSelected(w, map[string]string{"object_type": "mass", "id": "1"}); err == nil {
@@ -694,10 +790,6 @@ func TestSelectionEditingDuplicateIndependenceReportsFailures(t *testing.T) {
 	if err := assertDuplicatedIndependent(w, nil); err == nil {
 		t.Fatal("expected duplicate spring endpoint error")
 	}
-}
-
-func TestRunFeatureExecutesControlsHotkeysFeature(t *testing.T) {
-	runFeatureFile(t, "features/012_controls_and_hotkeys.feature")
 }
 
 func TestControlsHotkeysHelpersReportFailures(t *testing.T) {

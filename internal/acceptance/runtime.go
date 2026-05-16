@@ -9,41 +9,46 @@ import (
 )
 
 type world struct {
-	simulation        *sim.Simulation
-	layoutCreated     bool
-	commandCreated    bool
-	moduleCreated     bool
-	parserRan         bool
-	generatorRan      bool
-	generatedRan      bool
-	generated         bool
-	smokeAdded        bool
-	smokeParsed       bool
-	smokeGenerated    bool
-	domainWorld       *sim.Simulation
-	lookedMass        sim.Mass
-	lookedSpring      sim.Spring
-	validationErr     error
-	forceEvaluation   sim.ForceEvaluation
-	resultingWorld    *sim.Simulation
-	xspInput          string
-	xspWorld          *sim.Simulation
-	xspLoadErr        error
-	xspSavedFirst     string
-	xspSavedSecond    string
-	appGame           appGame
-	appErr            error
-	appBeforeTime     float64
-	appWindowSize     string
-	editorScreen      editorScreen
-	renderResult      renderResult
-	mouseEditor       *edit.Editor
-	createdMassID     int
-	createdSpringID   int
-	duplicated        edit.DuplicatedObjects
-	originalMassIDs   []int
-	originalSpringIDs []int
-	appCommand        string
+	simulation           *sim.Simulation
+	layoutCreated        bool
+	commandCreated       bool
+	moduleCreated        bool
+	parserRan            bool
+	generatorRan         bool
+	generatedRan         bool
+	generated            bool
+	smokeAdded           bool
+	smokeParsed          bool
+	smokeGenerated       bool
+	domainWorld          *sim.Simulation
+	lookedMass           sim.Mass
+	lookedSpring         sim.Spring
+	validationErr        error
+	forceEvaluation      sim.ForceEvaluation
+	resultingWorld       *sim.Simulation
+	xspInput             string
+	xspWorld             *sim.Simulation
+	xspLoadErr           error
+	xspSavedFirst        string
+	xspSavedSecond       string
+	appGame              appGame
+	appErr               error
+	appBeforeTime        float64
+	appWindowSize        string
+	editorScreen         editorScreen
+	renderResult         renderResult
+	mouseEditor          *edit.Editor
+	createdMassID        int
+	createdSpringID      int
+	duplicated           edit.DuplicatedObjects
+	originalMassIDs      []int
+	originalSpringIDs    []int
+	appCommand           string
+	documentation        string
+	cleanCheckout        bool
+	documentedCommand    string
+	documentedCommandErr error
+	handoffVerification  map[string]string
 }
 
 type stepHandler func(*world, map[string]string) error
@@ -288,9 +293,26 @@ var stepHandlers = map[string]stepHandler{
 	"masses should remain visible":                                                         assertMassesVisible,
 	"the world contains a fixed mass and a movable mass":                                   createFixedAndMovableMasses,
 	"the fixed mass should be visually distinguishable from the movable mass":              assertFixedMassDistinguishable,
+	"the demo files task is accepted":                                                      acceptStep,
+	"the coder adds demo file <demo_file>":                                                 assertDemoFileAdded,
+	"demo file <demo_file> should be valid XSP":                                            assertDemoFileValid,
+	"demo file <demo_file> should be human readable":                                       assertDemoFileHumanReadable,
+	"demo file <demo_file> exists":                                                         assertDemoFileExists,
+	"the coder loads demo file <demo_file>":                                                loadDemoFile,
+	"the loaded world should include <required_feature>":                                   assertDemoLoadedFeature,
 	"a demo spring simulation":                                                             createDemoSimulation,
 	"I advance the simulation <steps> steps":                                               advanceSimulation,
 	"mass <mass> x should be <x>":                                                          assertMassX,
+	"the packaging and docs task is accepted":                                              acceptStep,
+	"a developer reads the project documentation":                                          readProjectDocumentation,
+	"command <command> should be documented":                                               assertDocumentedCommand,
+	"a clean checkout":                                                                     markCleanCheckout,
+	"a developer runs documented command <command>":                                        runDocumentedCommand,
+	"command <command> should pass":                                                        assertDocumentedCommandPassed,
+	"the documentation should explain <topic>":                                             assertDocumentationExplains,
+	"the coder completes the packaging and docs task":                                      completePackagingDocsTask,
+	"the handoff should include the local verification commands that were run":             assertHandoffIncludesVerificationCommands,
+	"the handoff should include the result of each verification command":                   assertHandoffIncludesVerificationResults,
 }
 
 func acceptStep(*world, map[string]string) error {

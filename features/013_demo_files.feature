@@ -9,10 +9,10 @@ Scenario Outline: demo files are provided
   And demo file <demo_file> should be human readable
 
 Examples:
-  | demo_file     |
-  | pendulum      |
-  | spring chain  |
-  | small mesh    |
+  | demo_file        |
+  | pendulum.xsp     |
+  | spring-chain.xsp |
+  | small-mesh.xsp   |
 
 Scenario Outline: every demo file loads successfully
   Given demo file <demo_file> exists
@@ -20,10 +20,10 @@ Scenario Outline: every demo file loads successfully
   Then loading should pass
 
 Examples:
-  | demo_file     |
-  | pendulum      |
-  | spring chain  |
-  | small mesh    |
+  | demo_file        |
+  | pendulum.xsp     |
+  | spring-chain.xsp |
+  | small-mesh.xsp   |
 
 Scenario Outline: demos exercise required scene features
   Given demo file <demo_file> exists
@@ -31,7 +31,7 @@ Scenario Outline: demos exercise required scene features
   Then the loaded world should include <required_feature>
 
 Examples:
-  | demo_file     | required_feature |
-  | pendulum      | fixed mass       |
-  | spring chain  | multiple springs |
-  | small mesh    | multiple springs |
+  | demo_file        | required_feature |
+  | pendulum.xsp     | fixed mass       |
+  | spring-chain.xsp | multiple springs |
+  | small-mesh.xsp   | multiple springs |

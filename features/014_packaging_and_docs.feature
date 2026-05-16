@@ -32,12 +32,12 @@ Scenario Outline: documentation covers desktop prerequisites and user workflows
   Then the documentation should explain <topic>
 
 Examples:
-  | topic                         |
+  | topic                            |
   | Ebitengine desktop prerequisites |
-  | creating a simulation         |
-  | loading a simulation          |
-  | saving a simulation           |
-  | running a simulation          |
+  | creating a simulation            |
+  | loading a simulation             |
+  | saving a simulation              |
+  | running a simulation             |
 
 Scenario: verification results are included in the handoff
   When the coder completes the packaging and docs task
