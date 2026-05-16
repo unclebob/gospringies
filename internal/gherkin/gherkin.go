@@ -31,90 +31,180 @@ type Step struct {
 var parameterPattern = regexp.MustCompile(`<([A-Za-z0-9_]+)>`)
 
 func Parse(r io.Reader) (Feature, error) {
-	var feature Feature
-	var currentScenario *Scenario
-	inBackground := false
-	inExamples := false
-	var headers []string
+	parser := &lineParser{}
 
 	scanner := bufio.NewScanner(r)
-	lineNo := 0
+	parser.lineNo = 0
 	for scanner.Scan() {
-		lineNo++
+		parser.lineNo++
 		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		switch {
-		case strings.HasPrefix(line, "Feature:"):
-			feature.Name = strings.TrimSpace(strings.TrimPrefix(line, "Feature:"))
-			currentScenario = nil
-			inBackground = false
-			inExamples = false
-		case line == "Background:":
-			inBackground = true
-			currentScenario = nil
-			inExamples = false
-		case strings.HasPrefix(line, "Scenario Outline:"):
-			feature.Scenarios = append(feature.Scenarios, Scenario{
-				Name:     strings.TrimSpace(strings.TrimPrefix(line, "Scenario Outline:")),
-				Examples: []map[string]string{},
-			})
-			currentScenario = &feature.Scenarios[len(feature.Scenarios)-1]
-			inBackground = false
-			inExamples = false
-			headers = nil
-		case strings.HasPrefix(line, "Scenario:"):
-			feature.Scenarios = append(feature.Scenarios, Scenario{
-				Name:     strings.TrimSpace(strings.TrimPrefix(line, "Scenario:")),
-				Examples: []map[string]string{},
-			})
-			currentScenario = &feature.Scenarios[len(feature.Scenarios)-1]
-			inBackground = false
-			inExamples = false
-			headers = nil
-		case line == "Examples:":
-			if currentScenario == nil {
-				return Feature{}, fmt.Errorf("line %d: examples outside scenario", lineNo)
-			}
-			inExamples = true
-			headers = nil
-		case inExamples && strings.HasPrefix(line, "|"):
-			cells := parseTableRow(line)
-			if headers == nil {
-				headers = cells
-				continue
-			}
-			if len(cells) != len(headers) {
-				return Feature{}, fmt.Errorf("line %d: examples row has %d cells, expected %d", lineNo, len(cells), len(headers))
-			}
-			row := map[string]string{}
-			for i, header := range headers {
-				row[header] = cells[i]
-			}
-			currentScenario.Examples = append(currentScenario.Examples, row)
-		case isStep(line):
-			step := parseStep(line)
-			if inBackground {
-				feature.Background = append(feature.Background, step)
-			} else if currentScenario != nil {
-				currentScenario.Steps = append(currentScenario.Steps, step)
-			} else {
-				return Feature{}, fmt.Errorf("line %d: step outside background or scenario", lineNo)
-			}
-			inExamples = false
-		default:
-			continue
+		if err := parser.parseLine(line); err != nil {
+			return Feature{}, err
 		}
 	}
 	if err := scanner.Err(); err != nil {
 		return Feature{}, err
 	}
-	if feature.Name == "" {
+	if parser.feature.Name == "" {
 		return Feature{}, fmt.Errorf("missing feature declaration")
 	}
-	return feature, nil
+	return parser.feature, nil
+}
+
+type lineParser struct {
+	feature         Feature
+	currentScenario *Scenario
+	inBackground    bool
+	inExamples      bool
+	headers         []string
+	lineNo          int
+}
+
+type lineHandler func(*lineParser, string) (bool, error)
+
+func (p *lineParser) parseLine(line string) error {
+	for _, handler := range lineHandlers {
+		handled, err := handler(p, line)
+		if handled || err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+var lineHandlers = []lineHandler{
+	ignoreBlankOrComment,
+	parseFeatureLine,
+	parseBackgroundLine,
+	parseScenarioOutlineLine,
+	parseScenarioLine,
+	parseExamplesLine,
+	parseExampleRowLine,
+	parseStepLine,
+}
+
+func ignoreBlankOrComment(_ *lineParser, line string) (bool, error) {
+	return line == "" || strings.HasPrefix(line, "#"), nil
+}
+
+func parseFeatureLine(p *lineParser, line string) (bool, error) {
+	if !strings.HasPrefix(line, "Feature:") {
+		return false, nil
+	}
+	p.startFeature(line)
+	return true, nil
+}
+
+func parseBackgroundLine(p *lineParser, line string) (bool, error) {
+	if line != "Background:" {
+		return false, nil
+	}
+	p.startBackground()
+	return true, nil
+}
+
+func parseScenarioOutlineLine(p *lineParser, line string) (bool, error) {
+	return parseScenarioWithPrefix(p, line, "Scenario Outline:")
+}
+
+func parseScenarioLine(p *lineParser, line string) (bool, error) {
+	return parseScenarioWithPrefix(p, line, "Scenario:")
+}
+
+func parseScenarioWithPrefix(p *lineParser, line, prefix string) (bool, error) {
+	if !strings.HasPrefix(line, prefix) {
+		return false, nil
+	}
+	p.startScenario(strings.TrimSpace(strings.TrimPrefix(line, prefix)))
+	return true, nil
+}
+
+func parseExamplesLine(p *lineParser, line string) (bool, error) {
+	if line != "Examples:" {
+		return false, nil
+	}
+	return true, p.startExamples()
+}
+
+func parseExampleRowLine(p *lineParser, line string) (bool, error) {
+	if !p.inExamples || !strings.HasPrefix(line, "|") {
+		return false, nil
+	}
+	return true, p.addExampleRow(line)
+}
+
+func parseStepLine(p *lineParser, line string) (bool, error) {
+	if !isStep(line) {
+		return false, nil
+	}
+	return true, p.addStep(line)
+}
+
+func (p *lineParser) startFeature(line string) {
+	p.feature.Name = strings.TrimSpace(strings.TrimPrefix(line, "Feature:"))
+	p.currentScenario = nil
+	p.inBackground = false
+	p.inExamples = false
+}
+
+func (p *lineParser) startBackground() {
+	p.inBackground = true
+	p.currentScenario = nil
+	p.inExamples = false
+}
+
+func (p *lineParser) startScenario(name string) {
+	p.feature.Scenarios = append(p.feature.Scenarios, Scenario{
+		Name:     name,
+		Examples: []map[string]string{},
+	})
+	p.currentScenario = &p.feature.Scenarios[len(p.feature.Scenarios)-1]
+	p.inBackground = false
+	p.inExamples = false
+	p.headers = nil
+}
+
+func (p *lineParser) startExamples() error {
+	if p.currentScenario == nil {
+		return fmt.Errorf("line %d: examples outside scenario", p.lineNo)
+	}
+	p.inExamples = true
+	p.headers = nil
+	return nil
+}
+
+func (p *lineParser) addExampleRow(line string) error {
+	cells := parseTableRow(line)
+	if p.headers == nil {
+		p.headers = cells
+		return nil
+	}
+	if len(cells) != len(p.headers) {
+		return fmt.Errorf("line %d: examples row has %d cells, expected %d", p.lineNo, len(cells), len(p.headers))
+	}
+	p.currentScenario.Examples = append(p.currentScenario.Examples, exampleRow(p.headers, cells))
+	return nil
+}
+
+func exampleRow(headers, cells []string) map[string]string {
+	row := map[string]string{}
+	for i, header := range headers {
+		row[header] = cells[i]
+	}
+	return row
+}
+
+func (p *lineParser) addStep(line string) error {
+	step := parseStep(line)
+	if p.inBackground {
+		p.feature.Background = append(p.feature.Background, step)
+	} else if p.currentScenario != nil {
+		p.currentScenario.Steps = append(p.currentScenario.Steps, step)
+	} else {
+		return fmt.Errorf("line %d: step outside background or scenario", p.lineNo)
+	}
+	p.inExamples = false
+	return nil
 }
 
 func ReadFile(path string) (Feature, error) {

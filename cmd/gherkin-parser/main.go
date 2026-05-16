@@ -9,21 +9,28 @@ import (
 )
 
 func main() {
-	if len(os.Args) != 3 {
+	os.Exit(run(os.Args))
+}
+
+func run(args []string) int {
+	if len(args) != 3 {
 		fmt.Fprintln(os.Stderr, "usage: gherkin-parser <feature-file> <json-output>")
-		os.Exit(2)
+		return 2
 	}
-	feature, err := gherkin.ReadFile(os.Args[1])
+	if err := writeFeatureJSON(args[1], args[2]); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	return 0
+}
+
+func writeFeatureJSON(featurePath, outputPath string) error {
+	feature, err := gherkin.ReadFile(featurePath)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(os.Args[2]), 0o755); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
+		return err
 	}
-	if err := gherkin.WriteJSON(feature, os.Args[2]); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
+	return gherkin.WriteJSON(feature, outputPath)
 }

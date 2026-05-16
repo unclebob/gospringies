@@ -45,3 +45,16 @@ func TestGenerateWritesDeterministicGoTestThatEmbedsIR(t *testing.T) {
 		t.Fatalf("generated test does not embed executable IR:\n%s", first)
 	}
 }
+
+func TestGenerateGoTestRejectsInvalidJSON(t *testing.T) {
+	dir := t.TempDir()
+	input := filepath.Join(dir, "feature.json")
+	output := filepath.Join(dir, "generated", "feature_acceptance_test.go")
+	if err := os.WriteFile(input, []byte("{"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := GenerateGoTest(input, output); err == nil {
+		t.Fatal("expected invalid JSON error")
+	}
+}

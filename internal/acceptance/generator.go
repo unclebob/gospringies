@@ -24,9 +24,17 @@ func generateGoTest(jsonIRPath, outputPath, buildTag string) error {
 	if err != nil {
 		return err
 	}
-	embedded, err := json.MarshalIndent(feature, "\t", "\t")
+	source, err := generatedTestSource(feature, outputPath, buildTag)
 	if err != nil {
 		return err
+	}
+	return writeFormattedGo(outputPath, source)
+}
+
+func generatedTestSource(feature any, outputPath, buildTag string) ([]byte, error) {
+	embedded, err := json.MarshalIndent(feature, "\t", "\t")
+	if err != nil {
+		return nil, err
 	}
 
 	var buf bytes.Buffer
@@ -41,8 +49,11 @@ func generateGoTest(jsonIRPath, outputPath, buildTag string) error {
 	fmt.Fprintf(&buf, "\tif err := json.Unmarshal(data, &feature); err != nil {\n\t\tt.Fatal(err)\n\t}\n")
 	fmt.Fprintf(&buf, "\tif err := acceptance.RunFeature(feature); err != nil {\n\t\tt.Fatal(err)\n\t}\n")
 	fmt.Fprintf(&buf, "}\n")
+	return buf.Bytes(), nil
+}
 
-	formatted, err := format.Source(buf.Bytes())
+func writeFormattedGo(outputPath string, source []byte) error {
+	formatted, err := format.Source(source)
 	if err != nil {
 		return err
 	}

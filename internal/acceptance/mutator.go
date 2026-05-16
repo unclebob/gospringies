@@ -102,43 +102,50 @@ func RunMutations(feature gherkin.Feature, workDir string) ([]MutationResult, er
 		return nil, err
 	}
 	for _, mutation := range mutations {
-		start := time.Now()
-		result := MutationResult{Mutation: mutation}
-		mutatedFeature := cloneFeature(feature)
-		mutatedFeature.Scenarios[mutation.Scenario].Examples[mutation.Example][mutation.Key] = mutation.Mutated
-		mutationDir := filepath.Join(workDir, mutation.ID)
-		generated := filepath.Join(mutationDir, "generated", "feature_acceptance_test.go")
-		ir := filepath.Join(mutationDir, "feature.json")
-		if err := os.MkdirAll(filepath.Dir(generated), 0o755); err != nil {
-			result.Status = "error"
-			result.Error = err.Error()
-			results = append(results, result)
-			continue
-		}
-		if err := gherkin.WriteJSON(mutatedFeature, ir); err != nil {
-			result.Status = "error"
-			result.Error = err.Error()
-			results = append(results, result)
-			continue
-		}
-		if err := generateTaggedGoTest(ir, generated, "acceptance_mutation"); err != nil {
-			result.Status = "error"
-			result.Error = err.Error()
-			results = append(results, result)
-			continue
-		}
-		cmd := exec.Command("go", "test", "-tags", "acceptance_mutation", "./"+filepath.ToSlash(filepath.Dir(generated)))
-		output, err := cmd.CombinedOutput()
-		result.Output = string(output)
-		result.Duration = time.Since(start)
-		if err != nil {
-			result.Status = "killed"
-		} else {
-			result.Status = "survived"
-		}
-		results = append(results, result)
+		results = append(results, runMutation(feature, mutation, workDir))
 	}
 	return results, nil
+}
+
+func runMutation(feature gherkin.Feature, mutation Mutation, workDir string) MutationResult {
+	start := time.Now()
+	result := MutationResult{Mutation: mutation}
+	generated, ir := mutationPaths(workDir, mutation)
+	if err := writeMutationTest(feature, mutation, generated, ir); err != nil {
+		result.Status = "error"
+		result.Error = err.Error()
+		return result
+	}
+	output, err := exec.Command("go", "test", "-tags", "acceptance_mutation", "./"+filepath.ToSlash(filepath.Dir(generated))).CombinedOutput()
+	result.Output = string(output)
+	result.Duration = time.Since(start)
+	result.Status = mutationStatus(err)
+	return result
+}
+
+func mutationPaths(workDir string, mutation Mutation) (string, string) {
+	mutationDir := filepath.Join(workDir, mutation.ID)
+	generated := filepath.Join(mutationDir, "generated", "feature_acceptance_test.go")
+	return generated, filepath.Join(mutationDir, "feature.json")
+}
+
+func writeMutationTest(feature gherkin.Feature, mutation Mutation, generated, ir string) error {
+	mutatedFeature := cloneFeature(feature)
+	mutatedFeature.Scenarios[mutation.Scenario].Examples[mutation.Example][mutation.Key] = mutation.Mutated
+	if err := os.MkdirAll(filepath.Dir(generated), 0o755); err != nil {
+		return err
+	}
+	if err := gherkin.WriteJSON(mutatedFeature, ir); err != nil {
+		return err
+	}
+	return generateTaggedGoTest(ir, generated, "acceptance_mutation")
+}
+
+func mutationStatus(err error) string {
+	if err != nil {
+		return "killed"
+	}
+	return "survived"
 }
 
 func Summarize(results []MutationResult) MutationSummary {
@@ -167,48 +174,87 @@ func mutateValue(path, value string) string {
 	trimmed := strings.TrimSpace(value)
 	rng := deterministicRand(path, value)
 	if strings.Contains(trimmed, ",") {
-		parts := strings.Split(trimmed, ",")
-		index := rng.Intn(len(parts))
-		parts[index] = mutateValue(path+fmt.Sprintf("[%d]", index), strings.TrimSpace(parts[index]))
-		for i := range parts {
-			parts[i] = strings.TrimSpace(parts[i])
-		}
-		return strings.Join(parts, ", ")
+		return mutateList(path, trimmed, rng)
 	}
-	switch strings.ToLower(trimmed) {
-	case "true":
-		return "false"
-	case "false":
-		return "true"
-	case "null", "nil", "none":
-		return dither(value, rng)
+	if mutated, ok := mutateKeyword(trimmed, value, rng); ok {
+		return mutated
 	}
-	if i, err := strconv.Atoi(trimmed); err == nil {
-		delta := rng.Intn(9) + 1
-		if rng.Intn(2) == 0 {
-			delta = -delta
-		}
-		return strconv.Itoa(i + delta)
+	if mutated, ok := mutateNumber(trimmed, rng); ok {
+		return mutated
 	}
-	if f, err := strconv.ParseFloat(trimmed, 64); err == nil && strings.ContainsAny(trimmed, ".eE") {
-		delta := float64(rng.Intn(900)+100) / 100
-		if rng.Intn(2) == 0 {
-			delta = -delta
-		}
-		return strconv.FormatFloat(f+delta, 'f', -1, 64)
+	if mutated, ok := mutateDate(trimmed, rng); ok {
+		return mutated
 	}
-	if t, err := time.Parse("2006-01-02", trimmed); err == nil {
-		days := rng.Intn(9) + 1
-		if rng.Intn(2) == 0 {
-			days = -days
-		}
-		return t.AddDate(0, 0, days).Format("2006-01-02")
-	}
-	if d, err := time.ParseDuration(trimmed); err == nil {
-		seconds := time.Duration(rng.Intn(9)+1) * time.Second
-		return (d + seconds).String()
+	if mutated, ok := mutateDuration(trimmed, rng); ok {
+		return mutated
 	}
 	return dither(value, rng)
+}
+
+func mutateList(path, value string, rng *rand.Rand) string {
+	parts := strings.Split(value, ",")
+	index := rng.Intn(len(parts))
+	parts[index] = mutateValue(path+fmt.Sprintf("[%d]", index), strings.TrimSpace(parts[index]))
+	for i := range parts {
+		parts[i] = strings.TrimSpace(parts[i])
+	}
+	return strings.Join(parts, ", ")
+}
+
+func mutateKeyword(trimmed, original string, rng *rand.Rand) (string, bool) {
+	switch strings.ToLower(trimmed) {
+	case "true":
+		return "false", true
+	case "false":
+		return "true", true
+	case "null", "nil", "none":
+		return dither(original, rng), true
+	default:
+		return "", false
+	}
+}
+
+func mutateNumber(value string, rng *rand.Rand) (string, bool) {
+	if i, err := strconv.Atoi(value); err == nil {
+		return strconv.Itoa(i + signedIntDelta(rng)), true
+	}
+	if f, err := strconv.ParseFloat(value, 64); err == nil && strings.ContainsAny(value, ".eE") {
+		return strconv.FormatFloat(f+signedFloatDelta(rng), 'f', -1, 64), true
+	}
+	return "", false
+}
+
+func signedIntDelta(rng *rand.Rand) int {
+	delta := rng.Intn(9) + 1
+	if rng.Intn(2) == 0 {
+		return -delta
+	}
+	return delta
+}
+
+func signedFloatDelta(rng *rand.Rand) float64 {
+	delta := float64(rng.Intn(900)+100) / 100
+	if rng.Intn(2) == 0 {
+		return -delta
+	}
+	return delta
+}
+
+func mutateDate(value string, rng *rand.Rand) (string, bool) {
+	t, err := time.Parse("2006-01-02", value)
+	if err != nil {
+		return "", false
+	}
+	return t.AddDate(0, 0, signedIntDelta(rng)).Format("2006-01-02"), true
+}
+
+func mutateDuration(value string, rng *rand.Rand) (string, bool) {
+	d, err := time.ParseDuration(value)
+	if err != nil {
+		return "", false
+	}
+	seconds := time.Duration(rng.Intn(9)+1) * time.Second
+	return (d + seconds).String(), true
 }
 
 func deterministicRand(parts ...string) *rand.Rand {
