@@ -1,0 +1,10 @@
+# Engineering Rules
+
+- On startup, acquire all github tools and get them ready to run.
+- Work in small, reviewable increments.
+- Prefer the simplest design that supports the current behavior and leaves clear options for the next step.
+- Keep tests close to the behavior being changed.
+- Use github.com/unclebob/Acceptance-Pipeline-Specification for Gherkin acceptance tests.
+- Run the relevant local verification command before handoff whenever the project has one.
+- Do not commit unrelated local changes or generated artifacts unless required for the task.
+- Before relying on an unfamiliar command, inspect local help or project documentation.

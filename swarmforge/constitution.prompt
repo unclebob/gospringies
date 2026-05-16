@@ -1,0 +1,10 @@
+# HTW Constitution
+
+This file takes precedence over subordinate files.
+Read and obey the following subordinate documents in order.
+
+1. `swarmforge/constitution/project.prompt`
+2. `swarmforge/constitution/engineering.prompt`
+3. `swarmforge/constitution/workflow.prompt`
+
+If two subordinate files conflict, the earlier file wins.
