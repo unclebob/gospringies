@@ -1,6 +1,9 @@
 package sim
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
 
 func TestSpringForceIsEqualAndOpposite(t *testing.T) {
 	world := NewWorld()
@@ -101,7 +104,7 @@ func worldWithEnvironmentalForce(forceName string) *Simulation {
 
 func assertVecEqual(t *testing.T, got, want Vec2) {
 	t.Helper()
-	if abs(got.X-want.X) > 0.000001 || abs(got.Y-want.Y) > 0.000001 {
+	if math.Abs(got.X-want.X) > 0.000001 || math.Abs(got.Y-want.Y) > 0.000001 {
 		t.Fatalf("got %#v want %#v", got, want)
 	}
 }

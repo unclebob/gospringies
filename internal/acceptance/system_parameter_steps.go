@@ -7,11 +7,7 @@ import (
 )
 
 func assertParameterDefault(w *world, example map[string]string) error {
-	world, err := domainWorld(w)
-	if err != nil {
-		return err
-	}
-	parameter, err := stringValue(example, "parameter")
+	world, parameter, err := parameterFromExample(w, example)
 	if err != nil {
 		return err
 	}
@@ -19,13 +15,10 @@ func assertParameterDefault(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	if value != "set" {
-		return fmt.Errorf("unsupported expected default marker %q", value)
+	if err := requireSetMarker("expected default", value); err != nil {
+		return err
 	}
-	if !world.Parameters.Has(parameter) || world.Parameters.Value(parameter) == "" {
-		return fmt.Errorf("parameter %q has no default value", parameter)
-	}
-	return nil
+	return assertParameterHasDefault(world, parameter)
 }
 
 func assertForceEnabledState(w *world, example map[string]string) error {
@@ -37,13 +30,7 @@ func assertForceEnabledState(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	if enabled != "set" {
-		return fmt.Errorf("unsupported enabled marker %q", enabled)
-	}
-	if force.Enabled == "" {
-		return fmt.Errorf("force enabled state is not set")
-	}
-	return nil
+	return assertEnabledStateConfigured("force", enabled, force.Enabled != "")
 }
 
 func assertForceEditableParameters(w *world, example map[string]string) error {
@@ -70,22 +57,15 @@ func assertWallEnabledState(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	if enabled != "set" {
-		return fmt.Errorf("unsupported enabled marker %q", enabled)
-	}
 	if _, ok := world.Parameters.WallEnabled(wall); !ok {
 		return fmt.Errorf("wall %q enabled state is not set", wall)
 	}
-	return nil
+	return requireSetMarker("enabled", enabled)
 }
 
 func changeWorldParameter(w *world, example map[string]string) error {
 	world := ensureDomainWorld(w)
-	parameter, err := stringValue(example, "parameter")
-	if err != nil {
-		return err
-	}
-	value, err := stringValue(example, "changed_value")
+	parameter, value, err := parameterChange(example)
 	if err != nil {
 		return err
 	}
@@ -102,62 +82,73 @@ func performWorldOperation(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
+	return performNamedWorldOperation(world, operation, example)
+}
+
+func performNamedWorldOperation(world *sim.Simulation, operation string, example map[string]string) error {
 	switch operation {
 	case "reset":
 		world.Reset()
+		return nil
 	case "load file":
-		loaded := sim.NewWorld()
-		parameter, err := stringValue(example, "parameter")
-		if err != nil {
-			return err
-		}
-		loaded.Parameters.Set(parameter, "loaded")
-		world.LoadFrom(loaded)
+		return loadWorldWithChangedParameter(world, example)
 	case "insert file":
-		inserted := sim.NewWorld()
-		parameter, err := stringValue(example, "parameter")
-		if err != nil {
-			return err
-		}
-		inserted.Parameters.Set(parameter, "inserted")
-		world.InsertFrom(inserted)
+		return insertWorldWithChangedParameter(world, example)
 	default:
 		return fmt.Errorf("unsupported operation %q", operation)
 	}
+}
+
+func loadWorldWithChangedParameter(world *sim.Simulation, example map[string]string) error {
+	return applyWorldWithParameter(world, example, "loaded", (*sim.Simulation).LoadFrom)
+}
+
+func insertWorldWithChangedParameter(world *sim.Simulation, example map[string]string) error {
+	return applyWorldWithParameter(world, example, "inserted", (*sim.Simulation).InsertFrom)
+}
+
+func applyWorldWithParameter(world *sim.Simulation, example map[string]string, value string, apply func(*sim.Simulation, *sim.Simulation)) error {
+	other, err := worldWithParameter(example, value)
+	if err != nil {
+		return err
+	}
+	apply(world, other)
 	return nil
 }
 
-func assertParameterSource(w *world, example map[string]string) error {
-	world, err := domainWorld(w)
-	if err != nil {
-		return err
-	}
+func worldWithParameter(example map[string]string, value string) (*sim.Simulation, error) {
+	world := sim.NewWorld()
 	parameter, err := stringValue(example, "parameter")
 	if err != nil {
-		return err
+		return nil, err
 	}
-	source, err := stringValue(example, "expected_value_source")
+	world.Parameters.Set(parameter, value)
+	return world, nil
+}
+
+func assertParameterSource(w *world, example map[string]string) error {
+	world, parameter, source, err := parameterSourceFields(w, example)
 	if err != nil {
 		return err
 	}
-	var expected string
+	expected, err := expectedParameterValue(parameter, source, example)
+	if err != nil {
+		return err
+	}
+	return assertParameterValue(world, parameter, expected)
+}
+
+func expectedParameterValue(parameter, source string, example map[string]string) (string, error) {
 	switch source {
 	case "default value":
-		expected = sim.DefaultParameters().Value(parameter)
+		return sim.DefaultParameters().Value(parameter), nil
 	case "value from loaded file":
-		expected = "loaded"
+		return "loaded", nil
 	case "existing world value":
-		expected, err = stringValue(example, "changed_value")
-		if err != nil {
-			return err
-		}
+		return stringValue(example, "changed_value")
 	default:
-		return fmt.Errorf("unsupported expected value source %q", source)
+		return "", fmt.Errorf("unsupported expected value source %q", source)
 	}
-	if got := world.Parameters.Value(parameter); got != expected {
-		return fmt.Errorf("expected parameter %q to be %q, got %q", parameter, expected, got)
-	}
-	return nil
 }
 
 func forceFromExample(w *world, example map[string]string) (sim.ForceConfig, error) {
@@ -174,4 +165,63 @@ func forceFromExample(w *world, example map[string]string) (sim.ForceConfig, err
 		return sim.ForceConfig{}, fmt.Errorf("force %q not configured", name)
 	}
 	return force, nil
+}
+
+func parameterFromExample(w *world, example map[string]string) (*sim.Simulation, string, error) {
+	world, err := domainWorld(w)
+	if err != nil {
+		return nil, "", err
+	}
+	parameter, err := stringValue(example, "parameter")
+	if err != nil {
+		return nil, "", err
+	}
+	return world, parameter, nil
+}
+
+func parameterSourceFields(w *world, example map[string]string) (*sim.Simulation, string, string, error) {
+	world, parameter, err := parameterFromExample(w, example)
+	if err != nil {
+		return nil, "", "", err
+	}
+	source, err := stringValue(example, "expected_value_source")
+	if err != nil {
+		return nil, "", "", err
+	}
+	return world, parameter, source, nil
+}
+
+func parameterChange(example map[string]string) (string, string, error) {
+	return stringPair(example, "parameter", "changed_value")
+}
+
+func requireSetMarker(label, value string) error {
+	if value != "set" {
+		return fmt.Errorf("unsupported %s marker %q", label, value)
+	}
+	return nil
+}
+
+func assertEnabledStateConfigured(label, marker string, configured bool) error {
+	if err := requireSetMarker("enabled", marker); err != nil {
+		return err
+	}
+	if !configured {
+		return fmt.Errorf("%s enabled state is not set", label)
+	}
+	return nil
+}
+
+func assertParameterHasDefault(world *sim.Simulation, parameter string) error {
+	if !world.Parameters.Has(parameter) || world.Parameters.Value(parameter) == "" {
+		return fmt.Errorf("parameter %q has no default value", parameter)
+	}
+	return nil
+}
+
+func assertParameterValue(world *sim.Simulation, parameter, expected string) error {
+	if got := world.Parameters.Value(parameter); got != expected {
+		return fmt.Errorf("expected parameter %q to be %q, got %q", parameter, expected, got)
+	}
+	return nil
 }

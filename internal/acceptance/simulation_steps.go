@@ -8,8 +8,7 @@ import (
 )
 
 func createDemoSimulation(w *world, _ map[string]string) error {
-	w.simulation = sim.NewDemoSimulation()
-	return nil
+	return setSimulation(&w.simulation, sim.NewDemoSimulation())
 }
 
 func advanceSimulation(w *world, example map[string]string) error {

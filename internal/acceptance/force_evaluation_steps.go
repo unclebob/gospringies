@@ -2,6 +2,7 @@ package acceptance
 
 import (
 	"fmt"
+	"math"
 
 	"springs/internal/sim"
 )
@@ -16,43 +17,38 @@ func createSpringForceWorld(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	if _, ok := world.MassByID(massA); !ok {
-		if err := world.AddMass(sim.Mass{ID: massA, Position: sim.Vec2{X: 0, Y: 0}, Mass: 1}); err != nil {
+	masses := []sim.Mass{
+		{ID: massA, Position: sim.Vec2{X: 0, Y: 0}, Mass: 1},
+		{ID: massB, Position: sim.Vec2{X: 12, Y: 0}, Mass: 1},
+	}
+	return ensureSpringForceWorld(world, masses, sim.Spring{ID: 1, MassA: massA, MassB: massB, RestLength: 10, SpringConstant: 1})
+}
+
+func ensureSpringForceWorld(world *sim.Simulation, masses []sim.Mass, spring sim.Spring) error {
+	for _, mass := range masses {
+		if err := ensureMass(world, mass); err != nil {
 			return err
 		}
 	}
-	if _, ok := world.MassByID(massB); !ok {
-		if err := world.AddMass(sim.Mass{ID: massB, Position: sim.Vec2{X: 12, Y: 0}, Mass: 1}); err != nil {
-			return err
-		}
+	if len(world.Springs) > 0 {
+		return nil
 	}
-	if len(world.Springs) == 0 {
-		return world.AddSpring(sim.Spring{ID: 1, MassA: massA, MassB: massB, RestLength: 10, SpringConstant: 1})
+	return world.AddSpring(spring)
+}
+
+func ensureMass(world *sim.Simulation, mass sim.Mass) error {
+	if _, ok := world.MassByID(mass.ID); ok {
+		return nil
 	}
-	return nil
+	return world.AddMass(mass)
 }
 
 func setOnlySpringRestLength(w *world, example map[string]string) error {
-	return updateFirstSpring(w, func(spring *sim.Spring) error {
-		value, err := floatValue(example, "rest_length")
-		if err != nil {
-			return err
-		}
-		spring.RestLength = value
-		return nil
-	})
+	return updateFirstSpringFloat(w, example, "rest_length", setSpringRestLength)
 }
 
 func setOnlySpringConstant(w *world, example map[string]string) error {
-	return updateFirstSpring(w, func(spring *sim.Spring) error {
-		value, err := floatValue(example, "spring_constant")
-		if err != nil {
-			return err
-		}
-		spring.SpringConstant = value
-		spring.Stiffness = value
-		return nil
-	})
+	return updateFirstSpringFloat(w, example, "spring_constant", setSpringConstant)
 }
 
 func setMassAVelocity(w *world, example map[string]string) error {
@@ -64,10 +60,6 @@ func setMassBVelocity(w *world, example map[string]string) error {
 }
 
 func setMassNamedVelocity(w *world, example map[string]string, massKey, velocityKey string) error {
-	world, err := domainWorld(w)
-	if err != nil {
-		return err
-	}
 	massID, err := intValue(example, massKey)
 	if err != nil {
 		return err
@@ -80,24 +72,42 @@ func setMassNamedVelocity(w *world, example map[string]string, massKey, velocity
 	if err != nil {
 		return err
 	}
-	for i := range world.Masses {
-		if world.Masses[i].ID == massID {
-			world.Masses[i].Velocity = velocity
-			return nil
-		}
+	return updateMassByID(w, massID, func(mass *sim.Mass) error {
+		mass.Velocity = velocity
+		return nil
+	})
+}
+
+func updateMassByID(w *world, massID int, update func(*sim.Mass) error) error {
+	world, err := domainWorld(w)
+	if err != nil {
+		return err
 	}
-	return fmt.Errorf("mass %d not found", massID)
+	return updateByID(world.Masses, massID, "mass", massIDValue, update)
+}
+
+func massIDValue(mass sim.Mass) int {
+	return mass.ID
 }
 
 func setOnlySpringDamping(w *world, example map[string]string) error {
+	return updateFirstSpringFloat(w, example, "damping_constant", setSpringDamping)
+}
+
+func updateFirstSpringFloat(w *world, example map[string]string, key string, assign func(*sim.Spring, float64)) error {
 	return updateFirstSpring(w, func(spring *sim.Spring) error {
-		value, err := floatValue(example, "damping_constant")
+		value, err := floatValue(example, key)
 		if err != nil {
 			return err
 		}
-		spring.Damping = value
+		assign(spring, value)
 		return nil
 	})
+}
+
+func setSpringConstant(spring *sim.Spring, value float64) {
+	spring.SpringConstant = value
+	spring.Stiffness = value
 }
 
 func evaluateForces(w *world, _ map[string]string) error {
@@ -159,17 +169,32 @@ func createMovableMassAffectedByForce(w *world, example map[string]string) error
 	if err != nil {
 		return err
 	}
-	position := sim.Vec2{X: -1, Y: 50}
-	if force == "center attraction" || force == "center of mass attraction" {
-		position = sim.Vec2{X: 0, Y: 0}
-	}
-	if err := world.AddMass(sim.Mass{ID: 1, Position: position, Velocity: sim.Vec2{X: 2, Y: 0}, Mass: 1}); err != nil {
+	if err := world.AddMass(affectedMass(force)); err != nil {
 		return err
 	}
-	if force == "center of mass attraction" {
+	if needsReferenceMass(force) {
 		return world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 50, Y: 50}, Mass: 1})
 	}
 	return nil
+}
+
+func affectedMass(force string) sim.Mass {
+	return sim.Mass{ID: 1, Position: affectedMassPosition(force), Velocity: sim.Vec2{X: 2, Y: 0}, Mass: 1}
+}
+
+func affectedMassPosition(force string) sim.Vec2 {
+	positions := map[string]sim.Vec2{
+		"center attraction":         {X: 0, Y: 0},
+		"center of mass attraction": {X: 0, Y: 0},
+	}
+	if position, ok := positions[force]; ok {
+		return position
+	}
+	return sim.Vec2{X: -1, Y: 50}
+}
+
+func needsReferenceMass(force string) bool {
+	return force == "center of mass attraction"
 }
 
 func assertMassReceivesForce(w *world, example map[string]string) error {
@@ -319,16 +344,9 @@ func insideDirection(wall string) sim.Vec2 {
 }
 
 func vecClose(a, b sim.Vec2) bool {
-	return simAbs(a.X-b.X) <= 0.000001 && simAbs(a.Y-b.Y) <= 0.000001
+	return math.Abs(a.X-b.X) <= 0.000001 && math.Abs(a.Y-b.Y) <= 0.000001
 }
 
 func simDot(a, b sim.Vec2) float64 {
 	return a.X*b.X + a.Y*b.Y
-}
-
-func simAbs(value float64) float64 {
-	if value < 0 {
-		return -value
-	}
-	return value
 }

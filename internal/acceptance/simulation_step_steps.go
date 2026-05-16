@@ -2,6 +2,7 @@ package acceptance
 
 import (
 	"fmt"
+	"math"
 
 	"springs/internal/sim"
 )
@@ -33,29 +34,27 @@ func advanceByDuration(w *world, example map[string]string) error {
 }
 
 func assertMassPositionDiffers(w *world, example map[string]string) error {
-	if err := requireMarker(example, "start_position", "initial"); err != nil {
-		return err
-	}
-	mass, ok := w.resultingWorld.MassByID(1)
-	if !ok {
-		return fmt.Errorf("mass 1 not found")
-	}
-	if mass.Position == (sim.Vec2{}) {
-		return fmt.Errorf("mass position did not differ from initial")
-	}
-	return nil
+	return assertMassVectorDiffersFromMarker(w, example, "start_position", "initial", "position", func(mass sim.Mass) sim.Vec2 { return mass.Position })
 }
 
 func assertMassVelocityDiffers(w *world, example map[string]string) error {
-	if err := requireMarker(example, "start_velocity", "zero"); err != nil {
+	return assertMassVectorDiffersFromMarker(w, example, "start_velocity", "zero", "velocity", func(mass sim.Mass) sim.Vec2 { return mass.Velocity })
+}
+
+func assertMassVectorDiffersFromMarker(w *world, example map[string]string, key, expected, name string, value func(sim.Mass) sim.Vec2) error {
+	if err := requireMarker(example, key, expected); err != nil {
 		return err
 	}
+	return assertMassVectorDiffers(w, name, value)
+}
+
+func assertMassVectorDiffers(w *world, name string, value func(sim.Mass) sim.Vec2) error {
 	mass, ok := w.resultingWorld.MassByID(1)
 	if !ok {
 		return fmt.Errorf("mass 1 not found")
 	}
-	if mass.Velocity == (sim.Vec2{}) {
-		return fmt.Errorf("mass velocity did not differ from zero")
+	if value(mass) == (sim.Vec2{}) {
+		return fmt.Errorf("mass %s did not differ from initial", name)
 	}
 	return nil
 }
@@ -127,19 +126,11 @@ func createWorldInState(w *world, example map[string]string) error {
 }
 
 func assertResultDeterministic(_ *world, example map[string]string) error {
-	state, err := stringValue(example, "initial_state")
-	if err != nil {
-		return err
-	}
 	duration, err := durationValue(example, "duration")
 	if err != nil {
 		return err
 	}
-	first, err := worldForState(state)
-	if err != nil {
-		return err
-	}
-	second, err := worldForState(state)
+	first, second, err := deterministicWorlds(example)
 	if err != nil {
 		return err
 	}
@@ -149,6 +140,19 @@ func assertResultDeterministic(_ *world, example map[string]string) error {
 		return fmt.Errorf("state differs between runs")
 	}
 	return nil
+}
+
+func deterministicWorlds(example map[string]string) (*sim.Simulation, *sim.Simulation, error) {
+	state, err := stringValue(example, "initial_state")
+	if err != nil {
+		return nil, nil, err
+	}
+	first, err := worldForState(state)
+	if err != nil {
+		return nil, nil, err
+	}
+	second, err := worldForState(state)
+	return first, second, err
 }
 
 func advanceByDurationAtFrameRate(w *world, example map[string]string) error {
@@ -182,7 +186,7 @@ func assertSimulationTime(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	if simAbs(w.resultingWorld.Time-expected) > 0.000001 {
+	if math.Abs(w.resultingWorld.Time-expected) > 0.000001 {
 		return fmt.Errorf("time = %f, expected %f", w.resultingWorld.Time, expected)
 	}
 	return nil
@@ -205,7 +209,7 @@ func worldForState(state string) (*sim.Simulation, error) {
 }
 
 func sameWorldState(a, b *sim.Simulation) bool {
-	if len(a.Masses) != len(b.Masses) || simAbs(a.Time-b.Time) > 0.000001 {
+	if len(a.Masses) != len(b.Masses) || math.Abs(a.Time-b.Time) > 0.000001 {
 		return false
 	}
 	for i := range a.Masses {
@@ -221,16 +225,16 @@ func durationValue(example map[string]string, key string) (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	switch value {
-	case "1 step":
-		return sim.DefaultParameters().StepDuration(), nil
-	case "10 steps":
-		return sim.DefaultParameters().StepDuration() * 10, nil
-	case "1 second":
-		return 1, nil
-	default:
+	durations := map[string]float64{
+		"1 step":   sim.DefaultParameters().StepDuration(),
+		"10 steps": sim.DefaultParameters().StepDuration() * 10,
+		"1 second": 1,
+	}
+	duration, ok := durations[value]
+	if !ok {
 		return 0, fmt.Errorf("unsupported duration %q", value)
 	}
+	return duration, nil
 }
 
 func frameRateValue(example map[string]string) (float64, error) {

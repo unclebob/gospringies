@@ -13,6 +13,19 @@ type MassForces struct {
 	Acceleration Vec2
 }
 
+type wallBoundary struct {
+	name      string
+	breached  func(Mass, Bounds) bool
+	direction Vec2
+}
+
+var wallBoundaries = []wallBoundary{
+	{name: "top", breached: func(mass Mass, _ Bounds) bool { return mass.Position.Y < 0 }, direction: Vec2{Y: 1}},
+	{name: "left", breached: func(mass Mass, _ Bounds) bool { return mass.Position.X < 0 }, direction: Vec2{X: 1}},
+	{name: "right", breached: func(mass Mass, bounds Bounds) bool { return mass.Position.X > bounds.Width }, direction: Vec2{X: -1}},
+	{name: "bottom", breached: func(mass Mass, bounds Bounds) bool { return mass.Position.Y > bounds.Height }, direction: Vec2{Y: -1}},
+}
+
 func (s *Simulation) EvaluateForces() ForceEvaluation {
 	evaluation := ForceEvaluation{ByMassID: map[int]MassForces{}}
 	for _, mass := range s.Masses {
@@ -93,19 +106,17 @@ func (s *Simulation) wallForce(mass Mass) Vec2 {
 	}
 	magnitude := forceFloat(force, "magnitude")
 	var total Vec2
-	if enabled, _ := s.Parameters.WallEnabled("top"); enabled && mass.Position.Y < 0 {
-		total = total.Add(Vec2{Y: magnitude})
-	}
-	if enabled, _ := s.Parameters.WallEnabled("left"); enabled && mass.Position.X < 0 {
-		total = total.Add(Vec2{X: magnitude})
-	}
-	if enabled, _ := s.Parameters.WallEnabled("right"); enabled && mass.Position.X > s.Bounds.Width {
-		total = total.Add(Vec2{X: -magnitude})
-	}
-	if enabled, _ := s.Parameters.WallEnabled("bottom"); enabled && mass.Position.Y > s.Bounds.Height {
-		total = total.Add(Vec2{Y: -magnitude})
+	for _, wall := range wallBoundaries {
+		if s.wallIsRepelling(wall, mass) {
+			total = total.Add(wall.direction.Scale(magnitude))
+		}
 	}
 	return total
+}
+
+func (s *Simulation) wallIsRepelling(wall wallBoundary, mass Mass) bool {
+	enabled, _ := s.Parameters.WallEnabled(wall.name)
+	return enabled && wall.breached(mass, s.Bounds)
 }
 
 func (s *Simulation) centerOfMass() Vec2 {
@@ -144,11 +155,4 @@ func forceFloat(force ForceConfig, key string) float64 {
 
 func dot(a, b Vec2) float64 {
 	return a.X*b.X + a.Y*b.Y
-}
-
-func abs(value float64) float64 {
-	if value < 0 {
-		return -value
-	}
-	return value
 }

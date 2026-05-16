@@ -154,21 +154,21 @@ func (s *Simulation) AddSpringBetween(a, b int, restLength, stiffness float64) {
 }
 
 func (s *Simulation) MassByID(id int) (Mass, bool) {
-	for _, mass := range s.Masses {
-		if mass.ID == id {
-			return mass, true
-		}
-	}
-	return Mass{}, false
+	return byID(s.Masses, id, func(mass Mass) int { return mass.ID })
 }
 
 func (s *Simulation) SpringByID(id int) (Spring, bool) {
-	for _, spring := range s.Springs {
-		if spring.ID == id {
-			return spring, true
+	return byID(s.Springs, id, func(spring Spring) int { return spring.ID })
+}
+
+func byID[T any](items []T, id int, itemID func(T) int) (T, bool) {
+	for _, item := range items {
+		if itemID(item) == id {
+			return item, true
 		}
 	}
-	return Spring{}, false
+	var zero T
+	return zero, false
 }
 
 func (s *Simulation) massIndexByID(id int) (int, bool) {

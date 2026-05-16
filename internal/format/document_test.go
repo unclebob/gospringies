@@ -20,7 +20,7 @@ func TestFromSimulationCopiesMassesAndSprings(t *testing.T) {
 	if document.Masses[0] != (Mass{X: 1, Y: 2, Fixed: true}) {
 		t.Fatalf("first mass = %#v", document.Masses[0])
 	}
-	if document.Springs[0] != (Spring{A: left, B: right, RestLength: 7, Stiffness: 8}) {
+	if document.Springs[0] != (Spring{A: 0, B: 1, RestLength: 7, Stiffness: 8}) {
 		t.Fatalf("spring = %#v", document.Springs[0])
 	}
 }

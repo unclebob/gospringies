@@ -53,15 +53,7 @@ func assertGeneratedArtifactExists(w *world, example map[string]string) error {
 }
 
 func artifactExample(example map[string]string) (string, string, error) {
-	artifact, err := stringValue(example, "artifact")
-	if err != nil {
-		return "", "", err
-	}
-	location, err := stringValue(example, "generated_location")
-	if err != nil {
-		return "", "", err
-	}
-	return artifact, location, nil
+	return stringPair(example, "artifact", "generated_location")
 }
 
 func assertHandwrittenTestsOutside(_ *world, example map[string]string) error {

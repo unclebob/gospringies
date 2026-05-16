@@ -1,6 +1,9 @@
 package sim
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
 
 func TestStepMovesMassUnderGravity(t *testing.T) {
 	world := NewWorld()
@@ -51,7 +54,7 @@ func TestAdvanceDurationTracksRequestedTime(t *testing.T) {
 
 	world.AdvanceDuration(1.0)
 
-	if abs(world.Time-1.0) > 0.000001 {
+	if math.Abs(world.Time-1.0) > 0.000001 {
 		t.Fatalf("time = %f", world.Time)
 	}
 }

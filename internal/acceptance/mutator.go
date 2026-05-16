@@ -53,63 +53,83 @@ func BuildMutations(feature gherkin.Feature) []Mutation {
 			}
 			sort.Strings(keys)
 			for _, key := range keys {
-				original := example[key]
-				path := fmt.Sprintf("$.scenarios[%d].examples[%d].%s", scenarioIndex, exampleIndex, key)
-				mutated := mutateValue(path, original)
-				if mutated == original {
-					continue
+				mutation, ok := buildMutation(feature, scenarioIndex, exampleIndex, key, example[key], len(mutations)+1)
+				if ok {
+					mutations = append(mutations, mutation)
 				}
-				if isEquivalentMutation(feature, scenarioIndex, key) {
-					continue
-				}
-				id := fmt.Sprintf("m%d", len(mutations)+1)
-				mutations = append(mutations, Mutation{
-					ID:          id,
-					Path:        path,
-					Description: fmt.Sprintf("%s: %s -> %s", path, original, mutated),
-					Original:    original,
-					Mutated:     mutated,
-					Scenario:    scenarioIndex,
-					Example:     exampleIndex,
-					Key:         key,
-				})
 			}
 		}
 	}
 	return mutations
 }
 
+func buildMutation(feature gherkin.Feature, scenarioIndex, exampleIndex int, key, original string, idNumber int) (Mutation, bool) {
+	path := fmt.Sprintf("$.scenarios[%d].examples[%d].%s", scenarioIndex, exampleIndex, key)
+	mutated := mutateValue(path, original)
+	if mutated == original || isEquivalentMutation(feature, scenarioIndex, key) {
+		return Mutation{}, false
+	}
+	return Mutation{
+		ID:          fmt.Sprintf("m%d", idNumber),
+		Path:        path,
+		Description: fmt.Sprintf("%s: %s -> %s", path, original, mutated),
+		Original:    original,
+		Mutated:     mutated,
+		Scenario:    scenarioIndex,
+		Example:     exampleIndex,
+		Key:         key,
+	}, true
+}
+
 func isEquivalentMutation(feature gherkin.Feature, scenarioIndex int, key string) bool {
 	switch feature.Name {
 	case "Domain model":
-		if scenarioIndex == 0 {
-			return false
-		}
-		if key == "reason" {
-			return false
-		}
-		// Domain-model property scenarios use example cells as both setup data and
-		// expected lookup values. Mutating both sides preserves the same behavior,
-		// so only externally checked counts and validation reasons are meaningful.
-		return true
+		return isEquivalentDomainModelMutation(scenarioIndex, key)
 	case "System parameters":
-		return scenarioIndex == 3 && (key == "parameter" || key == "changed_value")
+		return isEquivalentSystemParameterMutation(scenarioIndex, key)
 	case "Force evaluation":
-		switch scenarioIndex {
-		case 0:
-			return key == "mass_a" || key == "mass_b" || key == "rest_length" || key == "spring_constant"
-		case 1:
-			return key == "mass_a" || key == "mass_b" || key == "damping_constant"
-		case 3, 4:
-			return key == "mass_id"
-		default:
-			return false
-		}
+		return isEquivalentForceEvaluationMutation(scenarioIndex, key)
 	case "Simulation step":
-		return scenarioIndex == 1 && key == "mass_id"
+		return isEquivalentSimulationStepMutation(scenarioIndex, key)
 	default:
 		return false
 	}
+}
+
+func isEquivalentDomainModelMutation(scenarioIndex int, key string) bool {
+	if scenarioIndex == 0 || key == "reason" {
+		return false
+	}
+	// Domain-model property scenarios use example cells as both setup data and
+	// expected lookup values. Mutating both sides preserves the same behavior,
+	// so only externally checked counts and validation reasons are meaningful.
+	return true
+}
+
+func isEquivalentSystemParameterMutation(scenarioIndex int, key string) bool {
+	return scenarioIndex == 3 && (key == "parameter" || key == "changed_value")
+}
+
+func isEquivalentForceEvaluationMutation(scenarioIndex int, key string) bool {
+	return equivalentMutationCells(map[int][]string{
+		0: {"mass_a", "mass_b", "rest_length", "spring_constant"},
+		1: {"mass_a", "mass_b", "damping_constant"},
+		3: {"mass_id"},
+		4: {"mass_id"},
+	}, scenarioIndex, key)
+}
+
+func isEquivalentSimulationStepMutation(scenarioIndex int, key string) bool {
+	return scenarioIndex == 1 && key == "mass_id"
+}
+
+func equivalentMutationCells(cells map[int][]string, scenarioIndex int, key string) bool {
+	for _, equivalent := range cells[scenarioIndex] {
+		if key == equivalent {
+			return true
+		}
+	}
+	return false
 }
 
 func RunMutations(feature gherkin.Feature, workDir string) ([]MutationResult, error) {
