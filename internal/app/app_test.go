@@ -393,6 +393,20 @@ func TestFileOperationsDoNotReplaceSavedState(t *testing.T) {
 	assertAppTestState(t, game, "saved")
 }
 
+func TestParameterCommandMarksFileDirty(t *testing.T) {
+	game := NewGame()
+	_ = game.SaveXSP()
+
+	game.SetParameter("current mass", "custom")
+
+	if game.World().Parameters.Value("current mass") != "custom" {
+		t.Fatalf("parameters = %#v", game.World().Parameters)
+	}
+	if game.EditorScreen().Indicators["file state"] != "unsaved changes" {
+		t.Fatalf("indicators = %#v", game.EditorScreen().Indicators)
+	}
+}
+
 func TestEditorControlsRemainUsableWhilePausedOrRunning(t *testing.T) {
 	game := NewGame()
 	for _, paused := range []bool{true, false} {

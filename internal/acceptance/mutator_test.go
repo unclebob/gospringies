@@ -330,6 +330,9 @@ func TestEquivalentMutationPredicates(t *testing.T) {
 		}
 		assertMeaningfulMutation(t, check.equivalent, check.meaningful.scenario, check.meaningful.key)
 	}
+	assertMeaningfulMutation(t, isEquivalentControlsHotkeysMutation, 1, "command")
+	assertMeaningfulMutation(t, isEquivalentControlsHotkeysMutation, 0, "parameter")
+	assertMeaningfulMutation(t, isEquivalentControlsHotkeysMutation, 3, "parameter_result")
 }
 
 type mutationCell struct {
