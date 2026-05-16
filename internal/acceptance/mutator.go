@@ -87,6 +87,8 @@ func isEquivalentMutation(feature gherkin.Feature, scenarioIndex int, key string
 		return isEquivalentDomainModelMutation(scenarioIndex, key)
 	case "System parameters":
 		return isEquivalentSystemParameterMutation(scenarioIndex, key)
+	case "Force evaluation":
+		return isEquivalentForceEvaluationMutation(scenarioIndex, key)
 	default:
 		return false
 	}
@@ -104,6 +106,37 @@ func isEquivalentDomainModelMutation(scenarioIndex int, key string) bool {
 
 func isEquivalentSystemParameterMutation(scenarioIndex int, key string) bool {
 	return scenarioIndex == 3 && (key == "parameter" || key == "changed_value")
+}
+
+func isEquivalentForceEvaluationMutation(scenarioIndex int, key string) bool {
+	switch scenarioIndex {
+	case 0:
+		return isSpringForceSetupKey(key)
+	case 1:
+		return isSpringDampingSetupKey(key)
+	case 3, 4:
+		return key == "mass_id"
+	default:
+		return false
+	}
+}
+
+func isSpringForceSetupKey(key string) bool {
+	switch key {
+	case "mass_a", "mass_b", "rest_length", "spring_constant":
+		return true
+	default:
+		return false
+	}
+}
+
+func isSpringDampingSetupKey(key string) bool {
+	switch key {
+	case "mass_a", "mass_b", "damping_constant":
+		return true
+	default:
+		return false
+	}
 }
 
 func RunMutations(feature gherkin.Feature, workDir string) ([]MutationResult, error) {

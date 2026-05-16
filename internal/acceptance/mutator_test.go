@@ -83,6 +83,33 @@ func TestBuildMutationsSkipsEquivalentSystemParameterSetupCells(t *testing.T) {
 	}
 }
 
+func TestBuildMutationsSkipsEquivalentForceEvaluationSetupCells(t *testing.T) {
+	feature := gherkin.Feature{
+		Name: "Force evaluation",
+		Scenarios: []gherkin.Scenario{
+			{Examples: []map[string]string{{"mass_a": "1", "spring_constant": "12", "result": "opposite"}}},
+			{Examples: []map[string]string{{"mass_b": "2", "damping_constant": "0.5", "result": "direction"}}},
+			{},
+			{Examples: []map[string]string{{"mass_id": "1", "fixed": "true", "force": "gravity"}}},
+			{Examples: []map[string]string{{"mass_id": "1", "wall": "left"}}},
+		},
+	}
+
+	mutations := BuildMutations(feature)
+	if len(mutations) != 5 {
+		t.Fatalf("mutation count = %d: %#v", len(mutations), mutations)
+	}
+	if !isEquivalentForceEvaluationMutation(0, "spring_constant") {
+		t.Fatal("expected spring force setup mutation to be equivalent")
+	}
+	if !isEquivalentForceEvaluationMutation(1, "damping_constant") {
+		t.Fatal("expected spring damping setup mutation to be equivalent")
+	}
+	if isEquivalentForceEvaluationMutation(2, "force") {
+		t.Fatal("environmental force mutation should remain meaningful")
+	}
+}
+
 func TestBuildMutationReturnsStableMutationOrSkipsEquivalent(t *testing.T) {
 	feature := gherkin.Feature{Scenarios: []gherkin.Scenario{{}}}
 	mutation, ok := buildMutation(feature, 0, 0, "count", "20", 1)

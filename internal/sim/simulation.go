@@ -27,6 +27,14 @@ func (v Vec2) Scale(factor float64) Vec2 {
 	return Vec2{X: v.X * factor, Y: v.Y * factor}
 }
 
+func (v Vec2) Normalize() Vec2 {
+	l := length(v)
+	if l == 0 {
+		return Vec2{}
+	}
+	return v.Scale(1 / l)
+}
+
 type Mass struct {
 	ID         int
 	Position   Vec2
@@ -53,10 +61,16 @@ type Simulation struct {
 	Springs    []Spring
 	Damping    float64
 	Parameters Parameters
+	Bounds     Bounds
+}
+
+type Bounds struct {
+	Width  float64
+	Height float64
 }
 
 func NewSimulation() *Simulation {
-	return &Simulation{Damping: 0.98, Parameters: DefaultParameters()}
+	return &Simulation{Damping: 0.98, Parameters: DefaultParameters(), Bounds: Bounds{Width: 640, Height: 480}}
 }
 
 func NewWorld() *Simulation {
