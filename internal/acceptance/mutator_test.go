@@ -174,18 +174,6 @@ func TestBuildMutationsSkipsEquivalentXSPFixedMassSetupCells(t *testing.T) {
 	}
 }
 
-func TestBuildMutationsSkipsEquivalentMouseEditingCells(t *testing.T) {
-	if !isEquivalentMouseEditingMutation(2, "mass_a") {
-		t.Fatal("expected spring endpoint setup mutation to be equivalent")
-	}
-	if !isEquivalentMouseEditingMutation(3, "target_position") {
-		t.Fatal("expected fixed drag target setup mutation to be equivalent")
-	}
-	if isEquivalentMouseEditingMutation(0, "expected_position") {
-		t.Fatal("expected mass placement assertion mutation to be meaningful")
-	}
-}
-
 func TestBuildMutationsSkipsEquivalentSelectionEditingCells(t *testing.T) {
 	feature := gherkin.Feature{
 		Name: "Selection and editing",
@@ -202,6 +190,41 @@ func TestBuildMutationsSkipsEquivalentSelectionEditingCells(t *testing.T) {
 	}
 	if !isEquivalentSelectionEditingMutation(0, "id") || !isEquivalentSelectionEditingMutation(2, "id") {
 		t.Fatal("expected selection id setup mutations to be equivalent")
+	}
+}
+
+func TestEquivalentMutationPredicates(t *testing.T) {
+	for _, check := range []struct {
+		equivalent func(int, string) bool
+		equiv      []mutationCell
+		meaningful mutationCell
+	}{
+		{isEquivalentMouseEditingMutation, []mutationCell{{2, "mass_a"}, {3, "target_position"}}, mutationCell{0, "expected_position"}},
+		{isEquivalentControlsHotkeysMutation, []mutationCell{{1, "initial_state"}, {3, "parameter"}}, mutationCell{0, "shortcut"}},
+	} {
+		for _, cell := range check.equiv {
+			assertEquivalentMutation(t, check.equivalent, cell.scenario, cell.key)
+		}
+		assertMeaningfulMutation(t, check.equivalent, check.meaningful.scenario, check.meaningful.key)
+	}
+}
+
+type mutationCell struct {
+	scenario int
+	key      string
+}
+
+func assertEquivalentMutation(t *testing.T, equivalent func(int, string) bool, scenario int, key string) {
+	t.Helper()
+	if !equivalent(scenario, key) {
+		t.Fatalf("expected %s in scenario %d to be equivalent", key, scenario)
+	}
+}
+
+func assertMeaningfulMutation(t *testing.T, equivalent func(int, string) bool, scenario int, key string) {
+	t.Helper()
+	if equivalent(scenario, key) {
+		t.Fatalf("expected %s in scenario %d to be meaningful", key, scenario)
 	}
 }
 
