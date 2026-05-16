@@ -4,6 +4,8 @@ These tasks break the application into small, reviewable chunks for a Go impleme
 
 Keep the physics and file-format behavior in plain Go packages that do not depend on Ebitengine. Use Ebitengine only at the app boundary. Each implementation slice should include focused unit tests for domain behavior before production code, and acceptance coverage where externally visible behavior changes.
 
+Before a task is forwarded to coder, the task must have a concise Gherkin acceptance specification committed under `features/`.
+
 Suggested order:
 
 1. `01-project-skeleton.md`
