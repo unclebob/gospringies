@@ -40,6 +40,9 @@ type world struct {
 	mouseEditor          *edit.Editor
 	createdMassID        int
 	createdSpringID      int
+	springStartMassID    int
+	springCreated        bool
+	springBehavior       string
 	duplicated           edit.DuplicatedObjects
 	originalMassIDs      []int
 	originalSpringIDs    []int
@@ -328,6 +331,19 @@ var stepHandlers = map[string]stepHandler{
 	"selected mass <mass_id> fixed state is <fixed>":                                       addSelectedMassWithFixedState,
 	"the coder right-drags selected masses with release velocity <release_velocity>":       rightDragSelectedMasses,
 	"mass <mass_id> velocity should be <expected_velocity>":                                assertEditMassVelocity,
+	"the spring mode mouse semantics task is accepted":                                     acceptStep,
+	"spring mode is active":                                                                activateSpringMode,
+	"pointer press is near mass <start_mass>":                                              pressNearSpringMass,
+	"the coder releases the pointer <release_target>":                                      releaseSpringPointer,
+	"spring creation should <result>":                                                      assertSpringCreationResult,
+	"the coder drags with mouse button <button>":                                           dragSpringWithButton,
+	"the pending spring behavior should be <behavior>":                                     assertPendingSpringBehavior,
+	"current Kspring is <kspring>":                                                         setCurrentKspring,
+	"current Kdamp is <kdamp>":                                                             setCurrentKdamp,
+	"the coder creates a spring with length <creation_length>":                             createSpringWithLength,
+	"the spring Kspring should be <kspring>":                                               assertCreatedSpringKspring,
+	"the spring Kdamp should be <kdamp>":                                                   assertCreatedSpringKdamp,
+	"the spring rest length should be <creation_length>":                                   assertCreatedSpringRestLength,
 }
 
 func acceptStep(*world, map[string]string) error {
