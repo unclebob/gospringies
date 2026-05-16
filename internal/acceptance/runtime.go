@@ -68,13 +68,12 @@ func acceptProjectSkeleton(*world, map[string]string) error {
 }
 
 func createPackageLayout(w *world, _ map[string]string) error {
-	w.layoutCreated = true
-	return nil
+	return markCreated(&w.layoutCreated)
 }
 
 func assertPackageDoesNotImport(w *world, example map[string]string) error {
-	if !w.layoutCreated {
-		return fmt.Errorf("package layout has not been created")
+	if err := requirePrerequisite(w.layoutCreated, "package layout has not been created"); err != nil {
+		return err
 	}
 	packageName, err := stringValue(example, "package")
 	if err != nil {
@@ -88,27 +87,37 @@ func assertPackageDoesNotImport(w *world, example map[string]string) error {
 }
 
 func createApplicationCommand(w *world, _ map[string]string) error {
-	w.commandCreated = true
-	return nil
+	return markCreated(&w.commandCreated)
 }
 
 func assertApplicationCommandBuilds(w *world, _ map[string]string) error {
-	if !w.commandCreated {
-		return fmt.Errorf("application command has not been created")
+	if err := requirePrerequisite(w.commandCreated, "application command has not been created"); err != nil {
+		return err
 	}
 	return runCommand("go", "build", "-o", filepath.Join(os.TempDir(), "springs-acceptance-app"), "./cmd/springs")
 }
 
 func createGoModule(w *world, _ map[string]string) error {
-	w.moduleCreated = true
-	return nil
+	return markCreated(&w.moduleCreated)
 }
 
 func assertGoTestsPass(w *world, _ map[string]string) error {
-	if !w.moduleCreated {
-		return fmt.Errorf("go module has not been created")
+	if err := requirePrerequisite(w.moduleCreated, "go module has not been created"); err != nil {
+		return err
 	}
 	return runCommand("go", "test", "./internal/...", "./cmd/...")
+}
+
+func requirePrerequisite(ready bool, message string) error {
+	if !ready {
+		return fmt.Errorf("%s", message)
+	}
+	return nil
+}
+
+func markCreated(created *bool) error {
+	*created = true
+	return nil
 }
 
 func createDemoSimulation(w *world, _ map[string]string) error {
