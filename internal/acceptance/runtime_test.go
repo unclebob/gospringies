@@ -267,69 +267,31 @@ func TestDomainValidationHandlers(t *testing.T) {
 }
 
 func TestRunFeatureExecutesSystemParameterFeature(t *testing.T) {
-	feature, err := gherkin.ReadFile(repoPath("features/004_system_parameters.feature"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := RunFeature(feature); err != nil {
-		t.Fatalf("RunFeature returned error: %v", err)
-	}
+	runFeatureFile(t, "features/004_system_parameters.feature")
 }
 
 func TestRunFeatureExecutesForceEvaluationFeature(t *testing.T) {
-	feature, err := gherkin.ReadFile(repoPath("features/005_force_evaluation.feature"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := RunFeature(feature); err != nil {
-		t.Fatalf("RunFeature returned error: %v", err)
-	}
+	runFeatureFile(t, "features/005_force_evaluation.feature")
 }
 
 func TestRunFeatureExecutesSimulationStepFeature(t *testing.T) {
-	feature, err := gherkin.ReadFile(repoPath("features/006_simulation_step.feature"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := RunFeature(feature); err != nil {
-		t.Fatalf("RunFeature returned error: %v", err)
-	}
+	runFeatureFile(t, "features/006_simulation_step.feature")
 }
 
 func TestRunFeatureExecutesXSPLoadSaveFeature(t *testing.T) {
-	feature, err := gherkin.ReadFile(repoPath("features/007_xsp_load_save.feature"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := RunFeature(feature); err != nil {
-		t.Fatalf("RunFeature returned error: %v", err)
-	}
+	runFeatureFile(t, "features/007_xsp_load_save.feature")
 }
 
 func TestRunFeatureExecutesEbitengineWindowFeature(t *testing.T) {
-	feature, err := gherkin.ReadFile(repoPath("features/008_ebitengine_window.feature"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := RunFeature(feature); err != nil {
-		t.Fatalf("RunFeature returned error: %v", err)
-	}
+	runFeatureFile(t, "features/008_ebitengine_window.feature")
 }
 
 func TestRunFeatureExecutesScreenControlsFeature(t *testing.T) {
-	feature, err := gherkin.ReadFile(repoPath("features/008a_screen_and_controls.feature"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	runFeatureFile(t, "features/008a_screen_and_controls.feature")
+}
 
-	if err := RunFeature(feature); err != nil {
-		t.Fatalf("RunFeature returned error: %v", err)
-	}
+func TestRunFeatureExecutesRenderWorldFeature(t *testing.T) {
+	runFeatureFile(t, "features/009_render_world.feature")
 }
 
 func TestApplicationWindowHelpersReportFailures(t *testing.T) {
@@ -422,6 +384,23 @@ func appWorldWithMassAndSpring(includeMass, includeSpring bool) *world {
 		}
 	}
 	return &world{appGame: game}
+}
+
+func newSteppingGame() appGame {
+	game := app.NewGame()
+	_ = game.World().AddMass(sim.Mass{ID: 1, Mass: 1})
+	return game
+}
+
+func runFeatureFile(t *testing.T, path string) {
+	t.Helper()
+	feature, err := gherkin.ReadFile(repoPath(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := RunFeature(feature); err != nil {
+		t.Fatalf("RunFeature returned error: %v", err)
+	}
 }
 
 func TestXSPLoadedStateChecksSuccessfulLoadState(t *testing.T) {

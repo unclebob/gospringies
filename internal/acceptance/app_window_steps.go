@@ -10,6 +10,7 @@ import (
 type appGame interface {
 	Update() error
 	RenderFrame()
+	RenderWorld() renderResult
 	World() *sim.Simulation
 	SetPaused(bool)
 	EditorScreen() editorScreen
@@ -88,18 +89,13 @@ func setApplicationPauseState(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	game := newSteppingGame()
+	game := app.NewGame()
+	_ = game.World().AddMass(sim.Mass{ID: 1, Mass: 1})
+	game.World().Parameters.EnableForce("gravity", map[string]string{"magnitude": "10", "direction": "90"})
 	game.SetPaused(paused)
 	w.appGame = game
 	w.appBeforeTime = game.World().Time
 	return nil
-}
-
-func newSteppingGame() appGame {
-	game := app.NewGame()
-	_ = game.World().AddMass(sim.Mass{ID: 1, Mass: 1})
-	game.World().Parameters.EnableForce("gravity", map[string]string{"magnitude": "10", "direction": "90"})
-	return game
 }
 
 func updateApplicationLoop(w *world, _ map[string]string) error {
