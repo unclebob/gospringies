@@ -1,6 +1,7 @@
 package acceptance
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -25,6 +26,10 @@ type world struct {
 	smokeAdded     bool
 	smokeParsed    bool
 	smokeGenerated bool
+	domainWorld    *sim.Simulation
+	lookedMass     sim.Mass
+	lookedSpring   sim.Spring
+	validationErr  error
 }
 
 func RunFeature(feature gherkin.Feature) error {
@@ -49,6 +54,277 @@ func RunFeature(feature gherkin.Feature) error {
 
 func runStep(w *world, step gherkin.Step, example map[string]string) error {
 	switch step.Text {
+	case "the domain model task is accepted":
+		return nil
+	case "the coder creates a new world":
+		w.domainWorld = sim.NewWorld()
+		return nil
+	case "the world should contain <mass_count> masses":
+		world, err := domainWorld(w)
+		if err != nil {
+			return err
+		}
+		expected, err := intValue(example, "mass_count")
+		if err != nil {
+			return err
+		}
+		if len(world.Masses) != expected {
+			return fmt.Errorf("expected %d masses, got %d", expected, len(world.Masses))
+		}
+		return nil
+	case "the world should contain <spring_count> springs":
+		world, err := domainWorld(w)
+		if err != nil {
+			return err
+		}
+		expected, err := intValue(example, "spring_count")
+		if err != nil {
+			return err
+		}
+		if len(world.Springs) != expected {
+			return fmt.Errorf("expected %d springs, got %d", expected, len(world.Springs))
+		}
+		return nil
+	case "a world with mass <id> at <x>, <y>", "a world with mass <mass_a> at <x_a>, <y_a>", "a world with mass <mass_b> at <x_b>, <y_b>", "a world with mass <existing_mass> at <x>, <y>":
+		world := ensureDomainWorld(w)
+		id, x, y, err := massFromStep(step.Text, example)
+		if err != nil {
+			return err
+		}
+		if _, ok := world.MassByID(id); ok {
+			return nil
+		}
+		return world.AddMass(sim.Mass{ID: id, Position: sim.Vec2{X: x, Y: y}, Mass: 1})
+	case "mass <id> has velocity <vx>, <vy>":
+		return updateMass(w, example, func(mass *sim.Mass) error {
+			vx, err := floatValue(example, "vx")
+			if err != nil {
+				return err
+			}
+			vy, err := floatValue(example, "vy")
+			if err != nil {
+				return err
+			}
+			mass.Velocity = sim.Vec2{X: vx, Y: vy}
+			return nil
+		})
+	case "mass <id> has mass value <mass_value>":
+		return updateMass(w, example, func(mass *sim.Mass) error {
+			value, err := floatValue(example, "mass_value")
+			if err != nil {
+				return err
+			}
+			mass.Mass = value
+			return nil
+		})
+	case "mass <id> has elasticity <elasticity>":
+		return updateMass(w, example, func(mass *sim.Mass) error {
+			value, err := floatValue(example, "elasticity")
+			if err != nil {
+				return err
+			}
+			mass.Elasticity = value
+			return nil
+		})
+	case "mass <id> fixed state is <fixed>":
+		return updateMass(w, example, func(mass *sim.Mass) error {
+			value, err := boolValue(example, "fixed")
+			if err != nil {
+				return err
+			}
+			mass.Fixed = value
+			return nil
+		})
+	case "the coder looks up mass <id>", "the coder reads mass <id> from the domain model":
+		world, err := domainWorld(w)
+		if err != nil {
+			return err
+		}
+		id, err := intValue(example, "id")
+		if err != nil {
+			return err
+		}
+		mass, ok := world.MassByID(id)
+		if !ok {
+			return fmt.Errorf("mass %d not found", id)
+		}
+		w.lookedMass = mass
+		return nil
+	case "mass <id> should have position <x>, <y>":
+		x, err := floatValue(example, "x")
+		if err != nil {
+			return err
+		}
+		y, err := floatValue(example, "y")
+		if err != nil {
+			return err
+		}
+		return assertVec("position", w.lookedMass.Position, x, y)
+	case "mass <id> should have velocity <vx>, <vy>":
+		vx, err := floatValue(example, "vx")
+		if err != nil {
+			return err
+		}
+		vy, err := floatValue(example, "vy")
+		if err != nil {
+			return err
+		}
+		return assertVec("velocity", w.lookedMass.Velocity, vx, vy)
+	case "mass <id> should have mass value <mass_value>", "mass <id> mass value should remain <mass_value>":
+		expected, err := floatValue(example, "mass_value")
+		if err != nil {
+			return err
+		}
+		return assertFloat("mass value", w.lookedMass.Mass, expected)
+	case "mass <id> should have elasticity <elasticity>":
+		expected, err := floatValue(example, "elasticity")
+		if err != nil {
+			return err
+		}
+		return assertFloat("elasticity", w.lookedMass.Elasticity, expected)
+	case "mass <id> fixed state should be <fixed>":
+		expected, err := boolValue(example, "fixed")
+		if err != nil {
+			return err
+		}
+		if w.lookedMass.Fixed != expected {
+			return fmt.Errorf("expected fixed %t, got %t", expected, w.lookedMass.Fixed)
+		}
+		return nil
+	case "a spring <spring_id> connects mass <mass_a> to mass <mass_b>":
+		world := ensureDomainWorld(w)
+		spring, err := springFromExample(example)
+		if err != nil {
+			return err
+		}
+		if _, ok := world.SpringByID(spring.ID); ok {
+			return nil
+		}
+		return world.AddSpring(spring)
+	case "spring <spring_id> has spring constant <spring_constant>":
+		return updateSpring(w, example, func(spring *sim.Spring) error {
+			value, err := floatValue(example, "spring_constant")
+			if err != nil {
+				return err
+			}
+			spring.SpringConstant = value
+			spring.Stiffness = value
+			return nil
+		})
+	case "spring <spring_id> has damping constant <damping_constant>":
+		return updateSpring(w, example, func(spring *sim.Spring) error {
+			value, err := floatValue(example, "damping_constant")
+			if err != nil {
+				return err
+			}
+			spring.Damping = value
+			return nil
+		})
+	case "spring <spring_id> has rest length <rest_length>":
+		return updateSpring(w, example, func(spring *sim.Spring) error {
+			value, err := floatValue(example, "rest_length")
+			if err != nil {
+				return err
+			}
+			spring.RestLength = value
+			return nil
+		})
+	case "the coder looks up spring <spring_id>":
+		world, err := domainWorld(w)
+		if err != nil {
+			return err
+		}
+		id, err := intValue(example, "spring_id")
+		if err != nil {
+			return err
+		}
+		spring, ok := world.SpringByID(id)
+		if !ok {
+			return fmt.Errorf("spring %d not found", id)
+		}
+		w.lookedSpring = spring
+		return nil
+	case "spring <spring_id> should connect mass <mass_a> to mass <mass_b>":
+		massA, err := intValue(example, "mass_a")
+		if err != nil {
+			return err
+		}
+		massB, err := intValue(example, "mass_b")
+		if err != nil {
+			return err
+		}
+		if w.lookedSpring.MassA != massA || w.lookedSpring.MassB != massB {
+			return fmt.Errorf("expected spring endpoints %d,%d got %d,%d", massA, massB, w.lookedSpring.MassA, w.lookedSpring.MassB)
+		}
+		return nil
+	case "spring <spring_id> should have spring constant <spring_constant>":
+		expected, err := floatValue(example, "spring_constant")
+		if err != nil {
+			return err
+		}
+		return assertFloat("spring constant", w.lookedSpring.SpringConstant, expected)
+	case "spring <spring_id> should have damping constant <damping_constant>":
+		expected, err := floatValue(example, "damping_constant")
+		if err != nil {
+			return err
+		}
+		return assertFloat("damping constant", w.lookedSpring.Damping, expected)
+	case "spring <spring_id> should have rest length <rest_length>":
+		expected, err := floatValue(example, "rest_length")
+		if err != nil {
+			return err
+		}
+		return assertFloat("rest length", w.lookedSpring.RestLength, expected)
+	case "a world already contains a <object_type> with id <id>":
+		world := ensureDomainWorld(w)
+		objectType, err := stringValue(example, "object_type")
+		if err != nil {
+			return err
+		}
+		id, err := intValue(example, "id")
+		if err != nil {
+			return err
+		}
+		if objectType == "mass" {
+			return world.AddMass(sim.Mass{ID: id, Mass: 1})
+		}
+		if err := world.AddMass(sim.Mass{ID: 1, Mass: 1}); err != nil {
+			return err
+		}
+		if err := world.AddMass(sim.Mass{ID: 2, Mass: 1}); err != nil {
+			return err
+		}
+		return world.AddSpring(sim.Spring{ID: id, MassA: 1, MassB: 2})
+	case "the coder adds another <object_type> with id <id>":
+		world := ensureDomainWorld(w)
+		objectType, err := stringValue(example, "object_type")
+		if err != nil {
+			return err
+		}
+		id, err := intValue(example, "id")
+		if err != nil {
+			return err
+		}
+		if objectType == "mass" {
+			w.validationErr = world.AddMass(sim.Mass{ID: id, Mass: 1})
+		} else {
+			w.validationErr = world.AddSpring(sim.Spring{ID: id, MassA: 1, MassB: 2})
+		}
+		return nil
+	case "the coder adds spring <spring_id> connecting mass <mass_a> to mass <mass_b>":
+		world := ensureDomainWorld(w)
+		spring, err := springFromExample(example)
+		if err != nil {
+			return err
+		}
+		w.validationErr = world.AddSpring(spring)
+		return nil
+	case "validation should fail with reason <reason>":
+		reason, err := stringValue(example, "reason")
+		if err != nil {
+			return err
+		}
+		return assertValidationReason(w.validationErr, reason)
 	case "the acceptance pipeline task is accepted":
 		return nil
 	case "the coder runs the acceptance test command":
@@ -363,6 +639,156 @@ func repoPath(path string) string {
 		return path
 	}
 	return filepath.Join(root, path)
+}
+
+func ensureDomainWorld(w *world) *sim.Simulation {
+	if w.domainWorld == nil {
+		w.domainWorld = sim.NewWorld()
+	}
+	return w.domainWorld
+}
+
+func domainWorld(w *world) (*sim.Simulation, error) {
+	if w.domainWorld == nil {
+		return nil, fmt.Errorf("domain world has not been created")
+	}
+	return w.domainWorld, nil
+}
+
+func updateMass(w *world, example map[string]string, update func(*sim.Mass) error) error {
+	world, err := domainWorld(w)
+	if err != nil {
+		return err
+	}
+	id, err := intValue(example, "id")
+	if err != nil {
+		return err
+	}
+	for i := range world.Masses {
+		if world.Masses[i].ID == id {
+			return update(&world.Masses[i])
+		}
+	}
+	return fmt.Errorf("mass %d not found", id)
+}
+
+func updateSpring(w *world, example map[string]string, update func(*sim.Spring) error) error {
+	world, err := domainWorld(w)
+	if err != nil {
+		return err
+	}
+	id, err := intValue(example, "spring_id")
+	if err != nil {
+		return err
+	}
+	for i := range world.Springs {
+		if world.Springs[i].ID == id {
+			return update(&world.Springs[i])
+		}
+	}
+	return fmt.Errorf("spring %d not found", id)
+}
+
+func springFromExample(example map[string]string) (sim.Spring, error) {
+	id, err := intValue(example, "spring_id")
+	if err != nil {
+		return sim.Spring{}, err
+	}
+	massA, err := intValue(example, "mass_a")
+	if err != nil {
+		return sim.Spring{}, err
+	}
+	massB, err := intValue(example, "mass_b")
+	if err != nil {
+		return sim.Spring{}, err
+	}
+	return sim.Spring{ID: id, MassA: massA, MassB: massB}, nil
+}
+
+func assertValidationReason(err error, reason string) error {
+	if err == nil {
+		return fmt.Errorf("validation succeeded, expected %s", reason)
+	}
+	switch strings.TrimSpace(reason) {
+	case "duplicate id":
+		if errors.Is(err, sim.ErrDuplicateID) {
+			return nil
+		}
+	case "missing spring endpoint":
+		if errors.Is(err, sim.ErrMissingSpringEndpoint) {
+			return nil
+		}
+	}
+	return fmt.Errorf("expected validation reason %q, got %v", reason, err)
+}
+
+func assertVec(name string, got sim.Vec2, expectedX, expectedY float64) error {
+	if math.Abs(got.X-expectedX) > 0.000001 || math.Abs(got.Y-expectedY) > 0.000001 {
+		return fmt.Errorf("expected %s %f,%f got %f,%f", name, expectedX, expectedY, got.X, got.Y)
+	}
+	return nil
+}
+
+func assertFloat(name string, got, expected float64) error {
+	if math.Abs(got-expected) > 0.000001 {
+		return fmt.Errorf("expected %s %f got %f", name, expected, got)
+	}
+	return nil
+}
+
+func firstFloat(example map[string]string, keys ...string) (float64, error) {
+	for _, key := range keys {
+		if _, ok := example[key]; ok {
+			return floatValue(example, key)
+		}
+	}
+	return 0, fmt.Errorf("missing example value among %s", strings.Join(keys, ", "))
+}
+
+func massFromStep(stepText string, example map[string]string) (int, float64, float64, error) {
+	switch stepText {
+	case "a world with mass <id> at <x>, <y>":
+		return massFields(example, "id", "x", "y")
+	case "a world with mass <mass_a> at <x_a>, <y_a>":
+		return massFields(example, "mass_a", "x_a", "y_a")
+	case "a world with mass <mass_b> at <x_b>, <y_b>":
+		return massFields(example, "mass_b", "x_b", "y_b")
+	case "a world with mass <existing_mass> at <x>, <y>":
+		return massFields(example, "existing_mass", "x", "y")
+	default:
+		return 0, 0, 0, fmt.Errorf("unsupported mass step %q", stepText)
+	}
+}
+
+func massFields(example map[string]string, idKey, xKey, yKey string) (int, float64, float64, error) {
+	id, err := intValue(example, idKey)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	x, err := floatValue(example, xKey)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	y, err := floatValue(example, yKey)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	return id, x, y, nil
+}
+
+func boolValue(example map[string]string, key string) (bool, error) {
+	value, ok := example[key]
+	if !ok {
+		return false, fmt.Errorf("missing example value %s", key)
+	}
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "true":
+		return true, nil
+	case "false":
+		return false, nil
+	default:
+		return false, fmt.Errorf("invalid bool %s=%q", key, value)
+	}
 }
 
 func repoRoot() (string, error) {
