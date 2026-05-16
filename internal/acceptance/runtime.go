@@ -25,6 +25,11 @@ type world struct {
 	validationErr   error
 	forceEvaluation sim.ForceEvaluation
 	resultingWorld  *sim.Simulation
+	xspInput        string
+	xspWorld        *sim.Simulation
+	xspLoadErr      error
+	xspSavedFirst   string
+	xspSavedSecond  string
 }
 
 type stepHandler func(*world, map[string]string) error
@@ -79,6 +84,7 @@ var stepHandlers = map[string]stepHandler{
 	"mass <id> mass value should remain <mass_value>":                                      assertDomainMassValue,
 	"mass <id> should have elasticity <elasticity>":                                        assertDomainMassElasticity,
 	"mass <id> fixed state should be <fixed>":                                              assertDomainMassFixed,
+	"mass <mass_id> fixed state should be <fixed>":                                         assertXSPMassFixedState,
 	"a spring <spring_id> connects mass <mass_a> to mass <mass_b>":                         addDomainSpring,
 	"spring <spring_id> has spring constant <spring_constant>":                             setDomainSpringConstant,
 	"spring <spring_id> has damping constant <damping_constant>":                           setDomainSpringDamping,
@@ -154,6 +160,21 @@ var stepHandlers = map[string]stepHandler{
 	"the resulting state should be the same on every run":                                  assertResultDeterministic,
 	"the coder advances the simulation by <duration> using render frame rate <frame_rate>": advanceByDurationAtFrameRate,
 	"the resulting simulation time should be <duration>":                                   assertSimulationTime,
+	"the XSP load and save task is accepted":                                               acceptStep,
+	"XSP input starts with <marker>":                                                       createXSPInputWithMarker,
+	"the coder loads the XSP input":                                                        loadXSPInput,
+	"loading should <result>":                                                              assertXSPLoadResult,
+	"XSP input contains command <command>":                                                 createXSPInputWithCommand,
+	"the loaded world should include <loaded_state>":                                       assertXSPLoadedState,
+	"a world loaded from <input_file>":                                                     createWorldLoadedFromFile,
+	"the coder saves the world twice":                                                      saveXSPWorldTwice,
+	"both saved outputs should be identical":                                               assertXSPSavesIdentical,
+	"each saved output should end with a newline":                                          assertXSPSaveEndsWithNewline,
+	"XSP input contains mass <mass_id> with file mass value <file_mass_value>":             createXSPInputWithFileMass,
+	"the coder loads and saves the XSP input":                                              loadAndSaveXSPInput,
+	"saved mass <mass_id> should use file mass sign <file_mass_sign>":                      assertSavedMassSign,
+	"XSP input has problem <problem>":                                                      createMalformedXSPInput,
+	"loading should fail with reason <reason>":                                             assertXSPLoadErrorReason,
 	"a demo spring simulation":                                                             createDemoSimulation,
 	"I advance the simulation <steps> steps":                                               advanceSimulation,
 	"mass <mass> x should be <x>":                                                          assertMassX,

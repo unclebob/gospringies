@@ -275,6 +275,95 @@ func TestRunFeatureExecutesSystemParameterFeature(t *testing.T) {
 	}
 }
 
+func TestRunFeatureExecutesForceEvaluationFeature(t *testing.T) {
+	feature, err := gherkin.ReadFile(repoPath("features/005_force_evaluation.feature"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RunFeature(feature); err != nil {
+		t.Fatalf("RunFeature returned error: %v", err)
+	}
+}
+
+func TestRunFeatureExecutesSimulationStepFeature(t *testing.T) {
+	feature, err := gherkin.ReadFile(repoPath("features/006_simulation_step.feature"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RunFeature(feature); err != nil {
+		t.Fatalf("RunFeature returned error: %v", err)
+	}
+}
+
+func TestRunFeatureExecutesXSPLoadSaveFeature(t *testing.T) {
+	feature, err := gherkin.ReadFile(repoPath("features/007_xsp_load_save.feature"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RunFeature(feature); err != nil {
+		t.Fatalf("RunFeature returned error: %v", err)
+	}
+}
+
+func TestForceEvaluationAndSimulationStepHelperBranches(t *testing.T) {
+	w := &world{}
+	if err := createMovableMassAffectedByForce(w, map[string]string{"force": "center of mass attraction"}); err != nil {
+		t.Fatal(err)
+	}
+	if len(w.domainWorld.Masses) != 2 {
+		t.Fatalf("masses = %#v", w.domainWorld.Masses)
+	}
+	if err := createMassStartPosition(&world{}, map[string]string{"mass_id": "7", "start_position": "initial"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := durationValue(map[string]string{"duration": "forever"}, "duration"); err == nil {
+		t.Fatal("expected unsupported duration")
+	}
+	if _, err := frameRateValue(map[string]string{"frame_rate": "120 fps"}); err == nil {
+		t.Fatal("expected unsupported frame rate")
+	}
+}
+
+func TestSimulationStepHelpersReportFailures(t *testing.T) {
+	if err := createMassStartPosition(&world{}, map[string]string{"mass_id": "1", "start_position": "custom"}); err == nil {
+		t.Fatal("expected unsupported position marker")
+	}
+	if err := assertResultDeterministic(nil, map[string]string{"initial_state": "unknown", "duration": "1 second"}); err == nil {
+		t.Fatal("expected unsupported initial state")
+	}
+	w := &world{domainWorld: sim.NewWorld()}
+	if err := advanceByDurationAtFrameRate(w, map[string]string{"duration": "1 second", "frame_rate": "bad"}); err == nil {
+		t.Fatal("expected unsupported frame rate")
+	}
+	w.resultingWorld = sim.NewWorld()
+	_ = w.resultingWorld.AddMass(sim.Mass{ID: 1, Velocity: sim.Vec2{X: 1}})
+	if err := assertMassVelocityRemains(w, map[string]string{"mass_id": "1", "start_velocity": "zero"}); err == nil {
+		t.Fatal("expected changed velocity error")
+	}
+}
+
+func TestSameWorldStateDetectsDifferences(t *testing.T) {
+	first := sim.NewWorld()
+	second := sim.NewWorld()
+	_ = first.AddMass(sim.Mass{ID: 1})
+	if sameWorldState(first, second) {
+		t.Fatal("expected length mismatch")
+	}
+	_ = second.AddMass(sim.Mass{ID: 1})
+	second.Time = 1
+	if sameWorldState(first, second) {
+		t.Fatal("expected time mismatch")
+	}
+	second.Time = 0
+	second.Masses[0].Position = sim.Vec2{X: 1}
+	if sameWorldState(first, second) {
+		t.Fatal("expected position mismatch")
+	}
+}
+
 func TestSystemParameterHandlersReportFailures(t *testing.T) {
 	w := &world{domainWorld: sim.NewWorld()}
 	if err := assertParameterDefault(w, map[string]string{"parameter": "viscosity", "value": "unset"}); err == nil {
@@ -333,17 +422,6 @@ func TestSystemParameterHandlerHelpers(t *testing.T) {
 	}
 	if err := assertParameterSource(w, map[string]string{"parameter": "viscosity", "expected_value_source": "default value"}); err != nil {
 		t.Fatal(err)
-	}
-}
-
-func TestRunFeatureExecutesForceEvaluationFeature(t *testing.T) {
-	feature, err := gherkin.ReadFile(repoPath("features/005_force_evaluation.feature"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := RunFeature(feature); err != nil {
-		t.Fatalf("RunFeature returned error: %v", err)
 	}
 }
 
@@ -439,17 +517,6 @@ func TestForceEvaluationHandlersReportFailures(t *testing.T) {
 	}
 	if err := assertMassAcceleration(&world{}, map[string]string{"mass_id": "1", "acceleration": "moving"}); err == nil {
 		t.Fatal("expected unsupported acceleration expectation")
-	}
-}
-
-func TestRunFeatureExecutesSimulationStepFeature(t *testing.T) {
-	feature, err := gherkin.ReadFile(repoPath("features/006_simulation_step.feature"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := RunFeature(feature); err != nil {
-		t.Fatalf("RunFeature returned error: %v", err)
 	}
 }
 
