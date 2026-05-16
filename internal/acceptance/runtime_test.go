@@ -31,6 +31,23 @@ func TestRunFeatureExecutesProjectSkeletonScenarios(t *testing.T) {
 	}
 }
 
+func TestRunFeatureExecutesPipelineSmokeScenario(t *testing.T) {
+	feature := gherkin.Feature{
+		Name: "Pipeline smoke",
+		Scenarios: []gherkin.Scenario{{
+			Name: "smoke",
+			Steps: []gherkin.Step{
+				{Keyword: "Given", Text: "acceptance smoke is ready"},
+				{Keyword: "Then", Text: "acceptance smoke should pass"},
+			},
+		}},
+	}
+
+	if err := RunFeature(feature); err != nil {
+		t.Fatalf("RunFeature returned error: %v", err)
+	}
+}
+
 func TestRunFeatureFailsUnsupportedSteps(t *testing.T) {
 	feature := gherkin.Feature{
 		Name: "Unsupported",

@@ -7,6 +7,8 @@ import (
 	"go/format"
 	"os"
 	"path/filepath"
+	"strings"
+	"unicode"
 )
 
 func GenerateGoTest(jsonIRPath, outputPath string) error {
@@ -33,7 +35,7 @@ func generateGoTest(jsonIRPath, outputPath, buildTag string) error {
 	}
 	fmt.Fprintf(&buf, "package generated\n\n")
 	fmt.Fprintf(&buf, "import (\n\t\"encoding/json\"\n\t\"testing\"\n\n\t\"springs/internal/acceptance\"\n\t\"springs/internal/gherkin\"\n)\n\n")
-	fmt.Fprintf(&buf, "func TestGeneratedAcceptance(t *testing.T) {\n")
+	fmt.Fprintf(&buf, "func %s(t *testing.T) {\n", generatedTestName(outputPath))
 	fmt.Fprintf(&buf, "\tvar feature gherkin.Feature\n")
 	fmt.Fprintf(&buf, "\tdata := []byte(`%s`)\n", string(embedded))
 	fmt.Fprintf(&buf, "\tif err := json.Unmarshal(data, &feature); err != nil {\n\t\tt.Fatal(err)\n\t}\n")
@@ -48,6 +50,25 @@ func generateGoTest(jsonIRPath, outputPath, buildTag string) error {
 		return err
 	}
 	return os.WriteFile(outputPath, formatted, 0o644)
+}
+
+func generatedTestName(outputPath string) string {
+	name := strings.TrimSuffix(filepath.Base(outputPath), filepath.Ext(outputPath))
+	var builder strings.Builder
+	builder.WriteString("TestGeneratedAcceptance")
+	capitalizeNext := true
+	for _, r := range name {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			if capitalizeNext {
+				r = unicode.ToUpper(r)
+				capitalizeNext = false
+			}
+			builder.WriteRune(r)
+			continue
+		}
+		capitalizeNext = true
+	}
+	return builder.String()
 }
 
 func readFeatureForGeneration(path string) (any, error) {

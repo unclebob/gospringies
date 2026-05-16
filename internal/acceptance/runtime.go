@@ -18,6 +18,13 @@ type world struct {
 	layoutCreated  bool
 	commandCreated bool
 	moduleCreated  bool
+	parserRan      bool
+	generatorRan   bool
+	generatedRan   bool
+	generated      bool
+	smokeAdded     bool
+	smokeParsed    bool
+	smokeGenerated bool
 }
 
 func RunFeature(feature gherkin.Feature) error {
@@ -42,6 +49,106 @@ func RunFeature(feature gherkin.Feature) error {
 
 func runStep(w *world, step gherkin.Step, example map[string]string) error {
 	switch step.Text {
+	case "the acceptance pipeline task is accepted":
+		return nil
+	case "the coder runs the acceptance test command":
+		if err := runPipeline("features/pipeline_smoke.feature", "pipeline_command"); err != nil {
+			return err
+		}
+		w.parserRan = true
+		w.generatorRan = true
+		w.generatedRan = true
+		return nil
+	case "the Gherkin parser should run successfully":
+		if !w.parserRan {
+			return fmt.Errorf("gherkin parser did not run successfully")
+		}
+		return nil
+	case "the acceptance test generator should run successfully":
+		if !w.generatorRan {
+			return fmt.Errorf("acceptance generator did not run successfully")
+		}
+		return nil
+	case "the generated executable acceptance tests should run successfully":
+		if !w.generatedRan {
+			return fmt.Errorf("generated executable acceptance tests did not run successfully")
+		}
+		return nil
+	case "the coder generates acceptance tests":
+		if err := runParser("features/pipeline_smoke.feature", "build/acceptance/pipeline_artifacts.json"); err != nil {
+			return err
+		}
+		if err := runGenerator("build/acceptance/pipeline_artifacts.json", "acceptance/generated/pipeline_artifacts_acceptance_test.go"); err != nil {
+			return err
+		}
+		w.generated = true
+		return nil
+	case "generated acceptance <artifact> should be written under <generated_location>":
+		if !w.generated {
+			return fmt.Errorf("acceptance tests have not been generated")
+		}
+		artifact, err := stringValue(example, "artifact")
+		if err != nil {
+			return err
+		}
+		location, err := stringValue(example, "generated_location")
+		if err != nil {
+			return err
+		}
+		return generatedArtifactExists(artifact, location)
+	case "hand-written <test_type> tests should remain outside <generated_location>":
+		testType, err := stringValue(example, "test_type")
+		if err != nil {
+			return err
+		}
+		if strings.TrimSpace(testType) != "unit" {
+			return fmt.Errorf("unsupported hand-written test type %q", testType)
+		}
+		location, err := stringValue(example, "generated_location")
+		if err != nil {
+			return err
+		}
+		return handwrittenTestsOutside(location)
+	case "the coder adds a minimal smoke feature":
+		if _, err := os.Stat(repoPath("features/pipeline_smoke.feature")); err != nil {
+			return err
+		}
+		w.smokeAdded = true
+		return nil
+	case "the smoke feature should parse successfully":
+		if !w.smokeAdded {
+			return fmt.Errorf("smoke feature has not been added")
+		}
+		if err := runParser("features/pipeline_smoke.feature", "build/_acceptance-pipeline/smoke/feature.json"); err != nil {
+			return err
+		}
+		w.smokeParsed = true
+		return nil
+	case "the smoke feature should generate an executable acceptance test":
+		if !w.smokeParsed {
+			return fmt.Errorf("smoke feature has not been parsed")
+		}
+		if err := runGenerator("build/_acceptance-pipeline/smoke/feature.json", "build/_acceptance-pipeline/smoke/generated/pipeline_smoke_acceptance_test.go"); err != nil {
+			return err
+		}
+		w.smokeGenerated = true
+		return nil
+	case "the generated smoke acceptance test should pass":
+		if !w.smokeGenerated {
+			return fmt.Errorf("smoke acceptance test has not been generated")
+		}
+		return runCommand("go", "test", "./build/_acceptance-pipeline/smoke/generated")
+	case "the coder checks out the committed project":
+		return nil
+	case "the acceptance test command should pass without uncommitted setup steps":
+		return runCommandWithEnv([]string{
+			"ACCEPTANCE_BUILD_DIR=build/_acceptance-pipeline/clean",
+			"ACCEPTANCE_GENERATED_DIR=build/_acceptance-pipeline/clean/generated",
+		}, "./scripts/acceptance.sh", "features/pipeline_smoke.feature")
+	case "acceptance smoke is ready":
+		return nil
+	case "acceptance smoke should pass":
+		return nil
 	case "the project skeleton task is accepted":
 		return nil
 	case "the coder creates the initial Go package layout":
@@ -160,17 +267,102 @@ func domainPackageDir(packageName string) (string, error) {
 }
 
 func runCommand(name string, args ...string) error {
+	return runCommandWithEnv(nil, name, args...)
+}
+
+func runCommandWithEnv(env []string, name string, args ...string) error {
 	root, err := repoRoot()
 	if err != nil {
 		return err
 	}
 	cmd := exec.Command(name, args...)
 	cmd.Dir = root
+	if len(env) > 0 {
+		cmd.Env = append(os.Environ(), env...)
+	}
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%s %s failed: %w\n%s", name, strings.Join(args, " "), err, output)
 	}
 	return nil
+}
+
+func runPipeline(feature, base string) error {
+	jsonPath := "build/_acceptance-pipeline/" + base + "/feature.json"
+	generatedPath := "build/_acceptance-pipeline/" + base + "/generated/feature_acceptance_test.go"
+	if err := runParser(feature, jsonPath); err != nil {
+		return err
+	}
+	if err := runGenerator(jsonPath, generatedPath); err != nil {
+		return err
+	}
+	return runCommand("go", "test", "./build/_acceptance-pipeline/"+base+"/generated")
+}
+
+func runParser(feature, output string) error {
+	return runCommand("go", "run", "./cmd/gherkin-parser", feature, output)
+}
+
+func runGenerator(jsonPath, output string) error {
+	return runCommand("go", "run", "./cmd/acceptance-generator", jsonPath, output)
+}
+
+func generatedArtifactExists(artifact, location string) error {
+	root, err := repoRoot()
+	if err != nil {
+		return err
+	}
+	var path string
+	switch artifact {
+	case "test source":
+		path = filepath.Join(root, location, "pipeline_artifacts_acceptance_test.go")
+	case "parsed feature":
+		path = filepath.Join(root, location, "pipeline_artifacts.json")
+	default:
+		return fmt.Errorf("unsupported generated artifact %q", artifact)
+	}
+	if _, err := os.Stat(path); err != nil {
+		return err
+	}
+	return nil
+}
+
+func handwrittenTestsOutside(location string) error {
+	root, err := repoRoot()
+	if err != nil {
+		return err
+	}
+	generatedLocation := filepath.Clean(filepath.Join(root, location))
+	var violations []string
+	for _, dir := range []string{"internal", "cmd"} {
+		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, entry os.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if entry.IsDir() || !strings.HasSuffix(entry.Name(), "_test.go") {
+				return nil
+			}
+			if strings.HasPrefix(filepath.Clean(path), generatedLocation) {
+				violations = append(violations, path)
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+	if len(violations) > 0 {
+		return fmt.Errorf("hand-written tests under generated location: %s", strings.Join(violations, ", "))
+	}
+	return nil
+}
+
+func repoPath(path string) string {
+	root, err := repoRoot()
+	if err != nil {
+		return path
+	}
+	return filepath.Join(root, path)
 }
 
 func repoRoot() (string, error) {
