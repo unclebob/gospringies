@@ -49,10 +49,10 @@ func TestBuildMutationsSkipsEquivalentDomainModelCells(t *testing.T) {
 	if mutations[0].Key != "mass_count" || mutations[1].Key != "reason" {
 		t.Fatalf("mutations = %#v", mutations)
 	}
-	if !isEquivalentMutation(feature, 1, "id") {
+	if !isEquivalentMutation(feature, 1, 0, "id") {
 		t.Fatal("expected domain property mutation to be equivalent")
 	}
-	if isEquivalentMutation(feature, 1, "reason") {
+	if isEquivalentMutation(feature, 1, 0, "reason") {
 		t.Fatal("reason mutations should remain meaningful")
 	}
 }
@@ -174,6 +174,25 @@ func TestBuildMutationsSkipsEquivalentXSPFixedMassSetupCells(t *testing.T) {
 	}
 }
 
+func TestBuildMutationsSkipsEquivalentSelectionEditingCells(t *testing.T) {
+	feature := gherkin.Feature{
+		Name: "Selection and editing",
+		Scenarios: []gherkin.Scenario{
+			{Examples: []map[string]string{{"object_type": "mass", "id": "1"}}},
+			{},
+			{Examples: []map[string]string{{"object_type": "spring", "id": "2"}}},
+		},
+	}
+
+	mutations := BuildMutations(feature)
+	if len(mutations) != 2 {
+		t.Fatalf("mutations = %#v", mutations)
+	}
+	if !isEquivalentSelectionEditingMutation(0, "id") || !isEquivalentSelectionEditingMutation(2, "id") {
+		t.Fatal("expected selection id setup mutations to be equivalent")
+	}
+}
+
 func TestBuildMutationsSkipsEquivalentMouseEditingCells(t *testing.T) {
 	if !isEquivalentMouseEditingMutation(1, "snap_size") {
 		t.Fatal("expected snap size setup mutation to be equivalent")
@@ -207,22 +226,80 @@ func TestBuildMutationsSkipsEquivalentMouseEditingCells(t *testing.T) {
 	}
 }
 
-func TestBuildMutationsSkipsEquivalentSelectionEditingCells(t *testing.T) {
+func TestBuildMutationsSkipsEquivalentEditModeDetailsCells(t *testing.T) {
 	feature := gherkin.Feature{
-		Name: "Selection and editing",
+		Name: "Edit mode details",
 		Scenarios: []gherkin.Scenario{
-			{Examples: []map[string]string{{"object_type": "mass", "id": "1"}}},
 			{},
-			{Examples: []map[string]string{{"object_type": "spring", "id": "2"}}},
+			{Examples: []map[string]string{{"inside_objects": "1,2", "outside_objects": "3", "expected_selection": "1,2"}}},
+			{Examples: []map[string]string{{"object_id": "1", "drag_delta": "5,-3", "expected_position": "15,7"}}},
+			{Examples: []map[string]string{
+				{"mass_id": "1", "fixed": "false", "release_velocity": "4,-2", "expected_velocity": "4,-2"},
+				{"mass_id": "2", "fixed": "false", "release_velocity": "0,0", "expected_velocity": "0,0"},
+				{"mass_id": "3", "fixed": "true", "release_velocity": "4,-2", "expected_velocity": "unchanged"},
+			}},
 		},
 	}
 
 	mutations := BuildMutations(feature)
-	if len(mutations) != 2 {
-		t.Fatalf("mutations = %#v", mutations)
+	for _, mutation := range mutations {
+		if mutation.Key == "outside_objects" || mutation.Key == "object_id" || mutation.Key == "mass_id" {
+			t.Fatalf("mutation should be filtered: %#v", mutation)
+		}
+		if mutation.Scenario == 3 && mutation.Example == 2 && mutation.Key == "release_velocity" {
+			t.Fatalf("fixed-mass release velocity should be filtered: %#v", mutation)
+		}
 	}
-	if !isEquivalentSelectionEditingMutation(0, "id") || !isEquivalentSelectionEditingMutation(2, "id") {
-		t.Fatal("expected selection id setup mutations to be equivalent")
+	if !isEquivalentEditModeDetailsMutation(1, 0, "outside_objects") {
+		t.Fatal("expected outside object setup mutation to be equivalent")
+	}
+	if !isEquivalentEditModeDetailsMutation(3, 2, "release_velocity") {
+		t.Fatal("expected fixed-mass release velocity mutation to be equivalent")
+	}
+	if isEquivalentEditModeDetailsMutation(3, 0, "release_velocity") {
+		t.Fatal("movable release velocity mutation should remain meaningful")
+	}
+}
+
+func TestBuildMutationsSkipsEquivalentSpringModeMouseCells(t *testing.T) {
+	feature := gherkin.Feature{
+		Name: "Spring mode mouse semantics",
+		Scenarios: []gherkin.Scenario{
+			{Examples: []map[string]string{{"start_mass": "1", "release_target": "near mass 2", "result": "create spring between 1 and 2"}}},
+			{Examples: []map[string]string{{"start_mass": "1", "button": "left", "behavior": "actively affects the first mass"}}},
+			{Examples: []map[string]string{{"kspring": "12.0", "kdamp": "0.5", "creation_length": "30.0"}}},
+		},
+	}
+
+	mutations := BuildMutations(feature)
+	for _, mutation := range mutations {
+		if mutation.Scenario == 1 && mutation.Key == "start_mass" {
+			t.Fatalf("button behavior start mass should be filtered: %#v", mutation)
+		}
+		if mutation.Scenario == 2 {
+			t.Fatalf("shared default/length cells should be filtered: %#v", mutation)
+		}
+	}
+	if !isEquivalentSpringModeMouseMutation(1, 0, "start_mass") {
+		t.Fatal("expected button scenario start mass to be equivalent")
+	}
+	if !isEquivalentSpringModeMouseMutation(2, 0, "creation_length") {
+		t.Fatal("expected shared creation length to be equivalent")
+	}
+	if isEquivalentSpringModeMouseMutation(0, 0, "release_target") {
+		t.Fatal("release target mutation should remain meaningful")
+	}
+	if !springModeDiscardStartMass(0, 1, "start_mass") {
+		t.Fatal("discard scenario second example start mass should be equivalent")
+	}
+	if springModeDiscardStartMass(1, 1, "start_mass") {
+		t.Fatal("non-discard scenario start mass should remain meaningful")
+	}
+	if springModeDiscardStartMass(0, 0, "start_mass") {
+		t.Fatal("first creation example start mass should remain meaningful")
+	}
+	if springModeDiscardStartMass(0, 1, "release_target") {
+		t.Fatal("discard release target should remain meaningful")
 	}
 }
 
