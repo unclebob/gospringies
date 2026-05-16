@@ -422,3 +422,120 @@ func TestSpringPointerUsesDefaultsAndReleaseLength(t *testing.T) {
 		t.Fatalf("created = %t spring = %#v ok = %t", created, spring, ok)
 	}
 }
+
+func TestSelectedMassParameterControlsUpdateSelectedMasses(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Mass: 1, Elasticity: 0.2})
+	_ = world.AddMass(sim.Mass{ID: 2, Mass: 1, Elasticity: 0.2})
+	editor := NewEditor(world)
+	if err := editor.SelectMass(1); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := editor.ChangeControl("mass", "2.5"); err != nil {
+		t.Fatal(err)
+	}
+	if err := editor.ChangeControl("elasticity", "0.6"); err != nil {
+		t.Fatal(err)
+	}
+	if err := editor.ChangeControl("fixed", "true"); err != nil {
+		t.Fatal(err)
+	}
+
+	selected, _ := world.MassByID(1)
+	unselected, _ := world.MassByID(2)
+	if selected.Mass != 2.5 || selected.Elasticity != 0.6 || !selected.Fixed {
+		t.Fatalf("selected mass = %#v", selected)
+	}
+	if unselected.Mass != 1 || unselected.Elasticity != 0.2 || unselected.Fixed {
+		t.Fatalf("unselected mass = %#v", unselected)
+	}
+}
+
+func TestSelectedSpringParameterControlsUpdateSelectedSprings(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 10}, Mass: 1})
+	_ = world.AddSpring(sim.Spring{ID: 1, MassA: 1, MassB: 2, SpringConstant: 8, Damping: 0.2})
+	_ = world.AddSpring(sim.Spring{ID: 2, MassA: 1, MassB: 2, SpringConstant: 8, Damping: 0.2})
+	editor := NewEditor(world)
+	if err := editor.SelectSpring(1); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := editor.ChangeControl("Kspring", "15"); err != nil {
+		t.Fatal(err)
+	}
+	if err := editor.ChangeControl("Kdamp", "0.8"); err != nil {
+		t.Fatal(err)
+	}
+
+	selected, _ := world.SpringByID(1)
+	unselected, _ := world.SpringByID(2)
+	if selected.SpringConstant != 15 || selected.Stiffness != 15 || selected.Damping != 0.8 {
+		t.Fatalf("selected spring = %#v", selected)
+	}
+	if unselected.SpringConstant != 8 || unselected.Damping != 0.2 {
+		t.Fatalf("unselected spring = %#v", unselected)
+	}
+}
+
+func TestSetRestLengthUsesCurrentSelectedSpringGeometry(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 0, Y: 0}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 3, Y: 4}, Mass: 1})
+	_ = world.AddSpring(sim.Spring{ID: 1, MassA: 1, MassB: 2, RestLength: 1})
+	editor := NewEditor(world)
+	if err := editor.SelectSpring(1); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := editor.SetRestLength(); err != nil {
+		t.Fatal(err)
+	}
+
+	spring, _ := world.SpringByID(1)
+	if spring.RestLength != 5 {
+		t.Fatalf("rest length = %f", spring.RestLength)
+	}
+}
+
+func TestParameterControlsIgnoreIncompatibleSelectionsAndUpdateDefaults(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 20}, Mass: 1})
+	_ = world.AddSpring(sim.Spring{ID: 1, MassA: 1, MassB: 2, SpringConstant: 8})
+	editor := NewEditor(world)
+	if err := editor.SelectSpring(1); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := editor.ChangeControl("mass", "3"); err != nil {
+		t.Fatal(err)
+	}
+	editor.Mode = ModeAddMass
+	massID, err := editor.Click(sim.Vec2{X: 30})
+	if err != nil {
+		t.Fatal(err)
+	}
+	createdMass, _ := world.MassByID(massID)
+	if createdMass.Mass != 3 {
+		t.Fatalf("created mass = %#v", createdMass)
+	}
+
+	if err := editor.SelectMass(1); err != nil {
+		t.Fatal(err)
+	}
+	if err := editor.ChangeControl("Kspring", "20"); err != nil {
+		t.Fatal(err)
+	}
+	editor.Mode = ModeAddSpring
+	springID, err := editor.CreateSpring(1, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	createdSpring, _ := world.SpringByID(springID)
+	if createdSpring.SpringConstant != 20 {
+		t.Fatalf("created spring = %#v", createdSpring)
+	}
+}

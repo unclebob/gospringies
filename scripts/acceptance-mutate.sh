@@ -1,4 +1,4 @@
 #!/bin/sh
 set -eu
 
-go run ./cmd/gherkin-mutator --feature features/017_state_save_restore.feature "$@"
+go run ./cmd/gherkin-mutator --feature features/018_selected_object_parameter_editing.feature "$@"
