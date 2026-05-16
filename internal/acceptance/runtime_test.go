@@ -338,6 +338,10 @@ func TestRunFeatureExecutesStateSaveRestoreFeature(t *testing.T) {
 	runFeatureFile(t, "features/017_state_save_restore.feature")
 }
 
+func TestRunFeatureExecutesSelectedObjectParameterEditingFeature(t *testing.T) {
+	runFeatureFile(t, "features/018_selected_object_parameter_editing.feature")
+}
+
 func TestRenderWorldHelpersValidateInputs(t *testing.T) {
 	if err := createApplicationWorldState(&world{}, map[string]string{}); err == nil {
 		t.Fatal("expected missing world state")

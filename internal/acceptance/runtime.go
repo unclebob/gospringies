@@ -357,6 +357,19 @@ var stepHandlers = map[string]stepHandler{
 	"the world is in state <memory_state>":                                                 createMemoryWorldState,
 	"the coder performs file operation <file_operation>":                                   runStateFileOperation,
 	"the world should be in state <memory_state>":                                          assertApplicationStateWorld,
+	"the selected object parameter editing task is accepted":                               acceptStep,
+	"selected mass <mass_id> exists":                                                       createSelectedParameterMass,
+	"the coder changes mass control <control> to <value>":                                  changeMassControl,
+	"mass <mass_id> should have <control> value <value>":                                   assertMassControlValue,
+	"selected spring <spring_id> exists":                                                   createSelectedParameterSpring,
+	"the coder changes spring control <control> to <value>":                                changeSpringControl,
+	"spring <spring_id> should have <control> value <value>":                               assertSpringControlValue,
+	"selected spring <spring_id> has current length <current_length>":                      createSelectedSpringWithCurrentLength,
+	"the coder sets rest length":                                                           setSelectedRestLength,
+	"spring <spring_id> rest length should be <current_length>":                            assertSelectedSpringRestLength,
+	"no selected object is compatible with control <control>":                              createNoCompatibleSelection,
+	"the coder changes control <control> to <value>":                                       changeGenericControl,
+	"future <object_type> objects should use <control> value <value>":                      assertFutureObjectUsesControlValue,
 }
 
 func acceptStep(*world, map[string]string) error {

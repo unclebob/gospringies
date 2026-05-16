@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-FEATURE="${1:-features/017_state_save_restore.feature}"
+FEATURE="${1:-features/018_selected_object_parameter_editing.feature}"
 BASENAME=$(basename "$FEATURE" .feature)
 BUILD_DIR="${ACCEPTANCE_BUILD_DIR:-build/acceptance}"
 GENERATED_DIR="${ACCEPTANCE_GENERATED_DIR:-acceptance/generated}"
