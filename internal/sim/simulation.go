@@ -62,6 +62,7 @@ type Simulation struct {
 	Damping    float64
 	Parameters Parameters
 	Bounds     Bounds
+	Time       float64
 }
 
 type Bounds struct {
@@ -81,12 +82,14 @@ func (s *Simulation) Reset() {
 	s.Masses = nil
 	s.Springs = nil
 	s.Parameters = DefaultParameters()
+	s.Time = 0
 }
 
 func (s *Simulation) LoadFrom(other *Simulation) {
 	s.Masses = append([]Mass{}, other.Masses...)
 	s.Springs = append([]Spring{}, other.Springs...)
 	s.Parameters = other.Parameters.Clone()
+	s.Time = other.Time
 }
 
 func (s *Simulation) InsertFrom(other *Simulation) {
@@ -183,31 +186,33 @@ func (s *Simulation) Advance(steps int, dt float64) {
 	}
 }
 
-func (s *Simulation) Step(dt float64) {
-	forces := make([]Vec2, len(s.Masses))
-	for _, spring := range s.Springs {
-		a := s.Masses[spring.A]
-		b := s.Masses[spring.B]
-		delta := b.Position.Sub(a.Position)
-		distance := length(delta)
-		if distance == 0 {
-			continue
-		}
-		direction := delta.Scale(1 / distance)
-		magnitude := spring.Stiffness * (distance - spring.RestLength)
-		force := direction.Scale(magnitude)
-		forces[spring.A] = forces[spring.A].Add(force)
-		forces[spring.B] = forces[spring.B].Add(force.Scale(-1))
+func (s *Simulation) AdvanceDuration(duration float64) {
+	dt := parameterFloat(s.Parameters, "timestep")
+	if dt <= 0 {
+		dt = 0.016
 	}
+	for remaining := duration; remaining > 0; {
+		step := dt
+		if remaining < step {
+			step = remaining
+		}
+		s.Step(step)
+		remaining -= step
+	}
+}
+
+func (s *Simulation) Step(dt float64) {
+	evaluation := s.EvaluateForces()
 	for i := range s.Masses {
 		mass := &s.Masses[i]
 		if mass.Fixed {
 			continue
 		}
-		acceleration := forces[i].Scale(1 / mass.Mass)
+		acceleration := evaluation.ByMassID[mass.ID].Acceleration
 		mass.Velocity = mass.Velocity.Add(acceleration.Scale(dt)).Scale(s.Damping)
 		mass.Position = mass.Position.Add(mass.Velocity.Scale(dt))
 	}
+	s.Time += dt
 }
 
 func length(v Vec2) float64 {

@@ -105,6 +105,8 @@ func isEquivalentMutation(feature gherkin.Feature, scenarioIndex int, key string
 		default:
 			return false
 		}
+	case "Simulation step":
+		return scenarioIndex == 1 && key == "mass_id"
 	default:
 		return false
 	}
