@@ -348,6 +348,10 @@ func TestRunFeatureExecutesControlsHotkeysFeature(t *testing.T) {
 	runFeatureFile(t, "features/012_controls_and_hotkeys.feature")
 }
 
+func TestRunFeatureExecutesDemoFilesFeature(t *testing.T) {
+	runFeatureFile(t, "features/013_demo_files.feature")
+}
+
 func TestRenderWorldHelpersValidateInputs(t *testing.T) {
 	if err := createApplicationWorldState(&world{}, map[string]string{}); err == nil {
 		t.Fatal("expected missing world state")
