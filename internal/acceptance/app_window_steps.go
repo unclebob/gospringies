@@ -56,7 +56,7 @@ func resizeApplicationWindow(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	if !supportedWindowSizes[size] {
+	if !supportedWindowSize(size) {
 		return fmt.Errorf("unsupported window size %q", size)
 	}
 	if !app.DefaultWindowConfig().Resizable {
@@ -67,9 +67,13 @@ func resizeApplicationWindow(w *world, example map[string]string) error {
 	return nil
 }
 
-var supportedWindowSizes = map[string]bool{
-	"small": true,
-	"large": true,
+func supportedWindowSize(size string) bool {
+	switch size {
+	case "small", "large":
+		return true
+	default:
+		return false
+	}
 }
 
 func assertApplicationContinuesRunning(w *world, _ map[string]string) error {
@@ -120,7 +124,7 @@ func assertApplicationStepping(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	expected, ok := steppingStates[stepping]
+	expected, ok := expectedSteppingState(stepping)
 	if !ok {
 		return fmt.Errorf("unsupported stepping state %q", stepping)
 	}
@@ -130,9 +134,15 @@ func assertApplicationStepping(w *world, example map[string]string) error {
 	return nil
 }
 
-var steppingStates = map[string]bool{
-	"active":  true,
-	"stopped": false,
+func expectedSteppingState(stepping string) (bool, bool) {
+	switch stepping {
+	case "active":
+		return true, true
+	case "stopped":
+		return false, true
+	default:
+		return false, false
+	}
 }
 
 func assertApplicationInputActive(w *world, _ map[string]string) error {

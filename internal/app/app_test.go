@@ -63,6 +63,14 @@ func TestGameDraw(t *testing.T) {
 	}
 }
 
+func TestMassDrawRectCentersOnMassPosition(t *testing.T) {
+	x, y, width, height := massDrawRect(sim.Mass{Position: sim.Vec2{X: 30, Y: 40}})
+
+	if x != 25 || y != 35 || width != 10 || height != 10 {
+		t.Fatalf("draw rect = %f,%f %fx%f", x, y, width, height)
+	}
+}
+
 func TestWindowConfigIsResizable(t *testing.T) {
 	config := DefaultWindowConfig()
 	if !config.Resizable {

@@ -122,8 +122,13 @@ func (g *Game) drawSprings(screen *ebiten.Image) {
 
 func (g *Game) drawMasses(screen *ebiten.Image) {
 	for _, mass := range g.simulation.Masses {
-		ebitenutil.DrawRect(screen, mass.Position.X-5, mass.Position.Y-5, 10, 10, massDrawColor(mass))
+		x, y, width, height := massDrawRect(mass)
+		ebitenutil.DrawRect(screen, x, y, width, height, massDrawColor(mass))
 	}
+}
+
+func massDrawRect(mass sim.Mass) (float64, float64, float64, float64) {
+	return mass.Position.X - 5, mass.Position.Y - 5, 10, 10
 }
 
 func massDrawColor(mass sim.Mass) color.Color {
