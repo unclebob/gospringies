@@ -9,6 +9,23 @@ import (
 
 type renderResult = app.RenderResult
 
+var renderableObjectSetups = map[string]func(appGame){
+	"movable mass": func(game appGame) {
+		_ = game.World().AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 20, Y: 20}, Mass: 1})
+	},
+	"fixed mass": func(game appGame) {
+		_ = game.World().AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 20, Y: 20}, Mass: 1, Fixed: true})
+	},
+	"spring":       func(game appGame) { addRenderSpring(game.World()) },
+	"enabled wall": func(game appGame) { game.World().Parameters.EnableWall("left") },
+	"selection": func(game appGame) {
+		_ = game.World().AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 20, Y: 20}, Mass: 1})
+		game.SetSelected(true)
+	},
+}
+
+var springVisibilityStates = map[string]bool{"visible": true, "hidden": false}
+
 func createApplicationWorldState(w *world, example map[string]string) error {
 	state, err := stringValue(example, "world_state")
 	if err != nil {
@@ -76,7 +93,7 @@ func assertSpringLineVisibility(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	expected, ok := map[string]bool{"visible": true, "hidden": false}[visibility]
+	expected, ok := booleanState(visibility, springVisibilityStates)
 	if !ok {
 		return fmt.Errorf("unsupported spring visibility %q", visibility)
 	}
@@ -106,29 +123,12 @@ func assertFixedMassDistinguishable(w *world, _ map[string]string) error {
 }
 
 func addRenderableObject(game appGame, object string) error {
-	add, ok := renderableObjectSetups()[object]
+	add, ok := renderableObjectSetups[object]
 	if !ok {
 		return fmt.Errorf("unsupported renderable object %q", object)
 	}
 	add(game)
 	return nil
-}
-
-func renderableObjectSetups() map[string]func(appGame) {
-	return map[string]func(appGame){
-		"movable mass": func(game appGame) {
-			_ = game.World().AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 20, Y: 20}, Mass: 1})
-		},
-		"fixed mass": func(game appGame) {
-			_ = game.World().AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 20, Y: 20}, Mass: 1, Fixed: true})
-		},
-		"spring":       func(game appGame) { addRenderSpring(game.World()) },
-		"enabled wall": func(game appGame) { game.World().Parameters.EnableWall("left") },
-		"selection": func(game appGame) {
-			_ = game.World().AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 20, Y: 20}, Mass: 1})
-			game.SetSelected(true)
-		},
-	}
 }
 
 func addRenderSpring(world *sim.Simulation) {

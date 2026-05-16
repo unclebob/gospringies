@@ -267,27 +267,69 @@ func TestDomainValidationHandlers(t *testing.T) {
 }
 
 func TestRunFeatureExecutesSystemParameterFeature(t *testing.T) {
-	runFeatureFile(t, "features/004_system_parameters.feature")
+	feature, err := gherkin.ReadFile(repoPath("features/004_system_parameters.feature"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RunFeature(feature); err != nil {
+		t.Fatalf("RunFeature returned error: %v", err)
+	}
 }
 
 func TestRunFeatureExecutesForceEvaluationFeature(t *testing.T) {
-	runFeatureFile(t, "features/005_force_evaluation.feature")
+	feature, err := gherkin.ReadFile(repoPath("features/005_force_evaluation.feature"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RunFeature(feature); err != nil {
+		t.Fatalf("RunFeature returned error: %v", err)
+	}
 }
 
 func TestRunFeatureExecutesSimulationStepFeature(t *testing.T) {
-	runFeatureFile(t, "features/006_simulation_step.feature")
+	feature, err := gherkin.ReadFile(repoPath("features/006_simulation_step.feature"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RunFeature(feature); err != nil {
+		t.Fatalf("RunFeature returned error: %v", err)
+	}
 }
 
 func TestRunFeatureExecutesXSPLoadSaveFeature(t *testing.T) {
-	runFeatureFile(t, "features/007_xsp_load_save.feature")
+	feature, err := gherkin.ReadFile(repoPath("features/007_xsp_load_save.feature"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RunFeature(feature); err != nil {
+		t.Fatalf("RunFeature returned error: %v", err)
+	}
 }
 
 func TestRunFeatureExecutesEbitengineWindowFeature(t *testing.T) {
-	runFeatureFile(t, "features/008_ebitengine_window.feature")
+	feature, err := gherkin.ReadFile(repoPath("features/008_ebitengine_window.feature"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RunFeature(feature); err != nil {
+		t.Fatalf("RunFeature returned error: %v", err)
+	}
 }
 
 func TestRunFeatureExecutesScreenControlsFeature(t *testing.T) {
-	runFeatureFile(t, "features/008a_screen_and_controls.feature")
+	feature, err := gherkin.ReadFile(repoPath("features/008a_screen_and_controls.feature"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RunFeature(feature); err != nil {
+		t.Fatalf("RunFeature returned error: %v", err)
+	}
 }
 
 func TestRunFeatureExecutesRenderWorldFeature(t *testing.T) {
@@ -304,6 +346,111 @@ func TestRunFeatureExecutesSelectionEditingFeature(t *testing.T) {
 
 func TestRunFeatureExecutesControlsHotkeysFeature(t *testing.T) {
 	runFeatureFile(t, "features/012_controls_and_hotkeys.feature")
+}
+
+func TestRenderWorldHelpersValidateInputs(t *testing.T) {
+	if err := createApplicationWorldState(&world{}, map[string]string{}); err == nil {
+		t.Fatal("expected missing world state")
+	}
+	if err := createApplicationWorldState(&world{}, map[string]string{"world_state": "unsupported"}); err == nil {
+		t.Fatal("expected unsupported world state")
+	}
+	if err := assertVisibleRepresentation(&world{}, map[string]string{}); err == nil {
+		t.Fatal("expected missing object")
+	}
+	if err := assertSpringLineVisibility(&world{}, map[string]string{}); err == nil {
+		t.Fatal("expected missing spring visibility")
+	}
+	if err := assertSpringLineVisibility(&world{}, map[string]string{"spring_visibility": "blurred"}); err == nil {
+		t.Fatal("expected unsupported spring visibility")
+	}
+	if visible, ok := booleanState("visible", springVisibilityStates); !ok || !visible {
+		t.Fatalf("visible spring state = %t, %t", visible, ok)
+	}
+	if hidden, ok := booleanState("hidden", springVisibilityStates); !ok || hidden {
+		t.Fatalf("hidden spring state = %t, %t", hidden, ok)
+	}
+}
+
+func TestRenderableObjectSetupsCreateExpectedWorlds(t *testing.T) {
+	tests := []struct {
+		name      string
+		masses    []sim.Mass
+		springs   []sim.Spring
+		wallLeft  bool
+		visibleAs string
+	}{
+		{
+			name:      "movable mass",
+			masses:    []sim.Mass{{ID: 1, Position: sim.Vec2{X: 20, Y: 20}, Mass: 1}},
+			visibleAs: "movable mass",
+		},
+		{
+			name:      "fixed mass",
+			masses:    []sim.Mass{{ID: 1, Position: sim.Vec2{X: 20, Y: 20}, Mass: 1, Fixed: true}},
+			visibleAs: "fixed mass",
+		},
+		{
+			name: "spring",
+			masses: []sim.Mass{
+				{ID: 1, Position: sim.Vec2{X: 20, Y: 20}, Mass: 1, Fixed: true},
+				{ID: 2, Position: sim.Vec2{X: 40, Y: 20}, Mass: 1},
+			},
+			springs:   []sim.Spring{{ID: 1, A: 0, B: 1, MassA: 1, MassB: 2, RestLength: 20, Stiffness: 12, SpringConstant: 12}},
+			visibleAs: "spring",
+		},
+		{name: "enabled wall", wallLeft: true, visibleAs: "enabled wall"},
+		{
+			name:      "selection",
+			masses:    []sim.Mass{{ID: 1, Position: sim.Vec2{X: 20, Y: 20}, Mass: 1}},
+			visibleAs: "selection",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			game := app.NewGame()
+			if err := addRenderableObject(game, test.name); err != nil {
+				t.Fatal(err)
+			}
+			assertMasses(t, game.World().Masses, test.masses)
+			assertSprings(t, game.World().Springs, test.springs)
+			if game.World().Parameters.Walls["left"] != test.wallLeft {
+				t.Fatalf("left wall = %t, want %t", game.World().Parameters.Walls["left"], test.wallLeft)
+			}
+			if result := game.RenderWorld(); !result.HasVisibleRepresentation(test.visibleAs) {
+				t.Fatalf("render result missing %q: %#v", test.visibleAs, result.Representations)
+			}
+		})
+	}
+
+	if err := addRenderableObject(app.NewGame(), "unsupported"); err == nil {
+		t.Fatal("expected unsupported renderable object")
+	}
+}
+
+func assertMasses(t *testing.T, actual, expected []sim.Mass) {
+	t.Helper()
+	if len(actual) != len(expected) {
+		t.Fatalf("mass count = %d, want %d", len(actual), len(expected))
+	}
+	for i := range expected {
+		if actual[i] != expected[i] {
+			t.Fatalf("mass %d = %#v, want %#v", i, actual[i], expected[i])
+		}
+	}
+}
+
+func assertSprings(t *testing.T, actual, expected []sim.Spring) {
+	t.Helper()
+	if len(actual) != len(expected) {
+		t.Fatalf("spring count = %d, want %d", len(actual), len(expected))
+	}
+	for i := range expected {
+		if actual[i] != expected[i] {
+			t.Fatalf("spring %d = %#v, want %#v", i, actual[i], expected[i])
+		}
+	}
 }
 
 func TestApplicationWindowHelpersReportFailures(t *testing.T) {
@@ -483,12 +630,6 @@ func appWorldWithMassAndSpring(includeMass, includeSpring bool) *world {
 		}
 	}
 	return &world{appGame: game}
-}
-
-func newSteppingGame() appGame {
-	game := app.NewGame()
-	_ = game.World().AddMass(sim.Mass{ID: 1, Mass: 1})
-	return game
 }
 
 func runFeatureFile(t *testing.T, path string) {
