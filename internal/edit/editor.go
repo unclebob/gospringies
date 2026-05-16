@@ -11,6 +11,7 @@ import (
 const (
 	ModeAddMass   = "add mass"
 	ModeAddSpring = "add spring"
+	ModeEdit      = "edit"
 )
 
 type Editor struct {

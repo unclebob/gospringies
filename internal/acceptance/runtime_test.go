@@ -308,6 +308,10 @@ func TestRunFeatureExecutesPackagingDocsFeature(t *testing.T) {
 	runFeatureFile(t, "features/014_packaging_and_docs.feature")
 }
 
+func TestRunFeatureExecutesEditModeDetailsFeature(t *testing.T) {
+	runFeatureFile(t, "features/015_edit_mode_details.feature")
+}
+
 func TestRenderWorldHelpersValidateInputs(t *testing.T) {
 	if err := createApplicationWorldState(&world{}, map[string]string{}); err == nil {
 		t.Fatal("expected missing world state")

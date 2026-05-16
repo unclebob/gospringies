@@ -49,10 +49,10 @@ func TestBuildMutationsSkipsEquivalentDomainModelCells(t *testing.T) {
 	if mutations[0].Key != "mass_count" || mutations[1].Key != "reason" {
 		t.Fatalf("mutations = %#v", mutations)
 	}
-	if !isEquivalentMutation(feature, 1, "id") {
+	if !isEquivalentMutation(feature, 1, 0, "id") {
 		t.Fatal("expected domain property mutation to be equivalent")
 	}
-	if isEquivalentMutation(feature, 1, "reason") {
+	if isEquivalentMutation(feature, 1, 0, "reason") {
 		t.Fatal("reason mutations should remain meaningful")
 	}
 }
@@ -223,6 +223,41 @@ func TestBuildMutationsSkipsEquivalentMouseEditingCells(t *testing.T) {
 	}
 	if isEquivalentMouseEditingMutation(0, "expected_position") {
 		t.Fatal("expected mass placement assertion mutation to be meaningful")
+	}
+}
+
+func TestBuildMutationsSkipsEquivalentEditModeDetailsCells(t *testing.T) {
+	feature := gherkin.Feature{
+		Name: "Edit mode details",
+		Scenarios: []gherkin.Scenario{
+			{},
+			{Examples: []map[string]string{{"inside_objects": "1,2", "outside_objects": "3", "expected_selection": "1,2"}}},
+			{Examples: []map[string]string{{"object_id": "1", "drag_delta": "5,-3", "expected_position": "15,7"}}},
+			{Examples: []map[string]string{
+				{"mass_id": "1", "fixed": "false", "release_velocity": "4,-2", "expected_velocity": "4,-2"},
+				{"mass_id": "2", "fixed": "false", "release_velocity": "0,0", "expected_velocity": "0,0"},
+				{"mass_id": "3", "fixed": "true", "release_velocity": "4,-2", "expected_velocity": "unchanged"},
+			}},
+		},
+	}
+
+	mutations := BuildMutations(feature)
+	for _, mutation := range mutations {
+		if mutation.Key == "outside_objects" || mutation.Key == "object_id" || mutation.Key == "mass_id" {
+			t.Fatalf("mutation should be filtered: %#v", mutation)
+		}
+		if mutation.Scenario == 3 && mutation.Example == 2 && mutation.Key == "release_velocity" {
+			t.Fatalf("fixed-mass release velocity should be filtered: %#v", mutation)
+		}
+	}
+	if !isEquivalentEditModeDetailsMutation(1, 0, "outside_objects") {
+		t.Fatal("expected outside object setup mutation to be equivalent")
+	}
+	if !isEquivalentEditModeDetailsMutation(3, 2, "release_velocity") {
+		t.Fatal("expected fixed-mass release velocity mutation to be equivalent")
+	}
+	if isEquivalentEditModeDetailsMutation(3, 0, "release_velocity") {
+		t.Fatal("movable release velocity mutation should remain meaningful")
 	}
 }
 

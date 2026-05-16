@@ -66,7 +66,7 @@ func BuildMutations(feature gherkin.Feature) []Mutation {
 func buildMutation(feature gherkin.Feature, scenarioIndex, exampleIndex int, key, original string, idNumber int) (Mutation, bool) {
 	path := fmt.Sprintf("$.scenarios[%d].examples[%d].%s", scenarioIndex, exampleIndex, key)
 	mutated := mutateValue(path, original)
-	if mutated == original || isEquivalentMutation(feature, scenarioIndex, key) {
+	if mutated == original || isEquivalentMutation(feature, scenarioIndex, exampleIndex, key) {
 		return Mutation{}, false
 	}
 	return Mutation{
@@ -81,7 +81,10 @@ func buildMutation(feature gherkin.Feature, scenarioIndex, exampleIndex int, key
 	}, true
 }
 
-func isEquivalentMutation(feature gherkin.Feature, scenarioIndex int, key string) bool {
+func isEquivalentMutation(feature gherkin.Feature, scenarioIndex, exampleIndex int, key string) bool {
+	if feature.Name == "Edit mode details" {
+		return isEquivalentEditModeDetailsMutation(scenarioIndex, exampleIndex, key)
+	}
 	equivalent := map[string]func(int, string) bool{
 		"Domain model":          isEquivalentDomainModelMutation,
 		"System parameters":     isEquivalentSystemParameterMutation,
@@ -153,6 +156,19 @@ func isEquivalentMouseEditingMutation(scenarioIndex int, key string) bool {
 
 func isEquivalentSelectionEditingMutation(scenarioIndex int, key string) bool {
 	return key == "id" && (scenarioIndex == 0 || scenarioIndex == 2)
+}
+
+func isEquivalentEditModeDetailsMutation(scenarioIndex, exampleIndex int, key string) bool {
+	keys := map[int]map[string]bool{
+		1: {"outside_objects": true},
+		2: {"object_id": true},
+		3: {"mass_id": true},
+	}
+	return keys[scenarioIndex][key] || editModeFixedReleaseVelocity(scenarioIndex, exampleIndex, key)
+}
+
+func editModeFixedReleaseVelocity(scenarioIndex, exampleIndex int, key string) bool {
+	return scenarioIndex == 3 && exampleIndex == 2 && key == "release_velocity"
 }
 
 func isEquivalentControlsHotkeysMutation(scenarioIndex int, key string) bool {

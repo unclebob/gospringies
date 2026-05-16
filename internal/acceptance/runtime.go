@@ -313,6 +313,21 @@ var stepHandlers = map[string]stepHandler{
 	"the coder completes the packaging and docs task":                                      completePackagingDocsTask,
 	"the handoff should include the local verification commands that were run":             assertHandoffIncludesVerificationCommands,
 	"the handoff should include the result of each verification command":                   assertHandoffIncludesVerificationResults,
+	"the edit mode details task is accepted":                                               acceptStep,
+	"edit mode is active":                                                                  activateEditMode,
+	"object <object_id> is near the pointer":                                               addObjectNearPointer,
+	"selection initially contains <initial_selection>":                                     setInitialEditSelection,
+	"the coder <click_action> object <object_id>":                                          clickEditObject,
+	"selection should contain <expected_selection>":                                        assertEditSelection,
+	"objects <inside_objects> are inside the selection box":                                addObjectsInsideSelectionBox,
+	"objects <outside_objects> are outside the selection box":                              addObjectsOutsideSelectionBox,
+	"the coder drags an empty-space selection box with <modifier>":                         dragSelectionBox,
+	"selected object <object_id> starts at <start_position>":                               addSelectedObjectAtStart,
+	"the coder middle-drags selected objects by <drag_delta>":                              middleDragSelectedObjects,
+	"object <object_id> position should be <expected_position>":                            assertEditObjectPosition,
+	"selected mass <mass_id> fixed state is <fixed>":                                       addSelectedMassWithFixedState,
+	"the coder right-drags selected masses with release velocity <release_velocity>":       rightDragSelectedMasses,
+	"mass <mass_id> velocity should be <expected_velocity>":                                assertEditMassVelocity,
 }
 
 func acceptStep(*world, map[string]string) error {
