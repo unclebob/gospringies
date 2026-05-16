@@ -332,6 +332,17 @@ func TestRunFeatureExecutesScreenControlsFeature(t *testing.T) {
 	}
 }
 
+func TestRunFeatureExecutesRenderWorldFeature(t *testing.T) {
+	feature, err := gherkin.ReadFile(repoPath("features/009_render_world.feature"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RunFeature(feature); err != nil {
+		t.Fatalf("RunFeature returned error: %v", err)
+	}
+}
+
 func TestApplicationWindowHelpersReportFailures(t *testing.T) {
 	openErr := errors.New("open failed")
 	if err := assertApplicationWindowOpened(&world{appErr: openErr}, nil); err != openErr {
