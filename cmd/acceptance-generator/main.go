@@ -8,12 +8,17 @@ import (
 )
 
 func main() {
-	if len(os.Args) != 3 {
+	os.Exit(run(os.Args))
+}
+
+func run(args []string) int {
+	if len(args) != 3 {
 		fmt.Fprintln(os.Stderr, "usage: acceptance-generator <json-ir> <generated-test-output>")
-		os.Exit(2)
+		return 2
 	}
-	if err := acceptance.GenerateGoTest(os.Args[1], os.Args[2]); err != nil {
+	if err := acceptance.GenerateGoTest(args[1], args[2]); err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }

@@ -1,6 +1,8 @@
 package gherkin
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -45,6 +47,31 @@ Examples:
 	}
 	if got := scenario.Examples[1]["greeting"]; got != "Hello, Bob" {
 		t.Fatalf("second greeting = %q", got)
+	}
+}
+
+func TestReadFileAndJSONRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	featurePath := filepath.Join(dir, "project.feature")
+	jsonPath := filepath.Join(dir, "project.json")
+	source := "Feature: Project\n\nScenario: one\n  Given a thing\n"
+
+	if err := os.WriteFile(featurePath, []byte(source), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	feature, err := ReadFile(featurePath)
+	if err != nil {
+		t.Fatalf("ReadFile returned error: %v", err)
+	}
+	if err := WriteJSON(feature, jsonPath); err != nil {
+		t.Fatalf("WriteJSON returned error: %v", err)
+	}
+	roundTripped, err := ReadJSON(jsonPath)
+	if err != nil {
+		t.Fatalf("ReadJSON returned error: %v", err)
+	}
+	if roundTripped.Name != "Project" || len(roundTripped.Scenarios) != 1 {
+		t.Fatalf("round-tripped feature = %#v", roundTripped)
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 
 	"springs/internal/acceptance"
@@ -11,57 +12,106 @@ import (
 )
 
 func main() {
-	featurePath := flag.String("feature", "features/a-feature.feature", "Gherkin feature file to parse and mutate")
-	workDir := flag.String("work-dir", "build/acceptance-mutation", "directory where mutation work files are written")
-	jsonReport := flag.Bool("json", false, "emit JSON report")
-	_ = flag.Int("workers", 1, "maximum mutation workers")
-	_ = flag.Duration("timeout", 0, "full mutation timeout")
-	flag.Parse()
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+}
 
-	feature, err := gherkin.ReadFile(*featurePath)
+func run(args []string, stdout, stderr io.Writer) int {
+	options, err := parseOptions(args, stderr)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return 2
 	}
-	results, err := acceptance.RunMutations(feature, *workDir)
+	summary, results, err := runFeatureMutations(options.featurePath, options.workDir)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		fmt.Fprintln(stderr, err)
+		return 1
 	}
-	summary := acceptance.Summarize(results)
-	if *jsonReport {
-		printJSON(summary, results)
+	printReport(stdout, stderr, options.jsonReport, summary, results)
+	return exitCodeFromSummary(summary)
+}
+
+type options struct {
+	featurePath string
+	workDir     string
+	jsonReport  bool
+}
+
+func parseOptions(args []string, stderr io.Writer) (options, error) {
+	flags := flag.NewFlagSet("gherkin-mutator", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	featurePath := flags.String("feature", "features/a-feature.feature", "Gherkin feature file to parse and mutate")
+	workDir := flags.String("work-dir", "build/acceptance-mutation", "directory where mutation work files are written")
+	jsonReport := flags.Bool("json", false, "emit JSON report")
+	_ = flags.Int("workers", 1, "maximum mutation workers")
+	_ = flags.Duration("timeout", 0, "full mutation timeout")
+	if err := flags.Parse(args); err != nil {
+		return options{}, err
+	}
+	return options{featurePath: *featurePath, workDir: *workDir, jsonReport: *jsonReport}, nil
+}
+
+func runFeatureMutations(featurePath, workDir string) (acceptance.MutationSummary, []acceptance.MutationResult, error) {
+	feature, err := gherkin.ReadFile(featurePath)
+	if err != nil {
+		return acceptance.MutationSummary{}, nil, err
+	}
+	results, err := acceptance.RunMutations(feature, workDir)
+	if err != nil {
+		return acceptance.MutationSummary{}, nil, err
+	}
+	return acceptance.Summarize(results), results, nil
+}
+
+func printReport(stdout, stderr io.Writer, jsonReport bool, summary acceptance.MutationSummary, results []acceptance.MutationResult) {
+	if jsonReport {
+		printJSON(stdout, stderr, summary, results)
 	} else {
-		printText(summary, results)
+		printText(stdout, summary, results)
 	}
+}
+
+func exitCodeFromSummary(summary acceptance.MutationSummary) int {
 	if summary.Survived > 0 || summary.Errors > 0 {
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }
 
-func printText(summary acceptance.MutationSummary, results []acceptance.MutationResult) {
-	fmt.Printf("total=%d killed=%d survived=%d errors=%d\n", summary.Total, summary.Killed, summary.Survived, summary.Errors)
+func printText(w io.Writer, summary acceptance.MutationSummary, results []acceptance.MutationResult) {
+	fmt.Fprintf(w, "total=%d killed=%d survived=%d errors=%d\n", summary.Total, summary.Killed, summary.Survived, summary.Errors)
 	for _, result := range results {
-		fmt.Printf("%-8s %s\n", result.Status, result.Mutation.Description)
-		if result.Status == "survived" || result.Status == "error" {
-			if result.Error != "" {
-				fmt.Printf("  error: %s\n", result.Error)
-			}
-			if result.Output != "" {
-				fmt.Printf("  output:\n%s", result.Output)
-			}
-		}
+		printResult(w, result)
 	}
 }
 
-func printJSON(summary acceptance.MutationSummary, results []acceptance.MutationResult) {
+func printResult(w io.Writer, result acceptance.MutationResult) {
+	fmt.Fprintf(w, "%-8s %s\n", result.Status, result.Mutation.Description)
+	if result.Status != "survived" && result.Status != "error" {
+		return
+	}
+	printError(w, result.Error)
+	printOutput(w, result.Output)
+}
+
+func printError(w io.Writer, message string) {
+	if message != "" {
+		fmt.Fprintf(w, "  error: %s\n", message)
+	}
+}
+
+func printOutput(w io.Writer, output string) {
+	if output != "" {
+		fmt.Fprintf(w, "  output:\n%s", output)
+	}
+}
+
+func printJSON(stdout, stderr io.Writer, summary acceptance.MutationSummary, results []acceptance.MutationResult) {
 	data, err := json.MarshalIndent(struct {
 		Summary acceptance.MutationSummary
 		Results []acceptance.MutationResult
 	}{summary, results}, "", "  ")
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		fmt.Fprintln(stderr, err)
+		return
 	}
-	fmt.Println(string(data))
+	fmt.Fprintln(stdout, string(data))
 }
