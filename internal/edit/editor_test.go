@@ -24,6 +24,15 @@ func TestClickAddMassUsesDefaults(t *testing.T) {
 	}
 }
 
+func TestClickRejectsUnsupportedMode(t *testing.T) {
+	editor := NewEditor(sim.NewWorld())
+	editor.Mode = ModeAddSpring
+
+	if _, err := editor.Click(sim.Vec2{}); err == nil {
+		t.Fatal("expected unsupported click mode")
+	}
+}
+
 func TestGridSnapAffectsPlacement(t *testing.T) {
 	world := sim.NewWorld()
 	editor := NewEditor(world)
@@ -38,6 +47,23 @@ func TestGridSnapAffectsPlacement(t *testing.T) {
 	}
 	mass, _ := world.MassByID(id)
 	if mass.Position != (sim.Vec2{X: 120, Y: 90}) {
+		t.Fatalf("position = %#v", mass.Position)
+	}
+}
+
+func TestGridSnapIgnoresInvalidSize(t *testing.T) {
+	world := sim.NewWorld()
+	editor := NewEditor(world)
+	editor.Mode = ModeAddMass
+	editor.GridSnapEnabled = true
+
+	id, err := editor.Click(sim.Vec2{X: 123, Y: 87})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	mass, _ := world.MassByID(id)
+	if mass.Position != (sim.Vec2{X: 123, Y: 87}) {
 		t.Fatalf("position = %#v", mass.Position)
 	}
 }
@@ -62,6 +88,21 @@ func TestCreateSpringUsesDefaults(t *testing.T) {
 	}
 }
 
+func TestCreateSpringReportsUnsupportedModeAndMissingEndpoint(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Mass: 1})
+	editor := NewEditor(world)
+
+	if _, err := editor.CreateSpring(1, 2); err == nil {
+		t.Fatal("expected unsupported spring mode")
+	}
+
+	editor.Mode = ModeAddSpring
+	if _, err := editor.CreateSpring(1, 2); err == nil {
+		t.Fatal("expected missing spring endpoint")
+	}
+}
+
 func TestDragMovesOnlyMovableMasses(t *testing.T) {
 	world := sim.NewWorld()
 	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
@@ -79,5 +120,13 @@ func TestDragMovesOnlyMovableMasses(t *testing.T) {
 	fixed, _ := world.MassByID(2)
 	if movable.Position != (sim.Vec2{X: 40, Y: 50}) || fixed.Position != (sim.Vec2{X: 10, Y: 10}) {
 		t.Fatalf("movable = %#v fixed = %#v", movable, fixed)
+	}
+}
+
+func TestDragReportsMissingMass(t *testing.T) {
+	editor := NewEditor(sim.NewWorld())
+
+	if err := editor.DragMass(99, sim.Vec2{}); err == nil {
+		t.Fatal("expected missing mass")
 	}
 }
