@@ -11,6 +11,7 @@ import (
 const (
 	ModeAddMass   = "add mass"
 	ModeAddSpring = "add spring"
+	ModeEdit      = "edit"
 )
 
 type Editor struct {
@@ -20,6 +21,7 @@ type Editor struct {
 	GridSnapSize    float64
 	SelectedMasses  map[int]bool
 	SelectedSprings map[int]bool
+	pendingSpring   *PendingSpring
 }
 
 func NewEditor(world *sim.Simulation) *Editor {

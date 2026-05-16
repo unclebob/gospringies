@@ -10,9 +10,9 @@ Scenario Outline: spring creation depends on release target
   Then spring creation should <result>
 
 Examples:
-  | start_mass | release_target | result                      |
+  | start_mass | release_target | result                        |
   | 1          | near mass 2    | create spring between 1 and 2 |
-  | 1          | away from mass | discard pending spring      |
+  | 1          | away from mass | discard pending spring        |
 
 Scenario Outline: mouse button controls spring activation behavior
   Given spring mode is active
@@ -21,10 +21,10 @@ Scenario Outline: mouse button controls spring activation behavior
   Then the pending spring behavior should be <behavior>
 
 Examples:
-  | start_mass | button | behavior                              |
-  | 1          | left   | actively affects the first mass       |
+  | start_mass | button | behavior                                     |
+  | 1          | left   | actively affects the first mass              |
   | 1          | middle | temporary cursor spring discarded on release |
-  | 1          | right  | inactive until the spring is placed   |
+  | 1          | right  | inactive until the spring is placed          |
 
 Scenario Outline: created springs use defaults and creation length
   Given spring mode is active

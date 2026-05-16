@@ -99,15 +99,19 @@ func TestCreateSpringUsesDefaults(t *testing.T) {
 func TestCreateSpringReportsUnsupportedModeAndMissingEndpoint(t *testing.T) {
 	world := sim.NewWorld()
 	_ = world.AddMass(sim.Mass{ID: 1, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Mass: 1})
 	editor := NewEditor(world)
 
-	if _, err := editor.CreateSpring(1, 2); err == nil {
+	if id, err := editor.CreateSpring(1, 2); err == nil || id != 0 {
 		t.Fatal("expected unsupported spring mode")
 	}
 
 	editor.Mode = ModeAddSpring
-	if _, err := editor.CreateSpring(1, 2); err == nil {
-		t.Fatal("expected missing spring endpoint")
+	if id, err := editor.CreateSpring(1, 99); err == nil || id != 0 {
+		t.Fatalf("expected missing second spring endpoint, id = %d err = %v", id, err)
+	}
+	if id, err := editor.CreateSpring(99, 2); err == nil || id != 0 {
+		t.Fatalf("expected missing first spring endpoint, id = %d err = %v", id, err)
 	}
 }
 
@@ -141,6 +145,43 @@ func TestDragReportsMissingMass(t *testing.T) {
 
 	if err := editor.DragMass(99, sim.Vec2{}); err == nil {
 		t.Fatal("expected missing mass")
+	}
+}
+
+func TestDragFixedMassDoesNotMoveOtherMasses(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 20, Y: 20}, Mass: 1, Fixed: true})
+	editor := NewEditor(world)
+
+	if err := editor.DragMass(2, sim.Vec2{X: 40, Y: 50}); err != nil {
+		t.Fatal(err)
+	}
+	movable, _ := world.MassByID(1)
+	fixed, _ := world.MassByID(2)
+	if movable.Position != (sim.Vec2{X: 10, Y: 10}) || fixed.Position != (sim.Vec2{X: 20, Y: 20}) {
+		t.Fatalf("movable = %#v fixed = %#v", movable, fixed)
+	}
+}
+
+func TestEditorMathHelpersCoverBoundaryCases(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Mass: 1})
+	_ = world.AddSpring(sim.Spring{ID: 1, MassA: 1, MassB: 1})
+	if nextMassID(world) != 2 || nextSpringID(world) != 2 {
+		t.Fatalf("next IDs = mass %d spring %d", nextMassID(world), nextSpringID(world))
+	}
+	editor := NewEditor(world)
+	editor.GridSnapEnabled = true
+	editor.GridSnapSize = 1
+	if got := editor.snap(sim.Vec2{X: 1.4, Y: 2.6}); got != (sim.Vec2{X: 1, Y: 3}) {
+		t.Fatalf("snap = %#v", got)
+	}
+	if got := distance(sim.Vec2{X: 3, Y: 0}, sim.Vec2{X: 1, Y: 0}); got != 2 {
+		t.Fatalf("distance = %f", got)
+	}
+	if got := distance(sim.Vec2{X: 0, Y: 4}, sim.Vec2{X: 0, Y: 1}); got != 3 {
+		t.Fatalf("vertical distance = %f", got)
 	}
 }
 
@@ -259,6 +300,9 @@ func TestDuplicateSelectedObjectsCreatesIndependentIDs(t *testing.T) {
 	if len(duplicated.MassIDs) != 2 || len(duplicated.SpringIDs) != 1 {
 		t.Fatalf("duplicated = %#v", duplicated)
 	}
+	if !editor.MassSelected(duplicated.MassIDs[0]) || !editor.MassSelected(duplicated.MassIDs[1]) || !editor.SpringSelected(duplicated.SpringIDs[0]) {
+		t.Fatalf("duplicate selection = %#v %#v", editor.SelectedMasses, editor.SelectedSprings)
+	}
 	dupMass, ok := world.MassByID(duplicated.MassIDs[0])
 	if !ok || dupMass.ID == 1 || dupMass.Position != (sim.Vec2{X: 10, Y: 20}) || dupMass.Mass != 2 {
 		t.Fatalf("duplicate mass = %#v, ok = %t", dupMass, ok)
@@ -266,5 +310,234 @@ func TestDuplicateSelectedObjectsCreatesIndependentIDs(t *testing.T) {
 	dupSpring, ok := world.SpringByID(duplicated.SpringIDs[0])
 	if !ok || dupSpring.ID == 3 || dupSpring.MassA == 1 || dupSpring.MassB == 2 {
 		t.Fatalf("duplicate spring = %#v, ok = %t", dupSpring, ok)
+	}
+}
+
+func TestSelectNearestReplacesOrTogglesSelection(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 0, Y: 0}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 20, Y: 0}, Mass: 1})
+	editor := NewEditor(world)
+	editor.SelectedMasses[1] = true
+
+	if err := editor.SelectNearest(sim.Vec2{X: 19, Y: 0}, false); err != nil {
+		t.Fatal(err)
+	}
+	if editor.MassSelected(1) || !editor.MassSelected(2) {
+		t.Fatalf("selection = %#v", editor.SelectedMasses)
+	}
+
+	if err := editor.SelectNearest(sim.Vec2{X: 1, Y: 0}, true); err != nil {
+		t.Fatal(err)
+	}
+	if !editor.MassSelected(1) || !editor.MassSelected(2) {
+		t.Fatalf("selection = %#v", editor.SelectedMasses)
+	}
+	if err := editor.SelectNearest(sim.Vec2{X: 1, Y: 0}, true); err != nil {
+		t.Fatal(err)
+	}
+	if editor.MassSelected(1) || !editor.MassSelected(2) {
+		t.Fatalf("selection = %#v", editor.SelectedMasses)
+	}
+
+	tieWorld := sim.NewWorld()
+	_ = tieWorld.AddMass(sim.Mass{ID: 10, Position: sim.Vec2{X: 0}, Mass: 1})
+	_ = tieWorld.AddMass(sim.Mass{ID: 20, Position: sim.Vec2{X: 2}, Mass: 1})
+	tieEditor := NewEditor(tieWorld)
+	if id, ok := tieEditor.nearestMassID(sim.Vec2{X: 1}); id != 10 || !ok {
+		t.Fatalf("tie nearest = id %d ok %t", id, ok)
+	}
+	if id, ok := NewEditor(sim.NewWorld()).nearestMassID(sim.Vec2{}); id != 0 || ok {
+		t.Fatalf("empty nearest = id %d ok %t", id, ok)
+	}
+}
+
+func TestBoxSelectAndShiftBoxSelect(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 20, Y: 20}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 3, Position: sim.Vec2{X: 100, Y: 100}, Mass: 1})
+	editor := NewEditor(world)
+
+	editor.BoxSelect(sim.Vec2{}, sim.Vec2{X: 50, Y: 50}, false)
+	if !editor.MassSelected(1) || !editor.MassSelected(2) || editor.MassSelected(3) {
+		t.Fatalf("selection = %#v", editor.SelectedMasses)
+	}
+
+	editor.clearSelection()
+	editor.SelectedMasses[3] = true
+	editor.BoxSelect(sim.Vec2{}, sim.Vec2{X: 15, Y: 15}, true)
+	if !editor.MassSelected(1) || editor.MassSelected(2) || !editor.MassSelected(3) {
+		t.Fatalf("selection = %#v", editor.SelectedMasses)
+	}
+
+	for _, point := range []sim.Vec2{{X: 0, Y: 0}, {X: 15, Y: 15}, {X: 0, Y: 15}, {X: 15, Y: 0}} {
+		if !withinBox(point, sim.Vec2{X: 15, Y: 15}, sim.Vec2{}) {
+			t.Fatalf("point %#v should be inside reversed box", point)
+		}
+	}
+	for _, point := range []sim.Vec2{{X: -1, Y: 10}, {X: 16, Y: 10}, {X: 10, Y: -1}, {X: 10, Y: 16}} {
+		if withinBox(point, sim.Vec2{}, sim.Vec2{X: 15, Y: 15}) {
+			t.Fatalf("point %#v should be outside box", point)
+		}
+	}
+}
+
+func TestReindexSpringsRequiresBothEndpoints(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 10, Mass: 1})
+	world.Springs = append(world.Springs, sim.Spring{ID: 1, A: 7, B: 8, MassA: 10, MassB: 99})
+	editor := NewEditor(world)
+
+	editor.reindexSprings()
+
+	spring, _ := world.SpringByID(1)
+	if spring.A != 7 || spring.B != 8 {
+		t.Fatalf("spring indexes = %#v", spring)
+	}
+}
+
+func TestMoveAndThrowSelectedSkipFixedMasses(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 20, Y: 20}, Mass: 1, Fixed: true})
+	editor := NewEditor(world)
+	editor.SelectedMasses[1] = true
+	editor.SelectedMasses[2] = true
+
+	editor.MoveSelected(sim.Vec2{X: 5, Y: -3})
+	editor.ThrowSelected(sim.Vec2{X: 4, Y: -2})
+
+	movable, _ := world.MassByID(1)
+	fixed, _ := world.MassByID(2)
+	if movable.Position != (sim.Vec2{X: 15, Y: 7}) || movable.Velocity != (sim.Vec2{X: 4, Y: -2}) {
+		t.Fatalf("movable = %#v", movable)
+	}
+	if fixed.Position != (sim.Vec2{X: 20, Y: 20}) || fixed.Velocity != (sim.Vec2{}) {
+		t.Fatalf("fixed = %#v", fixed)
+	}
+}
+
+func TestSpringPointerCreatesOrDiscardsSpringByReleaseTarget(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 0, Y: 0}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 30, Y: 0}, Mass: 1})
+	editor := NewEditor(world)
+	editor.Mode = ModeAddSpring
+
+	if err := editor.BeginSpring(sim.Vec2{X: 1, Y: 0}, SpringButtonLeft); err != nil {
+		t.Fatal(err)
+	}
+	id, created, err := editor.ReleaseSpring(sim.Vec2{X: 30, Y: 1})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !created || id != 1 {
+		t.Fatalf("created = %t id = %d", created, id)
+	}
+	spring, ok := world.SpringByID(id)
+	if !ok || spring.MassA != 1 || spring.MassB != 2 {
+		t.Fatalf("spring = %#v, ok = %t", spring, ok)
+	}
+
+	if err := editor.BeginSpring(sim.Vec2{X: 0, Y: 0}, SpringButtonLeft); err != nil {
+		t.Fatal(err)
+	}
+	if _, created, err := editor.ReleaseSpring(sim.Vec2{X: 100, Y: 100}); err != nil || created {
+		t.Fatalf("created = %t err = %v", created, err)
+	}
+}
+
+func TestSpringPointerButtonBehavior(t *testing.T) {
+	tests := []struct {
+		button    string
+		active    bool
+		temporary bool
+	}{
+		{button: SpringButtonLeft, active: true},
+		{button: SpringButtonMiddle, active: true, temporary: true},
+		{button: SpringButtonRight},
+	}
+
+	for _, test := range tests {
+		t.Run(test.button, func(t *testing.T) {
+			world := sim.NewWorld()
+			_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{}, Mass: 1})
+			editor := NewEditor(world)
+			editor.Mode = ModeAddSpring
+
+			if err := editor.BeginSpring(sim.Vec2{}, test.button); err != nil {
+				t.Fatal(err)
+			}
+			editor.DragSpring(sim.Vec2{X: 10})
+			pending, ok := editor.PendingSpring()
+
+			if !ok || pending.StartMassID != 1 || pending.Active != test.active || pending.Temporary != test.temporary || pending.Cursor != (sim.Vec2{X: 10}) {
+				t.Fatalf("pending = %#v, ok = %t", pending, ok)
+			}
+		})
+	}
+}
+
+func TestSpringPointerUsesDefaultsAndReleaseLength(t *testing.T) {
+	world := sim.NewWorld()
+	world.Parameters.Set("spring constant", "12")
+	world.Parameters.Set("damping", "0.5")
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 30}, Mass: 1})
+	editor := NewEditor(world)
+	editor.Mode = ModeAddSpring
+
+	if err := editor.BeginSpring(sim.Vec2{}, SpringButtonLeft); err != nil {
+		t.Fatal(err)
+	}
+	id, created, err := editor.ReleaseSpring(sim.Vec2{X: 30})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	spring, ok := world.SpringByID(id)
+	if !created || !ok || spring.SpringConstant != 12 || spring.Damping != 0.5 || spring.RestLength != 30 {
+		t.Fatalf("created = %t spring = %#v ok = %t", created, spring, ok)
+	}
+}
+
+func TestSpringPointerReleaseAndHitBoundaries(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{}, Mass: 1})
+	editor := NewEditor(world)
+	editor.Mode = ModeAddSpring
+
+	if id, created, err := editor.ReleaseSpring(sim.Vec2{}); err == nil || created || id != 0 {
+		t.Fatalf("release without pending = id %d created %t err %v", id, created, err)
+	}
+	if pending, ok := editor.PendingSpring(); ok || pending != (PendingSpring{}) {
+		t.Fatalf("empty pending = %#v ok=%t", pending, ok)
+	}
+	if id, ok := editor.massNear(sim.Vec2{}); id != 1 || !ok {
+		t.Fatalf("near mass = id %d ok %t", id, ok)
+	}
+	if id, ok := editor.massNear(sim.Vec2{X: springHitRadius}); id != 1 || !ok {
+		t.Fatalf("boundary mass = id %d ok %t", id, ok)
+	}
+	if id, ok := editor.massNear(sim.Vec2{X: springHitRadius + 1}); id != 0 || ok {
+		t.Fatalf("outside mass = id %d ok %t", id, ok)
+	}
+	if id, ok := NewEditor(sim.NewWorld()).massNear(sim.Vec2{}); id != 0 || ok {
+		t.Fatalf("empty-world mass = id %d ok %t", id, ok)
+	}
+
+	if err := editor.BeginSpring(sim.Vec2{}, SpringButtonMiddle); err != nil {
+		t.Fatal(err)
+	}
+	if id, created, err := editor.ReleaseSpring(sim.Vec2{}); err != nil || created || id != 0 {
+		t.Fatalf("temporary release = id %d created %t err %v", id, created, err)
+	}
+	if err := editor.BeginSpring(sim.Vec2{}, SpringButtonLeft); err != nil {
+		t.Fatal(err)
+	}
+	if id, created, err := editor.ReleaseSpring(sim.Vec2{X: springHitRadius + 1}); err != nil || created || id != 0 {
+		t.Fatalf("missed release = id %d created %t err %v", id, created, err)
 	}
 }

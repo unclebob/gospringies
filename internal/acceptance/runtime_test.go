@@ -326,6 +326,14 @@ func TestRunFeatureExecutesPackagingDocsFeature(t *testing.T) {
 	runFeatureFile(t, "features/014_packaging_and_docs.feature")
 }
 
+func TestRunFeatureExecutesEditModeDetailsFeature(t *testing.T) {
+	runFeatureFile(t, "features/015_edit_mode_details.feature")
+}
+
+func TestRunFeatureExecutesSpringModeMouseSemanticsFeature(t *testing.T) {
+	runFeatureFile(t, "features/016_spring_mode_mouse_semantics.feature")
+}
+
 func TestRenderWorldHelpersValidateInputs(t *testing.T) {
 	if err := createApplicationWorldState(&world{}, map[string]string{}); err == nil {
 		t.Fatal("expected missing world state")
@@ -488,6 +496,237 @@ func TestPackagingDocsHelpersReportFailures(t *testing.T) {
 	}
 	if err := assertHandoffIncludesVerificationResults(&world{handoffVerification: map[string]string{"go test": "passed"}}, nil); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestEditModeDetailsHelpersValidateSetupAndAssertions(t *testing.T) {
+	w := &world{}
+	if err := activateEditMode(w, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := addObjectNearPointer(w, map[string]string{"object_id": "3"}); err != nil {
+		t.Fatal(err)
+	}
+	mass, err := editMassByID(w, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mass.Position != (sim.Vec2{X: 30, Y: 0}) || mass.Mass != 1 || mass.Fixed {
+		t.Fatalf("mass near pointer = %#v", mass)
+	}
+
+	if editPointerPosition(4) != (sim.Vec2{X: 40, Y: 0}) {
+		t.Fatalf("pointer position = %#v", editPointerPosition(4))
+	}
+	if insideSelectionBoxPosition(2) != (sim.Vec2{X: 30, Y: 10}) {
+		t.Fatalf("inside position = %#v", insideSelectionBoxPosition(2))
+	}
+	if outsideSelectionBoxPosition(2) != (sim.Vec2{X: 120, Y: 100}) {
+		t.Fatalf("outside position = %#v", outsideSelectionBoxPosition(2))
+	}
+
+	if err := assertEditObjectPosition(w, nil); err == nil {
+		t.Fatal("expected missing object id error")
+	}
+	if err := assertEditObjectPosition(w, map[string]string{"object_id": "3"}); err == nil {
+		t.Fatal("expected missing expected position error")
+	}
+	if err := assertEditObjectPosition(w, map[string]string{"object_id": "3", "expected_position": "30,0"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertEditObjectPosition(w, map[string]string{"object_id": "99", "expected_position": "30,0"}); err == nil {
+		t.Fatal("expected missing mass position error")
+	}
+	if err := assertEditSelection(w, nil); err == nil {
+		t.Fatal("expected missing selection error")
+	}
+}
+
+func TestEditModeDetailsSelectionHelpersValidateBranches(t *testing.T) {
+	w := &world{}
+	if err := setInitialEditSelection(w, map[string]string{"initial_selection": "1,2"}); err != nil {
+		t.Fatal(err)
+	}
+	if selected := selectedEditMassIDs(ensureMouseEditor(w)); strings.Join(intStrings(selected), ",") != "1,2" {
+		t.Fatalf("selection = %v", selected)
+	}
+	first, _ := editMassByID(w, 1)
+	second, _ := editMassByID(w, 2)
+	if first.Position != (sim.Vec2{X: 10, Y: 0}) || first.Fixed || second.Position != (sim.Vec2{X: 20, Y: 0}) || second.Fixed {
+		t.Fatalf("selected mass positions = %#v %#v", first, second)
+	}
+
+	if err := addEditObjects(&world{}, map[string]string{"ids": "5,6"}, "ids", insideSelectionBoxPosition); err != nil {
+		t.Fatal(err)
+	}
+	boxWorld := &world{}
+	if err := addObjectsInsideSelectionBox(boxWorld, map[string]string{"inside_objects": "1,2"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := addObjectsOutsideSelectionBox(boxWorld, map[string]string{"outside_objects": "3"}); err != nil {
+		t.Fatal(err)
+	}
+	ensureMouseEditor(boxWorld).SelectedMasses[3] = true
+	if err := dragSelectionBox(boxWorld, map[string]string{"modifier": "none"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertEditSelection(boxWorld, map[string]string{"expected_selection": "1,2"}); err != nil {
+		t.Fatal(err)
+	}
+	ensureMouseEditor(boxWorld).SelectedMasses[3] = true
+	if err := dragSelectionBox(boxWorld, map[string]string{"modifier": "shift"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertEditSelection(boxWorld, map[string]string{"expected_selection": "1,2,3"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := dragSelectionBox(boxWorld, map[string]string{"modifier": "unsupported"}); err == nil {
+		t.Fatal("expected unsupported selection-box modifier")
+	}
+}
+
+func TestEditModeDetailsVelocityHelpersValidateBranches(t *testing.T) {
+	w := &world{}
+	if err := addSelectedMassWithFixedState(w, map[string]string{"mass_id": "4", "fixed": "true"}); err != nil {
+		t.Fatal(err)
+	}
+	mass, err := editMassByID(w, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !mass.Fixed || mass.Position != (sim.Vec2{X: 40, Y: 0}) || mass.Velocity != editInitialVelocity {
+		t.Fatalf("fixed selected mass = %#v", mass)
+	}
+
+	setEditMassVelocity(w, 4, sim.Vec2{X: 1, Y: 2})
+	if err := assertEditMassVelocity(w, map[string]string{"mass_id": "4", "expected_velocity": "1,2"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertEditMassVelocity(w, nil); err == nil {
+		t.Fatal("expected missing mass id velocity error")
+	}
+	if err := assertEditMassVelocity(w, map[string]string{"mass_id": "99", "expected_velocity": "1,2"}); err == nil || !strings.Contains(err.Error(), "mass 99 not found") {
+		t.Fatal("expected missing mass velocity error")
+	}
+	if err := assertEditMassExpectedVelocity(4, mass, nil); err == nil {
+		t.Fatal("expected missing expected velocity")
+	}
+	if err := assertEditMassExpectedVelocity(4, mass, map[string]string{"expected_velocity": "bad"}); err == nil || !strings.Contains(err.Error(), "invalid position") {
+		t.Fatal("expected invalid expected velocity")
+	}
+	if err := assertEditMassExpectedVelocity(4, sim.Mass{Velocity: editInitialVelocity}, map[string]string{"expected_velocity": "unchanged"}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSpringModeMouseHelpersValidateSetupAndAssertions(t *testing.T) {
+	w := &world{}
+	if err := activateSpringMode(w, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertSpringCreationResult(w, nil); err == nil || !strings.Contains(err.Error(), "missing example value") {
+		t.Fatalf("expected missing spring result, got %v", err)
+	}
+	if err := assertPendingSpringBehavior(w, nil); err == nil || !strings.Contains(err.Error(), "missing example value") {
+		t.Fatalf("expected missing pending behavior, got %v", err)
+	}
+	if err := ensureSpringModeMass(w, 3, springModeMassPosition(3)); err != nil {
+		t.Fatal(err)
+	}
+	mass, err := editMassByID(w, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mass.Position != (sim.Vec2{X: 60}) || mass.Mass != 1 {
+		t.Fatalf("spring mode mass = %#v", mass)
+	}
+	if err := createSpringWithLength(w, map[string]string{"creation_length": "30"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertCreatedSpringEndpoints(w, 1, 2); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertCreatedSpringRestLength(w, map[string]string{"creation_length": "30"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertCreatedSpringFloat(w, nil, "missing", func(sim.Spring) float64 { return 0 }); err == nil || !strings.Contains(err.Error(), "missing example value") {
+		t.Fatalf("expected missing spring float parameter, got %v", err)
+	}
+	if err := assertCreatedSpringFloat(&world{domainWorld: sim.NewWorld()}, map[string]string{"kspring": "12"}, "kspring", func(sim.Spring) float64 { return 12 }); err == nil || !strings.Contains(err.Error(), "created spring 0 not found") {
+		t.Fatalf("expected missing created spring, got %v", err)
+	}
+}
+
+func TestSpringModeMouseParsersRejectMalformedValues(t *testing.T) {
+	if id, ok := parseNearMass("beside mass 2"); ok || id != 0 {
+		t.Fatal("expected invalid near-mass prefix")
+	}
+	if id, ok := parseNearMass("near node 2"); ok || id != 0 {
+		t.Fatal("expected invalid near-mass noun")
+	}
+	if _, ok := parseNearMass("near mass bad"); ok {
+		t.Fatal("expected invalid near-mass id")
+	}
+
+	if massA, massB, ok := parseCreatedSpringResult("make spring between 1 and 2"); ok || massA != 0 || massB != 0 {
+		t.Fatal("expected invalid created-spring prefix")
+	}
+	if massA, massB, ok := parseCreatedSpringResult("create spring between 1 to 2"); ok || massA != 0 || massB != 0 {
+		t.Fatal("expected invalid created-spring separator")
+	}
+	if _, _, ok := parseCreatedSpringResult("create spring between bad and 2"); ok {
+		t.Fatal("expected invalid first created-spring id")
+	}
+	if _, _, ok := parseCreatedSpringResult("create spring between 1 and bad"); ok {
+		t.Fatal("expected invalid second created-spring id")
+	}
+}
+
+func TestSpringModeMouseAssertionsDetectIndividualBranches(t *testing.T) {
+	if err := assertSpringDiscarded(&world{springCreated: true, domainWorld: sim.NewWorld()}); err == nil {
+		t.Fatal("expected created flag to fail discard assertion")
+	}
+	wWithSpring := &world{domainWorld: sim.NewWorld()}
+	if err := wWithSpring.domainWorld.AddMass(sim.Mass{ID: 1, Mass: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := wWithSpring.domainWorld.AddMass(sim.Mass{ID: 2, Mass: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := wWithSpring.domainWorld.AddSpring(sim.Spring{ID: 1, MassA: 1, MassB: 2}); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertSpringDiscarded(wWithSpring); err == nil {
+		t.Fatal("expected existing spring to fail discard assertion")
+	}
+
+	if err := assertCreatedSpringEndpoints(&world{domainWorld: sim.NewWorld()}, 1, 2); err == nil || !strings.Contains(err.Error(), "created spring 0 not found") {
+		t.Fatalf("expected missing created spring endpoints, got %v", err)
+	}
+	w := &world{domainWorld: sim.NewWorld(), createdSpringID: 1}
+	if err := w.domainWorld.AddMass(sim.Mass{ID: 1, Mass: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.domainWorld.AddMass(sim.Mass{ID: 2, Mass: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.domainWorld.AddSpring(sim.Spring{ID: 1, MassA: 1, MassB: 2}); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertCreatedSpringEndpoints(w, 1, 2); err == nil {
+		t.Fatal("expected unset created flag to fail endpoint assertion")
+	}
+	w.springCreated = true
+	if err := assertCreatedSpringEndpoints(w, 9, 2); err == nil {
+		t.Fatal("expected mass A mismatch")
+	}
+	if err := assertCreatedSpringEndpoints(w, 1, 9); err == nil {
+		t.Fatal("expected mass B mismatch")
+	}
+
+	editor := edit.NewEditor(w.domainWorld)
+	if err := discardTemporarySpring(w, editor, edit.SpringButtonMiddle); err == nil || !strings.Contains(err.Error(), "temporary spring release") {
+		t.Fatalf("expected temporary spring release error, got %v", err)
 	}
 }
 
