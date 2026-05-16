@@ -320,6 +320,17 @@ func TestRunFeatureExecutesEbitengineWindowFeature(t *testing.T) {
 	}
 }
 
+func TestRunFeatureExecutesScreenControlsFeature(t *testing.T) {
+	feature, err := gherkin.ReadFile(repoPath("features/008a_screen_and_controls.feature"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RunFeature(feature); err != nil {
+		t.Fatalf("RunFeature returned error: %v", err)
+	}
+}
+
 func TestXSPLoadedStateChecksSuccessfulLoadState(t *testing.T) {
 	w := &world{xspWorld: sim.NewWorld()}
 
