@@ -14,6 +14,18 @@ func stringValue(example map[string]string, key string) (string, error) {
 	return value, nil
 }
 
+func stringPair(example map[string]string, firstKey, secondKey string) (string, string, error) {
+	first, err := stringValue(example, firstKey)
+	if err != nil {
+		return "", "", err
+	}
+	second, err := stringValue(example, secondKey)
+	if err != nil {
+		return "", "", err
+	}
+	return first, second, nil
+}
+
 func intValue(example map[string]string, key string) (int, error) {
 	value, err := stringValue(example, key)
 	if err != nil {
@@ -36,4 +48,19 @@ func floatValue(example map[string]string, key string) (float64, error) {
 		return 0, fmt.Errorf("invalid float %s=%q", key, value)
 	}
 	return parsed, nil
+}
+
+func boolValue(example map[string]string, key string) (bool, error) {
+	value, err := stringValue(example, key)
+	if err != nil {
+		return false, err
+	}
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "true":
+		return true, nil
+	case "false":
+		return false, nil
+	default:
+		return false, fmt.Errorf("invalid bool %s=%q", key, value)
+	}
 }

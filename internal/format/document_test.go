@@ -8,15 +8,9 @@ import (
 
 func TestFromSimulationCopiesMassesAndSprings(t *testing.T) {
 	s := sim.NewSimulation()
-	if err := s.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 1, Y: 2}, Mass: 3, Fixed: true}); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 4, Y: 5}, Mass: 6}); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.AddSpring(sim.Spring{ID: 7, MassA: 1, MassB: 2, RestLength: 7, Stiffness: 8}); err != nil {
-		t.Fatal(err)
-	}
+	left := s.AddMassAt(sim.Vec2{X: 1, Y: 2}, 3, true)
+	right := s.AddMassAt(sim.Vec2{X: 4, Y: 5}, 6, false)
+	s.AddSpringBetween(left, right, 7, 8)
 
 	document := FromSimulation(s)
 
