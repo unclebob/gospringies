@@ -1,0 +1,22 @@
+# XSpringies Implementation Task Slices
+
+These tasks break the application into small, reviewable chunks for a Go implementation using Ebitengine for desktop windowing, input, rendering, and the real-time loop.
+
+Keep the physics and file-format behavior in plain Go packages that do not depend on Ebitengine. Use Ebitengine only at the app boundary. Each implementation slice should include focused unit tests for domain behavior before production code, and acceptance coverage where externally visible behavior changes.
+
+Suggested order:
+
+1. `01-project-skeleton.md`
+2. `02-acceptance-pipeline.md`
+3. `03-domain-model.md`
+4. `04-system-parameters.md`
+5. `05-force-evaluation.md`
+6. `06-simulation-step.md`
+7. `07-xsp-load-save.md`
+8. `08-ebitengine-window.md`
+9. `09-render-world.md`
+10. `10-mouse-editing.md`
+11. `11-selection-and-editing.md`
+12. `12-controls-and-hotkeys.md`
+13. `13-demo-files.md`
+14. `14-packaging-and-docs.md`
