@@ -14,6 +14,13 @@ type MassForces struct {
 	Acceleration Vec2
 }
 
+var forceParameterNames = map[string][]string{
+	"gravity":                   {"Magnitude", "Direction"},
+	"center of mass attraction": {"Magnitude", "Damping"},
+	"center attraction":         {"Magnitude", "Exponent"},
+	"wall repulsion":            {"Magnitude", "Exponent"},
+}
+
 func (s *Simulation) EvaluateForces() ForceEvaluation {
 	evaluation := ForceEvaluation{ByMassID: map[int]MassForces{}}
 	for _, mass := range s.Masses {
@@ -136,7 +143,7 @@ func (s *Simulation) centerOfMass() Vec2 {
 		count++
 	}
 	if count == 0 {
-		return Vec2{X: s.Bounds.Width / 2, Y: s.Bounds.Height / 2}
+		return s.screenCenter()
 	}
 	return total.Scale(1 / count)
 }
@@ -144,13 +151,17 @@ func (s *Simulation) centerOfMass() Vec2 {
 func (s *Simulation) forceCenter() Vec2 {
 	id := s.CenterMassID()
 	if id <= 0 {
-		return Vec2{X: s.Bounds.Width / 2, Y: s.Bounds.Height / 2}
+		return s.screenCenter()
 	}
 	mass, ok := s.MassByID(id)
 	if !ok {
-		return Vec2{X: s.Bounds.Width / 2, Y: s.Bounds.Height / 2}
+		return s.screenCenter()
 	}
 	return mass.Position
+}
+
+func (s *Simulation) screenCenter() Vec2 {
+	return Vec2{X: s.Bounds.Width / 2, Y: s.Bounds.Height / 2}
 }
 
 func (s *Simulation) SetForceCenter(selectedMassIDs []int) {
@@ -174,13 +185,7 @@ func (s *Simulation) IsCenterMass(id int) bool {
 }
 
 func ForceParameterNames(force string) []string {
-	parameters := map[string][]string{
-		"gravity":                   {"Magnitude", "Direction"},
-		"center of mass attraction": {"Magnitude", "Damping"},
-		"center attraction":         {"Magnitude", "Exponent"},
-		"wall repulsion":            {"Magnitude", "Exponent"},
-	}
-	return append([]string{}, parameters[force]...)
+	return append([]string{}, forceParameterNames[force]...)
 }
 
 func (s *Simulation) enabledForce(name string) (ForceConfig, bool) {
