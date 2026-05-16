@@ -103,3 +103,7 @@ func mapValue[T any](values map[string]T, name string) (T, bool) {
 	value, ok := values[name]
 	return value, ok
 }
+
+func (p Parameters) StepDuration() float64 {
+	return parameterFloat(p, "timestep")
+}

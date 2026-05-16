@@ -217,6 +217,9 @@ func createMassFixedState(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
+	if !fixed {
+		return fmt.Errorf("unsupported fixed state %t", fixed)
+	}
 	return world.AddMass(sim.Mass{ID: id, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1, Fixed: fixed})
 }
 
