@@ -84,21 +84,26 @@ func buildMutation(feature gherkin.Feature, scenarioIndex, exampleIndex int, key
 func isEquivalentMutation(feature gherkin.Feature, scenarioIndex int, key string) bool {
 	switch feature.Name {
 	case "Domain model":
-		if scenarioIndex == 0 {
-			return false
-		}
-		if key == "reason" {
-			return false
-		}
-		// Domain-model property scenarios use example cells as both setup data and
-		// expected lookup values. Mutating both sides preserves the same behavior,
-		// so only externally checked counts and validation reasons are meaningful.
-		return true
+		return isEquivalentDomainModelMutation(scenarioIndex, key)
 	case "System parameters":
-		return scenarioIndex == 3 && (key == "parameter" || key == "changed_value")
+		return isEquivalentSystemParameterMutation(scenarioIndex, key)
 	default:
 		return false
 	}
+}
+
+func isEquivalentDomainModelMutation(scenarioIndex int, key string) bool {
+	if scenarioIndex == 0 || key == "reason" {
+		return false
+	}
+	// Domain-model property scenarios use example cells as both setup data and
+	// expected lookup values. Mutating both sides preserves the same behavior,
+	// so only externally checked counts and validation reasons are meaningful.
+	return true
+}
+
+func isEquivalentSystemParameterMutation(scenarioIndex int, key string) bool {
+	return scenarioIndex == 3 && (key == "parameter" || key == "changed_value")
 }
 
 func RunMutations(feature gherkin.Feature, workDir string) ([]MutationResult, error) {

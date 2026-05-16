@@ -264,6 +264,78 @@ func TestDomainValidationHandlers(t *testing.T) {
 	}
 }
 
+func TestRunFeatureExecutesSystemParameterFeature(t *testing.T) {
+	feature, err := gherkin.ReadFile(repoPath("features/004_system_parameters.feature"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RunFeature(feature); err != nil {
+		t.Fatalf("RunFeature returned error: %v", err)
+	}
+}
+
+func TestSystemParameterHandlersReportFailures(t *testing.T) {
+	w := &world{domainWorld: sim.NewWorld()}
+	if err := assertParameterDefault(w, map[string]string{"parameter": "viscosity", "value": "unset"}); err == nil {
+		t.Fatal("expected unsupported default marker")
+	}
+	if err := assertParameterDefault(w, map[string]string{"parameter": "missing", "value": "set"}); err == nil {
+		t.Fatal("expected missing default parameter")
+	}
+	if err := assertForceEnabledState(w, map[string]string{"force": "missing", "enabled": "set"}); err == nil {
+		t.Fatal("expected missing force")
+	}
+	if err := assertWallEnabledState(w, map[string]string{"wall": "missing", "enabled": "set"}); err == nil {
+		t.Fatal("expected missing wall")
+	}
+	if err := performWorldOperation(w, map[string]string{"operation": "delete file"}); err == nil {
+		t.Fatal("expected unsupported operation")
+	}
+	if _, err := expectedParameterValue("viscosity", "unknown source", nil); err == nil {
+		t.Fatal("expected unsupported parameter source")
+	}
+}
+
+func TestSystemParameterHandlerHelpers(t *testing.T) {
+	w := &world{}
+	if err := changeWorldParameter(w, map[string]string{"parameter": "viscosity", "changed_value": "custom"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertParameterDefault(w, map[string]string{"parameter": "viscosity", "value": "set"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertForceEnabledState(w, map[string]string{"force": "gravity", "enabled": "set"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertForceEditableParameters(w, map[string]string{"force": "gravity"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertWallEnabledState(w, map[string]string{"wall": "top", "enabled": "set"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := performWorldOperation(w, map[string]string{"operation": "insert file", "parameter": "viscosity"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertParameterSource(w, map[string]string{
+		"parameter": "viscosity", "changed_value": "custom", "expected_value_source": "existing world value",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := performWorldOperation(w, map[string]string{"operation": "load file", "parameter": "viscosity"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertParameterSource(w, map[string]string{"parameter": "viscosity", "expected_value_source": "value from loaded file"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := performWorldOperation(w, map[string]string{"operation": "reset", "parameter": "viscosity"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertParameterSource(w, map[string]string{"parameter": "viscosity", "expected_value_source": "default value"}); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestPackageDirDoesNotImportDetectsGraphicsLibrary(t *testing.T) {
 	dir := t.TempDir()
 	writeSource(t, filepath.Join(dir, "domain.go"), "package domain\n")
