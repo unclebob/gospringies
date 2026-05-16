@@ -63,11 +63,79 @@ func TestGameDraw(t *testing.T) {
 	}
 }
 
+func TestRenderWorldCompletesForEmptyAndNonEmptyWorlds(t *testing.T) {
+	for _, setup := range []func(*Game){func(*Game) {}, addRenderableSpring} {
+		game := NewGame()
+		setup(game)
+		if result := game.RenderWorld(); !result.Completed {
+			t.Fatalf("render result = %#v", result)
+		}
+	}
+}
+
+func TestMassDrawCircleCentersOnMassPosition(t *testing.T) {
+	x, y, radius := massDrawCircle(sim.Mass{Position: sim.Vec2{X: 30, Y: 40}})
+
+	if x != 30 || y != 40 || radius != 5 {
+		t.Fatalf("draw circle = %f,%f radius %f", x, y, radius)
+	}
+}
+
+func TestRenderWorldReportsVisibleObjects(t *testing.T) {
+	game := NewGame()
+	addRenderableSpring(game)
+	game.World().Parameters.EnableWall("left")
+	game.SetSelected(true)
+
+	result := game.RenderWorld()
+
+	for _, object := range []string{"movable mass", "fixed mass", "spring", "enabled wall", "selection"} {
+		if !result.HasVisibleRepresentation(object) {
+			t.Fatalf("missing representation for %q: %#v", object, result.Representations)
+		}
+	}
+}
+
+func TestShowSpringsControlsSpringVisibility(t *testing.T) {
+	game := NewGame()
+	addRenderableSpring(game)
+	game.World().Parameters.Set("show springs", "false")
+
+	result := game.RenderWorld()
+
+	if result.SpringLinesVisible {
+		t.Fatal("expected spring lines to be hidden")
+	}
+	if !result.MassesVisible {
+		t.Fatal("expected masses to remain visible")
+	}
+}
+
+func TestFixedMassesAreDistinguishable(t *testing.T) {
+	game := NewGame()
+	addRenderableSpring(game)
+
+	result := game.RenderWorld()
+
+	if !result.FixedMassDistinguishable {
+		t.Fatalf("render result = %#v", result)
+	}
+	if result.FixedMassRepresentation == result.MovableMassRepresentation {
+		t.Fatal("expected distinct fixed and movable mass representations")
+	}
+}
+
 func TestWindowConfigIsResizable(t *testing.T) {
 	config := DefaultWindowConfig()
 	if !config.Resizable {
 		t.Fatal("window should be resizable")
 	}
+}
+
+func addRenderableSpring(game *Game) {
+	left := game.World().AddMassAt(sim.Vec2{X: 10, Y: 10}, 1, true)
+	right := game.World().AddMassAt(sim.Vec2{X: 30, Y: 10}, 1, false)
+	game.World().AddSpringBetween(left, right, 20, 12)
 }
 
 func TestRenderFrameMarksRenderingActive(t *testing.T) {
