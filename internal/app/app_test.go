@@ -81,6 +81,47 @@ func TestMassDrawCircleCentersOnMassPosition(t *testing.T) {
 	}
 }
 
+func TestSelectionOutlineSurroundsMassPosition(t *testing.T) {
+	lines := selectionOutline(sim.Mass{Position: sim.Vec2{X: 30, Y: 40}})
+	expected := []selectionLine{
+		{22, 32, 38, 32},
+		{38, 32, 38, 48},
+		{38, 48, 22, 48},
+		{22, 48, 22, 32},
+	}
+
+	if len(lines) != len(expected) {
+		t.Fatalf("line count = %d", len(lines))
+	}
+	for i, line := range lines {
+		if line != expected[i] {
+			t.Fatalf("line %d = %#v, want %#v", i, line, expected[i])
+		}
+	}
+}
+
+func TestSelectedMassOutlineIsEmptyWithoutMasses(t *testing.T) {
+	if lines := selectedMassOutline(nil); len(lines) != 0 {
+		t.Fatalf("lines = %#v", lines)
+	}
+}
+
+func TestSelectedMassOutlineUsesFirstMass(t *testing.T) {
+	lines := selectedMassOutline([]sim.Mass{
+		{Position: sim.Vec2{X: 30, Y: 40}},
+	})
+	expected := selectionOutline(sim.Mass{Position: sim.Vec2{X: 30, Y: 40}})
+
+	if len(lines) != len(expected) {
+		t.Fatalf("line count = %d", len(lines))
+	}
+	for i, line := range lines {
+		if line != expected[i] {
+			t.Fatalf("line %d = %#v, want %#v", i, line, expected[i])
+		}
+	}
+}
+
 func TestRenderWorldReportsVisibleObjects(t *testing.T) {
 	game := NewGame()
 	addRenderableSpring(game)
@@ -93,6 +134,14 @@ func TestRenderWorldReportsVisibleObjects(t *testing.T) {
 		if !result.HasVisibleRepresentation(object) {
 			t.Fatalf("missing representation for %q: %#v", object, result.Representations)
 		}
+	}
+}
+
+func TestEmptyRenderResultHasNoVisibleRepresentation(t *testing.T) {
+	var result RenderResult
+
+	if result.HasVisibleRepresentation("mass") {
+		t.Fatal("empty render result reported a visible representation")
 	}
 }
 

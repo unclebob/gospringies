@@ -16,6 +16,15 @@ const (
 	screenHeight = 480
 )
 
+var (
+	backgroundColor = color.RGBA{R: 18, G: 20, B: 24, A: 255}
+	springColor     = color.RGBA{R: 116, G: 190, B: 222, A: 255}
+	massColor       = color.RGBA{R: 238, G: 212, B: 96, A: 255}
+	fixedMassColor  = color.RGBA{R: 238, G: 116, B: 96, A: 255}
+	wallColor       = color.RGBA{R: 180, G: 186, B: 196, A: 255}
+	selectionColor  = color.RGBA{R: 255, G: 255, B: 255, A: 255}
+)
+
 type Game struct {
 	simulation      *sim.Simulation
 	mode            string
@@ -33,17 +42,6 @@ type WindowConfig struct {
 	Height    int
 	Title     string
 	Resizable bool
-}
-
-type RenderResult struct {
-	Completed                  bool
-	Representations            map[string]string
-	SpringLinesVisible         bool
-	MassesVisible              bool
-	FixedMassDistinguishable   bool
-	FixedMassRepresentation    string
-	MovableMassRepresentation  string
-	SelectedMassRepresentation string
 }
 
 func NewGame() *Game {
@@ -74,7 +72,7 @@ func (g *Game) Update() error {
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	result := g.RenderWorld()
-	screen.Fill(color.RGBA{R: 18, G: 20, B: 24, A: 255})
+	screen.Fill(backgroundColor)
 	if result.SpringLinesVisible {
 		g.drawSprings(screen)
 	}
@@ -86,58 +84,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	ebitenutil.DebugPrint(screen, fmt.Sprintf("TPS %.0f", ebiten.ActualTPS()))
 }
 
-func (g *Game) RenderWorld() RenderResult {
-	g.RenderFrame()
-	representations := g.renderRepresentations()
-	hasMovable := representations["movable mass"] != ""
-	hasFixed := representations["fixed mass"] != ""
-	hasSpring := representations["spring"] != ""
-	return RenderResult{
-		Completed:                  true,
-		Representations:            representations,
-		SpringLinesVisible:         hasSpring,
-		MassesVisible:              hasMovable || hasFixed,
-		FixedMassDistinguishable:   hasMovable && hasFixed,
-		FixedMassRepresentation:    "red circle",
-		MovableMassRepresentation:  "yellow circle",
-		SelectedMassRepresentation: "selection outline",
-	}
-}
-
-func (g *Game) renderRepresentations() map[string]string {
-	representations := map[string]string{}
-	g.massRepresentations(representations)
-	g.springRepresentation(representations)
-	g.wallRepresentation(representations)
-	g.selectionRepresentation(representations)
-	return representations
-}
-
-func (g *Game) springRepresentation(representations map[string]string) {
-	if len(g.simulation.Springs) > 0 && g.showSprings() {
-		representations["spring"] = "cyan line"
-	}
-}
-
-func (g *Game) wallRepresentation(representations map[string]string) {
-	if g.hasEnabledWall() {
-		representations["enabled wall"] = "boundary line"
-	}
-}
-
-func (g *Game) selectionRepresentation(representations map[string]string) {
-	if g.selected {
-		representations["selection"] = "selection outline"
-	}
-}
-
-func (r RenderResult) HasVisibleRepresentation(object string) bool {
-	if r.Representations == nil {
-		return false
-	}
-	return r.Representations[object] != ""
-}
-
 func (g *Game) drawSprings(screen *ebiten.Image) {
 	for _, spring := range g.simulation.Springs {
 		if !g.validSpring(spring) {
@@ -145,18 +91,14 @@ func (g *Game) drawSprings(screen *ebiten.Image) {
 		}
 		a := g.simulation.Masses[spring.A].Position
 		b := g.simulation.Masses[spring.B].Position
-		ebitenutil.DrawLine(screen, a.X, a.Y, b.X, b.Y, color.RGBA{R: 116, G: 190, B: 222, A: 255})
+		ebitenutil.DrawLine(screen, a.X, a.Y, b.X, b.Y, springColor)
 	}
 }
 
 func (g *Game) drawMasses(screen *ebiten.Image) {
 	for _, mass := range g.simulation.Masses {
-		c := color.RGBA{R: 238, G: 212, B: 96, A: 255}
-		if mass.Fixed {
-			c = color.RGBA{R: 238, G: 116, B: 96, A: 255}
-		}
 		x, y, radius := massDrawCircle(mass)
-		vector.DrawFilledCircle(screen, x, y, radius, c, true)
+		vector.DrawFilledCircle(screen, x, y, radius, massDrawColor(mass), true)
 	}
 }
 
@@ -164,9 +106,15 @@ func massDrawCircle(mass sim.Mass) (float32, float32, float32) {
 	return float32(mass.Position.X), float32(mass.Position.Y), 5
 }
 
+func massDrawColor(mass sim.Mass) color.RGBA {
+	if mass.Fixed {
+		return fixedMassColor
+	}
+	return massColor
+}
+
 func (g *Game) drawWalls(screen *ebiten.Image) {
 	bounds := g.simulation.Bounds
-	wallColor := color.RGBA{R: 180, G: 186, B: 196, A: 255}
 	drawWallLine := func(name string, x1, y1, x2, y2 float64) {
 		if enabled, _ := g.simulation.Parameters.WallEnabled(name); enabled {
 			ebitenutil.DrawLine(screen, x1, y1, x2, y2, wallColor)
@@ -179,44 +127,34 @@ func (g *Game) drawWalls(screen *ebiten.Image) {
 }
 
 func (g *Game) drawSelection(screen *ebiten.Image) {
-	if len(g.simulation.Masses) == 0 {
-		return
+	for _, line := range selectedMassOutline(g.simulation.Masses) {
+		ebitenutil.DrawLine(screen, line.x1, line.y1, line.x2, line.y2, selectionColor)
 	}
-	mass := g.simulation.Masses[0]
-	c := color.RGBA{R: 255, G: 255, B: 255, A: 255}
+}
+
+type selectionLine struct {
+	x1 float64
+	y1 float64
+	x2 float64
+	y2 float64
+}
+
+func selectedMassOutline(masses []sim.Mass) []selectionLine {
+	if len(masses) == 0 {
+		return nil
+	}
+	return selectionOutline(masses[0])
+}
+
+func selectionOutline(mass sim.Mass) []selectionLine {
 	x := mass.Position.X
 	y := mass.Position.Y
-	ebitenutil.DrawLine(screen, x-8, y-8, x+8, y-8, c)
-	ebitenutil.DrawLine(screen, x+8, y-8, x+8, y+8, c)
-	ebitenutil.DrawLine(screen, x+8, y+8, x-8, y+8, c)
-	ebitenutil.DrawLine(screen, x-8, y+8, x-8, y-8, c)
-}
-
-func (g *Game) validSpring(spring sim.Spring) bool {
-	return spring.A >= 0 && spring.B >= 0 && spring.A < len(g.simulation.Masses) && spring.B < len(g.simulation.Masses)
-}
-
-func (g *Game) massRepresentations(representations map[string]string) {
-	for _, mass := range g.simulation.Masses {
-		if mass.Fixed {
-			representations["fixed mass"] = "red circle"
-		} else {
-			representations["movable mass"] = "yellow circle"
-		}
+	return []selectionLine{
+		{x - 8, y - 8, x + 8, y - 8},
+		{x + 8, y - 8, x + 8, y + 8},
+		{x + 8, y + 8, x - 8, y + 8},
+		{x - 8, y + 8, x - 8, y - 8},
 	}
-}
-
-func (g *Game) showSprings() bool {
-	return g.simulation.Parameters.Value("show springs") == "true"
-}
-
-func (g *Game) hasEnabledWall() bool {
-	for _, enabled := range g.simulation.Parameters.Walls {
-		if enabled {
-			return true
-		}
-	}
-	return false
 }
 
 func (g *Game) Layout(int, int) (int, int) {
