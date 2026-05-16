@@ -16,8 +16,6 @@ var applicationStateChanges = map[string]func(appGame){
 	"unsaved changes": func(game appGame) { game.SetDirty(true) },
 }
 
-var simulationStatePauses = map[string]bool{"paused": true, "running": false}
-
 func assertFirstScreenEditor(w *world, _ map[string]string) error {
 	return assertCurrentScreen(w, func(screen editorScreen) bool { return screen.Editor }, "first screen was not the simulation editor")
 }
@@ -145,11 +143,15 @@ func setSimulationState(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	paused, ok := simulationStatePauses[state]
+	paused, ok := simulationPausedState(state)
 	if !ok {
 		return fmt.Errorf("unsupported simulation state %q", state)
 	}
 	return updateApplicationGame(w, func(game appGame) { game.SetPaused(paused) })
+}
+
+func simulationPausedState(state string) (bool, bool) {
+	return booleanState(state, map[string]bool{"paused": true, "running": false})
 }
 
 func assertCanvasVisible(w *world, _ map[string]string) error {
