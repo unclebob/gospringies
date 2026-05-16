@@ -207,6 +207,25 @@ func TestBuildMutationsSkipsEquivalentMouseEditingCells(t *testing.T) {
 	}
 }
 
+func TestBuildMutationsSkipsEquivalentSelectionEditingCells(t *testing.T) {
+	feature := gherkin.Feature{
+		Name: "Selection and editing",
+		Scenarios: []gherkin.Scenario{
+			{Examples: []map[string]string{{"object_type": "mass", "id": "1"}}},
+			{},
+			{Examples: []map[string]string{{"object_type": "spring", "id": "2"}}},
+		},
+	}
+
+	mutations := BuildMutations(feature)
+	if len(mutations) != 2 {
+		t.Fatalf("mutations = %#v", mutations)
+	}
+	if !isEquivalentSelectionEditingMutation(0, "id") || !isEquivalentSelectionEditingMutation(2, "id") {
+		t.Fatal("expected selection id setup mutations to be equivalent")
+	}
+}
+
 func TestBuildMutationReturnsStableMutationOrSkipsEquivalent(t *testing.T) {
 	feature := gherkin.Feature{Scenarios: []gherkin.Scenario{{}}}
 	mutation, ok := buildMutation(feature, 0, 0, "count", "20", 1)
@@ -230,6 +249,17 @@ func TestRunMutationsReturnsNoResultsWhenFeatureHasNoExamples(t *testing.T) {
 	}
 	if len(results) != 0 {
 		t.Fatalf("results = %#v", results)
+	}
+}
+
+func TestRunMutationsReturnsWorkDirCreationError(t *testing.T) {
+	workDir := filepath.Join(t.TempDir(), "not-a-directory")
+	if err := os.WriteFile(workDir, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := RunMutations(gherkin.Feature{}, workDir); err == nil {
+		t.Fatal("expected work dir creation error")
 	}
 }
 
@@ -321,5 +351,63 @@ func TestMutationHelpers(t *testing.T) {
 	}
 	if got, ok := mutateDuration("2s", rng); !ok || got == "2s" {
 		t.Fatalf("duration mutation = %q, %v", got, ok)
+	}
+}
+
+func TestMutationScalarHelpersUseExpectedMutations(t *testing.T) {
+	if got, ok := mutateKeyword("false", "false", rand.New(rand.NewSource(1))); !ok || got != "true" {
+		t.Fatalf("false keyword mutation = %q, %t", got, ok)
+	}
+	if got, ok := mutateKeyword("nil", "nil", rand.New(rand.NewSource(1))); !ok || got == "nil" || got == "" {
+		t.Fatalf("nil keyword mutation = %q, %t", got, ok)
+	}
+	if got, ok := mutateKeyword("other", "other", rand.New(rand.NewSource(1))); ok || got != "" {
+		t.Fatalf("unsupported keyword mutation = %q, %t", got, ok)
+	}
+
+	if got, ok := mutateNumber("12", rand.New(rand.NewSource(1))); !ok || got != "18" {
+		t.Fatalf("integer mutation = %q, %t", got, ok)
+	}
+	if got, ok := mutateNumber("10.5", rand.New(rand.NewSource(1))); !ok || got != "17.31" {
+		t.Fatalf("float mutation = %q, %t", got, ok)
+	}
+	if got, ok := mutateNumber("word", rand.New(rand.NewSource(1))); ok || got != "" {
+		t.Fatalf("unsupported number mutation = %q, %t", got, ok)
+	}
+	if got, ok := mutateNumber("NaN", rand.New(rand.NewSource(1))); ok || got != "" {
+		t.Fatalf("non-decimal float mutation = %q, %t", got, ok)
+	}
+
+	if got := signedIntDelta(rand.New(rand.NewSource(1))); got != 6 {
+		t.Fatalf("positive int delta = %d", got)
+	}
+	if got := signedIntDelta(rand.New(rand.NewSource(2))); got != -8 {
+		t.Fatalf("negative int delta = %d", got)
+	}
+	if got := signedFloatDelta(rand.New(rand.NewSource(1))); got != 6.81 {
+		t.Fatalf("positive float delta = %v", got)
+	}
+	if got := signedFloatDelta(rand.New(rand.NewSource(2))); got != -3.86 {
+		t.Fatalf("negative float delta = %v", got)
+	}
+
+	if got, ok := mutateDate("not-a-date", rand.New(rand.NewSource(1))); ok || got != "" {
+		t.Fatalf("unsupported date mutation = %q, %t", got, ok)
+	}
+	if got, ok := mutateDate("2026-05-16", rand.New(rand.NewSource(1))); !ok || got != "2026-05-22" {
+		t.Fatalf("date mutation = %q, %t", got, ok)
+	}
+	if got, ok := mutateDuration("not-a-duration", rand.New(rand.NewSource(1))); ok || got != "" {
+		t.Fatalf("unsupported duration mutation = %q, %t", got, ok)
+	}
+	if got, ok := mutateDuration("2s", rand.New(rand.NewSource(1))); !ok || got != "8s" {
+		t.Fatalf("duration mutation = %q, %t", got, ok)
+	}
+
+	if got := dither("", rand.New(rand.NewSource(1))); got != "x" {
+		t.Fatalf("empty dither = %q", got)
+	}
+	if got := dither("x", rand.New(rand.NewSource(1))); got != "y" {
+		t.Fatalf("x dither = %q", got)
 	}
 }

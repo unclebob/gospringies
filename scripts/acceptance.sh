@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-FEATURE="${1:-features/010_mouse_editing.feature}"
+FEATURE="${1:-features/011_selection_and_editing.feature}"
 BASENAME=$(basename "$FEATURE" .feature)
 BUILD_DIR="${ACCEPTANCE_BUILD_DIR:-build/acceptance}"
 GENERATED_DIR="${ACCEPTANCE_GENERATED_DIR:-acceptance/generated}"

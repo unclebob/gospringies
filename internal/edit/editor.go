@@ -18,10 +18,12 @@ type Editor struct {
 	Mode            string
 	GridSnapEnabled bool
 	GridSnapSize    float64
+	SelectedMasses  map[int]bool
+	SelectedSprings map[int]bool
 }
 
 func NewEditor(world *sim.Simulation) *Editor {
-	return &Editor{World: world}
+	return &Editor{World: world, SelectedMasses: map[int]bool{}, SelectedSprings: map[int]bool{}}
 }
 
 func (e *Editor) Click(position sim.Vec2) (int, error) {

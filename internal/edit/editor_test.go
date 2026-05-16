@@ -32,8 +32,12 @@ func TestClickRejectsUnsupportedMode(t *testing.T) {
 	editor := NewEditor(sim.NewWorld())
 	editor.Mode = ModeAddSpring
 
-	if _, err := editor.Click(sim.Vec2{}); err == nil {
+	id, err := editor.Click(sim.Vec2{})
+	if err == nil {
 		t.Fatal("expected unsupported click mode")
+	}
+	if id != 0 {
+		t.Fatalf("id = %d, want 0", id)
 	}
 }
 
@@ -137,5 +141,130 @@ func TestDragReportsMissingMass(t *testing.T) {
 
 	if err := editor.DragMass(99, sim.Vec2{}); err == nil {
 		t.Fatal("expected missing mass")
+	}
+}
+
+func TestSelectIndividualObjects(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Mass: 1})
+	_ = world.AddSpring(sim.Spring{ID: 3, MassA: 1, MassB: 2})
+	editor := NewEditor(world)
+
+	if err := editor.SelectMass(1); err != nil {
+		t.Fatal(err)
+	}
+	if !editor.MassSelected(1) || editor.SpringSelected(3) {
+		t.Fatalf("selection = %#v %#v", editor.SelectedMasses, editor.SelectedSprings)
+	}
+
+	if err := editor.SelectSpring(3); err != nil {
+		t.Fatal(err)
+	}
+	if editor.MassSelected(1) || !editor.SpringSelected(3) {
+		t.Fatalf("selection = %#v %#v", editor.SelectedMasses, editor.SelectedSprings)
+	}
+}
+
+func TestSelectReportsMissingObjects(t *testing.T) {
+	editor := NewEditor(sim.NewWorld())
+
+	if err := editor.SelectMass(1); err == nil {
+		t.Fatal("expected missing mass")
+	}
+	if err := editor.SelectSpring(1); err == nil {
+		t.Fatal("expected missing spring")
+	}
+}
+
+func TestSelectAllObjects(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Mass: 1})
+	_ = world.AddSpring(sim.Spring{ID: 3, MassA: 1, MassB: 2})
+	editor := NewEditor(world)
+
+	editor.SelectAll()
+
+	if !editor.MassSelected(1) || !editor.MassSelected(2) || !editor.SpringSelected(3) {
+		t.Fatalf("selection = %#v %#v", editor.SelectedMasses, editor.SelectedSprings)
+	}
+}
+
+func TestDeleteSelectedObjectsAndAttachedSprings(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Mass: 1})
+	_ = world.AddSpring(sim.Spring{ID: 3, MassA: 1, MassB: 2})
+	editor := NewEditor(world)
+	if err := editor.SelectMass(1); err != nil {
+		t.Fatal(err)
+	}
+
+	editor.DeleteSelected()
+
+	if _, ok := world.MassByID(1); ok {
+		t.Fatal("mass 1 still exists")
+	}
+	if _, ok := world.SpringByID(3); ok {
+		t.Fatal("spring 3 still exists")
+	}
+	if _, ok := world.MassByID(2); !ok {
+		t.Fatal("mass 2 was deleted")
+	}
+}
+
+func TestDeleteSelectedMassReindexesRemainingSprings(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 3, Mass: 1})
+	_ = world.AddSpring(sim.Spring{ID: 4, MassA: 2, MassB: 3})
+	editor := NewEditor(world)
+	if err := editor.SelectMass(1); err != nil {
+		t.Fatal(err)
+	}
+
+	editor.DeleteSelected()
+
+	spring, ok := world.SpringByID(4)
+	if !ok || spring.A != 0 || spring.B != 1 {
+		t.Fatalf("spring = %#v, ok = %t", spring, ok)
+	}
+}
+
+func TestWorldIndexByMassIDReportsMissingMass(t *testing.T) {
+	editor := NewEditor(sim.NewWorld())
+
+	index, ok := editor.worldIndexByMassID(99)
+
+	if index != 0 || ok {
+		t.Fatalf("index = %d ok = %t, want 0 false", index, ok)
+	}
+}
+
+func TestDuplicateSelectedObjectsCreatesIndependentIDs(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 20}, Velocity: sim.Vec2{X: 1}, Mass: 2, Elasticity: 0.5})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 30, Y: 20}, Mass: 3, Fixed: true})
+	_ = world.AddSpring(sim.Spring{ID: 3, MassA: 1, MassB: 2, RestLength: 20, SpringConstant: 8, Damping: 0.4})
+	editor := NewEditor(world)
+	editor.SelectAll()
+
+	duplicated, err := editor.DuplicateSelected()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(duplicated.MassIDs) != 2 || len(duplicated.SpringIDs) != 1 {
+		t.Fatalf("duplicated = %#v", duplicated)
+	}
+	dupMass, ok := world.MassByID(duplicated.MassIDs[0])
+	if !ok || dupMass.ID == 1 || dupMass.Position != (sim.Vec2{X: 10, Y: 20}) || dupMass.Mass != 2 {
+		t.Fatalf("duplicate mass = %#v, ok = %t", dupMass, ok)
+	}
+	dupSpring, ok := world.SpringByID(duplicated.SpringIDs[0])
+	if !ok || dupSpring.ID == 3 || dupSpring.MassA == 1 || dupSpring.MassB == 2 {
+		t.Fatalf("duplicate spring = %#v, ok = %t", dupSpring, ok)
 	}
 }

@@ -83,12 +83,13 @@ func buildMutation(feature gherkin.Feature, scenarioIndex, exampleIndex int, key
 
 func isEquivalentMutation(feature gherkin.Feature, scenarioIndex int, key string) bool {
 	equivalent := map[string]func(int, string) bool{
-		"Domain model":      isEquivalentDomainModelMutation,
-		"System parameters": isEquivalentSystemParameterMutation,
-		"Force evaluation":  isEquivalentForceEvaluationMutation,
-		"Simulation step":   isEquivalentSimulationStepMutation,
-		"XSP load and save": isEquivalentXSPMutation,
-		"Mouse editing":     isEquivalentMouseEditingMutation,
+		"Domain model":          isEquivalentDomainModelMutation,
+		"System parameters":     isEquivalentSystemParameterMutation,
+		"Force evaluation":      isEquivalentForceEvaluationMutation,
+		"Simulation step":       isEquivalentSimulationStepMutation,
+		"XSP load and save":     isEquivalentXSPMutation,
+		"Mouse editing":         isEquivalentMouseEditingMutation,
+		"Selection and editing": isEquivalentSelectionEditingMutation,
 	}
 	check, ok := equivalent[feature.Name]
 	if !ok {
@@ -157,6 +158,10 @@ func isEquivalentMouseEditingMutation(scenarioIndex int, key string) bool {
 		3: {"mass_id": true, "start_position": true, "target_position": true},
 	}
 	return keys[scenarioIndex][key]
+}
+
+func isEquivalentSelectionEditingMutation(scenarioIndex int, key string) bool {
+	return key == "id" && (scenarioIndex == 0 || scenarioIndex == 2)
 }
 
 func RunMutations(feature gherkin.Feature, workDir string) ([]MutationResult, error) {
