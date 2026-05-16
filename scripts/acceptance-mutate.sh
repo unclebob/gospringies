@@ -1,4 +1,4 @@
 #!/bin/sh
 set -eu
 
-go run ./cmd/gherkin-mutator --feature features/008_ebitengine_window.feature "$@"
+go run ./cmd/gherkin-mutator --feature features/008a_screen_and_controls.feature "$@"

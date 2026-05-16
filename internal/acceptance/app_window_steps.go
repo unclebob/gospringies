@@ -12,6 +12,12 @@ type appGame interface {
 	RenderFrame()
 	World() *sim.Simulation
 	SetPaused(bool)
+	EditorScreen() editorScreen
+	SetMode(string)
+	SetSelected(bool)
+	SetDirty(bool)
+	HandleShortcut(string) bool
+	LastCommand() string
 	InputActive() bool
 	RenderingActive() bool
 	Close() error
