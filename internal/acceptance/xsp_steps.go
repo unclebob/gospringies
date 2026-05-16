@@ -13,16 +13,15 @@ func createXSPInputWithMarker(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	switch marker {
-	case "#1.0":
+	if marker == "#1.0" {
 		w.xspInput = "#1.0\n"
 		return nil
-	case "none":
+	}
+	if marker == "none" {
 		w.xspInput = "mass 1 0 0 1 0.8\n"
 		return nil
-	default:
-		return fmt.Errorf("unsupported marker %q", marker)
 	}
+	return fmt.Errorf("unsupported marker %q", marker)
 }
 
 func loadXSPInput(w *world, _ map[string]string) error {

@@ -24,6 +24,10 @@ var (
 
 type Game struct {
 	simulation      *sim.Simulation
+	mode            string
+	selected        bool
+	dirty           bool
+	lastCommand     string
 	paused          bool
 	inputActive     bool
 	renderingActive bool
@@ -38,7 +42,7 @@ type WindowConfig struct {
 }
 
 func NewGame() *Game {
-	return &Game{simulation: sim.NewWorld()}
+	return &Game{simulation: sim.NewWorld(), mode: "select"}
 }
 
 func DefaultWindowConfig() WindowConfig {

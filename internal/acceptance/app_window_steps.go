@@ -12,6 +12,12 @@ type appGame interface {
 	RenderFrame()
 	World() *sim.Simulation
 	SetPaused(bool)
+	EditorScreen() editorScreen
+	SetMode(string)
+	SetSelected(bool)
+	SetDirty(bool)
+	HandleShortcut(string) bool
+	LastCommand() string
 	InputActive() bool
 	RenderingActive() bool
 	Close() error
@@ -129,14 +135,7 @@ func assertApplicationStepping(w *world, example map[string]string) error {
 }
 
 func expectedSteppingState(stepping string) (bool, bool) {
-	switch stepping {
-	case "active":
-		return true, true
-	case "stopped":
-		return false, true
-	default:
-		return false, false
-	}
+	return booleanState(stepping, map[string]bool{"active": true, "stopped": false})
 }
 
 func assertApplicationInputActive(w *world, _ map[string]string) error {
