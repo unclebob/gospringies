@@ -94,6 +94,17 @@ func isEquivalentMutation(feature gherkin.Feature, scenarioIndex int, key string
 		return true
 	case "System parameters":
 		return scenarioIndex == 3 && (key == "parameter" || key == "changed_value")
+	case "Force evaluation":
+		switch scenarioIndex {
+		case 0:
+			return key == "mass_a" || key == "mass_b" || key == "rest_length" || key == "spring_constant"
+		case 1:
+			return key == "mass_a" || key == "mass_b" || key == "damping_constant"
+		case 3, 4:
+			return key == "mass_id"
+		default:
+			return false
+		}
 	default:
 		return false
 	}

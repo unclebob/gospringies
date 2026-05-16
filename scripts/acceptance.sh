@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-FEATURE="${1:-features/004_system_parameters.feature}"
+FEATURE="${1:-features/005_force_evaluation.feature}"
 BASENAME=$(basename "$FEATURE" .feature)
 BUILD_DIR="${ACCEPTANCE_BUILD_DIR:-build/acceptance}"
 GENERATED_DIR="${ACCEPTANCE_GENERATED_DIR:-acceptance/generated}"

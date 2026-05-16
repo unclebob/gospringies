@@ -75,6 +75,22 @@ func (p Parameters) Set(name, value string) {
 	p.Values[name] = value
 }
 
+func (p Parameters) EnableForce(name string, values map[string]string) {
+	force := p.Forces[name]
+	force.Enabled = "true"
+	if force.Values == nil {
+		force.Values = map[string]string{}
+	}
+	for key, value := range values {
+		force.Values[key] = value
+	}
+	p.Forces[name] = force
+}
+
+func (p Parameters) EnableWall(name string) {
+	p.Walls[name] = true
+}
+
 func (p Parameters) Force(name string) (ForceConfig, bool) {
 	force, ok := p.Forces[name]
 	return force, ok
