@@ -36,28 +36,21 @@ func loadXSPLine(world *sim.Simulation, line string) error {
 	if len(fields) == 0 {
 		return nil
 	}
-	loader, ok := xspLoaders[fields[0]]
+	loaders := map[string]func(*sim.Simulation, []string) error{
+		"cmas": func(w *sim.Simulation, f []string) error { return setParameterLine(w, f, "current mass") },
+		"elas": func(w *sim.Simulation, f []string) error { return setParameterLine(w, f, "elasticity") },
+		"kspr": func(w *sim.Simulation, f []string) error { return setParameterLine(w, f, "spring constant") },
+		"kdmp": func(w *sim.Simulation, f []string) error { return setParameterLine(w, f, "damping") },
+		"frce": loadForceLine,
+		"wall": loadWallLine,
+		"mass": loadMassLine,
+		"spng": loadSpringLine,
+	}
+	loader, ok := loaders[fields[0]]
 	if !ok {
 		return fmt.Errorf("unsupported command %q", fields[0])
 	}
 	return loader(world, fields)
-}
-
-var xspLoaders = map[string]func(*sim.Simulation, []string) error{
-	"cmas": parameterLineLoader("current mass"),
-	"elas": parameterLineLoader("elasticity"),
-	"kspr": parameterLineLoader("spring constant"),
-	"kdmp": parameterLineLoader("damping"),
-	"frce": loadForceLine,
-	"wall": loadWallLine,
-	"mass": loadMassLine,
-	"spng": loadSpringLine,
-}
-
-func parameterLineLoader(name string) func(*sim.Simulation, []string) error {
-	return func(world *sim.Simulation, fields []string) error {
-		return setParameterLine(world, fields, name)
-	}
 }
 
 func setParameterLine(world *sim.Simulation, fields []string, name string) error {
@@ -208,12 +201,6 @@ func SaveXSP(world *sim.Simulation) string {
 	writeParameterLines(&builder, world)
 	writeForceLines(&builder, world)
 	writeWallLines(&builder, world)
-	writeMassLines(&builder, world)
-	writeSpringLines(&builder, world)
-	return builder.String()
-}
-
-func writeMassLines(builder *strings.Builder, world *sim.Simulation) {
 	for _, mass := range world.Masses {
 		builder.WriteString(fmt.Sprintf("mass %d %s %s %s %s\n",
 			mass.ID,
@@ -223,9 +210,6 @@ func writeMassLines(builder *strings.Builder, world *sim.Simulation) {
 			formatFloat(mass.Elasticity),
 		))
 	}
-}
-
-func writeSpringLines(builder *strings.Builder, world *sim.Simulation) {
 	for _, spring := range world.Springs {
 		builder.WriteString(fmt.Sprintf("spng %d %d %d %s %s %s\n",
 			spring.ID,
@@ -236,6 +220,7 @@ func writeSpringLines(builder *strings.Builder, world *sim.Simulation) {
 			formatFloat(spring.Damping),
 		))
 	}
+	return builder.String()
 }
 
 func writeParameterLines(builder *strings.Builder, world *sim.Simulation) {

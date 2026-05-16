@@ -34,6 +34,8 @@ type world struct {
 	appErr          error
 	appBeforeTime   float64
 	appWindowSize   string
+	editorScreen    editorScreen
+	appCommand      string
 }
 
 type stepHandler func(*world, map[string]string) error
@@ -192,6 +194,26 @@ var stepHandlers = map[string]stepHandler{
 	"rendering should remain active":                                                       assertApplicationRenderingActive,
 	"the coder closes the application window":                                              closeApplicationWindow,
 	"the application should exit without error":                                            assertApplicationExitClean,
+	"the screen and controls task is accepted":                                             acceptStep,
+	"the first screen should show the simulation editor":                                   assertFirstScreenEditor,
+	"the first screen should not show a landing page":                                      assertNoLandingPage,
+	"the coder lays out the editor screen":                                                 layoutEditorScreen,
+	"screen region <region> should be visible":                                             assertScreenRegionVisible,
+	"screen region <region> should have purpose <purpose>":                                 assertScreenRegionPurpose,
+	"the coder shows the left toolbar":                                                     layoutEditorScreen,
+	"editing mode <mode> should have a visible control":                                    assertModeVisible,
+	"the coder shows the top command bar":                                                  layoutEditorScreen,
+	"command <command> should have a visible control":                                      assertCommandVisible,
+	"application state <state> is active":                                                  setApplicationState,
+	"the coder renders the editor controls":                                                layoutEditorScreen,
+	"visible indicator <indicator> should reflect <state>":                                 assertVisibleIndicator,
+	"command <command> has visible control <control>":                                      setVisibleCommandControl,
+	"the coder presses keyboard shortcut <shortcut>":                                       pressKeyboardShortcut,
+	"command <command> should run":                                                         assertCommandRan,
+	"simulation state is <simulation_state>":                                               setSimulationState,
+	"the coder renders the editor screen":                                                  layoutEditorScreen,
+	"the canvas should remain visible":                                                     assertCanvasVisible,
+	"the visible controls should remain usable":                                            assertControlsUsable,
 	"a demo spring simulation":                                                             createDemoSimulation,
 	"I advance the simulation <steps> steps":                                               advanceSimulation,
 	"mass <mass> x should be <x>":                                                          assertMassX,

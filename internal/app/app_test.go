@@ -97,3 +97,95 @@ func TestGameClosesCleanly(t *testing.T) {
 		t.Fatal("expected game to be closed")
 	}
 }
+
+func TestEditorScreenHasRequiredRegions(t *testing.T) {
+	screen := NewGame().EditorScreen()
+	expected := map[string]string{
+		"canvas":          "edit and view the simulation world",
+		"left toolbar":    "choose editing modes",
+		"top bar":         "run commands and file commands",
+		"right inspector": "edit selected objects and world parameters",
+		"status line":     "show mode, simulation state, counts, and file state",
+	}
+
+	if !screen.Editor || screen.LandingPage {
+		t.Fatalf("screen = %#v", screen)
+	}
+	for region, purpose := range expected {
+		if got, ok := screen.RegionPurpose(region); !ok || got != purpose {
+			t.Fatalf("region %q = %q, %t", region, got, ok)
+		}
+	}
+}
+
+func TestEditorScreenHasVisibleModeAndCommandControls(t *testing.T) {
+	screen := NewGame().EditorScreen()
+	for _, mode := range []string{"select", "add mass", "add spring", "drag"} {
+		if !screen.HasModeControl(mode) {
+			t.Fatalf("missing mode %q", mode)
+		}
+	}
+	for _, command := range []string{"run", "pause", "reset", "load", "insert", "save", "quit"} {
+		if !screen.HasCommandControl(command) {
+			t.Fatalf("missing command %q", command)
+		}
+	}
+}
+
+func TestEditorIndicatorsReflectState(t *testing.T) {
+	game := NewGame()
+	game.SetMode("select")
+	game.SetPaused(true)
+	game.SetSelected(true)
+	game.SetDirty(true)
+
+	indicators := game.EditorScreen().Indicators
+
+	if indicators["active mode"] != "select mode" {
+		t.Fatalf("active mode = %q", indicators["active mode"])
+	}
+	if indicators["simulation state"] != "paused" {
+		t.Fatalf("simulation state = %q", indicators["simulation state"])
+	}
+	if indicators["selection"] != "object selected" {
+		t.Fatalf("selection = %q", indicators["selection"])
+	}
+	if indicators["file state"] != "unsaved changes" {
+		t.Fatalf("file state = %q", indicators["file state"])
+	}
+}
+
+func TestKeyboardShortcutsRunVisibleCommands(t *testing.T) {
+	game := NewGame()
+	shortcuts := map[string]string{
+		"Space":  "pause",
+		"R":      "reset",
+		"Ctrl+S": "save",
+		"Ctrl+O": "load",
+		"Ctrl+I": "insert",
+		"Q":      "quit",
+	}
+
+	for shortcut, command := range shortcuts {
+		if !game.EditorScreen().HasCommandControl(command) {
+			t.Fatalf("missing visible command %q", command)
+		}
+		if !game.HandleShortcut(shortcut) {
+			t.Fatalf("shortcut %q was not handled", shortcut)
+		}
+		if got := game.LastCommand(); got != command {
+			t.Fatalf("shortcut %q ran %q, want %q", shortcut, got, command)
+		}
+	}
+}
+
+func TestEditorControlsRemainUsableWhilePausedOrRunning(t *testing.T) {
+	game := NewGame()
+	for _, paused := range []bool{true, false} {
+		game.SetPaused(paused)
+		screen := game.EditorScreen()
+		if !screen.CanvasVisible || !screen.ControlsUsable {
+			t.Fatalf("paused %t screen = %#v", paused, screen)
+		}
+	}
+}
