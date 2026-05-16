@@ -1,15 +1,22 @@
 #!/bin/sh
 set -eu
 
-rm -rf acceptance/generated
-mkdir -p build/acceptance acceptance/generated
+FEATURE="${1:-features/002_acceptance_pipeline.feature}"
+BASENAME=$(basename "$FEATURE" .feature)
+BUILD_DIR="${ACCEPTANCE_BUILD_DIR:-build/acceptance}"
+GENERATED_DIR="${ACCEPTANCE_GENERATED_DIR:-acceptance/generated}"
+JSON_OUTPUT="${BUILD_DIR}/${BASENAME}.json"
+GENERATED_OUTPUT="${GENERATED_DIR}/${BASENAME}_acceptance_test.go"
+
+rm -rf "$GENERATED_DIR"
+mkdir -p "$BUILD_DIR" "$GENERATED_DIR"
 
 go run ./cmd/gherkin-parser \
-  features/001_project_skeleton.feature \
-  build/acceptance/001_project_skeleton.json
+  "$FEATURE" \
+  "$JSON_OUTPUT"
 
 go run ./cmd/acceptance-generator \
-  build/acceptance/001_project_skeleton.json \
-  acceptance/generated/001_project_skeleton_acceptance_test.go
+  "$JSON_OUTPUT" \
+  "$GENERATED_OUTPUT"
 
-go test ./acceptance/generated
+go test "./$GENERATED_DIR"
