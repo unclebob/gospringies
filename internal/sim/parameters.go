@@ -100,3 +100,7 @@ func (p Parameters) WallEnabled(name string) (bool, bool) {
 	enabled, ok := p.Walls[name]
 	return enabled, ok
 }
+
+func (p Parameters) StepDuration() float64 {
+	return parameterFloat(p, "timestep")
+}
