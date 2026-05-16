@@ -151,6 +151,29 @@ func TestBuildMutationsSkipsEquivalentSimulationStepSetupCells(t *testing.T) {
 	}
 }
 
+func TestBuildMutationsSkipsEquivalentXSPFixedMassSetupCells(t *testing.T) {
+	feature := gherkin.Feature{
+		Name: "XSP load and save",
+		Scenarios: []gherkin.Scenario{
+			{},
+			{},
+			{},
+			{Examples: []map[string]string{{"mass_id": "1", "file_mass_value": "-3.0", "fixed": "true", "file_mass_sign": "negative"}}},
+		},
+	}
+
+	mutations := BuildMutations(feature)
+	if len(mutations) != 2 {
+		t.Fatalf("mutations = %#v", mutations)
+	}
+	if mutations[0].Key != "file_mass_sign" || mutations[1].Key != "fixed" {
+		t.Fatalf("mutations = %#v", mutations)
+	}
+	if !isEquivalentXSPMutation(3, "file_mass_value") {
+		t.Fatal("expected file mass value mutation to be equivalent")
+	}
+}
+
 func TestBuildMutationReturnsStableMutationOrSkipsEquivalent(t *testing.T) {
 	feature := gherkin.Feature{Scenarios: []gherkin.Scenario{{}}}
 	mutation, ok := buildMutation(feature, 0, 0, "count", "20", 1)

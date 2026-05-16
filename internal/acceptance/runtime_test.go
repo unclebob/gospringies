@@ -297,6 +297,17 @@ func TestRunFeatureExecutesSimulationStepFeature(t *testing.T) {
 	}
 }
 
+func TestRunFeatureExecutesXSPLoadSaveFeature(t *testing.T) {
+	feature, err := gherkin.ReadFile(repoPath("features/007_xsp_load_save.feature"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RunFeature(feature); err != nil {
+		t.Fatalf("RunFeature returned error: %v", err)
+	}
+}
+
 func TestForceEvaluationAndSimulationStepHelperBranches(t *testing.T) {
 	w := &world{}
 	if err := createMovableMassAffectedByForce(w, map[string]string{"force": "center of mass attraction"}); err != nil {
