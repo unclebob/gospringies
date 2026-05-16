@@ -90,6 +90,7 @@ func isEquivalentMutation(feature gherkin.Feature, scenarioIndex int, key string
 		"XSP load and save":     isEquivalentXSPMutation,
 		"Mouse editing":         isEquivalentMouseEditingMutation,
 		"Selection and editing": isEquivalentSelectionEditingMutation,
+		"Controls and hotkeys":  isEquivalentControlsHotkeysMutation,
 	}
 	check, ok := equivalent[feature.Name]
 	if !ok {
@@ -126,21 +127,11 @@ func isEquivalentForceEvaluationMutation(scenarioIndex int, key string) bool {
 }
 
 func isSpringForceSetupKey(key string) bool {
-	switch key {
-	case "mass_a", "mass_b", "rest_length", "spring_constant":
-		return true
-	default:
-		return false
-	}
+	return mutationKeyIn(key, "mass_a", "mass_b", "rest_length", "spring_constant")
 }
 
 func isSpringDampingSetupKey(key string) bool {
-	switch key {
-	case "mass_a", "mass_b", "damping_constant":
-		return true
-	default:
-		return false
-	}
+	return mutationKeyIn(key, "mass_a", "mass_b", "damping_constant")
 }
 
 func isEquivalentSimulationStepMutation(scenarioIndex int, key string) bool {
@@ -162,6 +153,24 @@ func isEquivalentMouseEditingMutation(scenarioIndex int, key string) bool {
 
 func isEquivalentSelectionEditingMutation(scenarioIndex int, key string) bool {
 	return key == "id" && (scenarioIndex == 0 || scenarioIndex == 2)
+}
+
+func isEquivalentControlsHotkeysMutation(scenarioIndex int, key string) bool {
+	return (scenarioIndex == 1 && key == "initial_state") ||
+		(scenarioIndex == 3 && controlsParameterSetupKey(key))
+}
+
+func controlsParameterSetupKey(key string) bool {
+	return mutationKeyIn(key, "parameter", "old_value", "new_value")
+}
+
+func mutationKeyIn(key string, candidates ...string) bool {
+	for _, candidate := range candidates {
+		if key == candidate {
+			return true
+		}
+	}
+	return false
 }
 
 func RunMutations(feature gherkin.Feature, workDir string) ([]MutationResult, error) {

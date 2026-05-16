@@ -10,10 +10,12 @@ var editorRegions = []ScreenRegion{
 
 var editorModeControls = []string{"select", "add mass", "add spring", "drag"}
 
-var editorCommandControls = []string{"run", "pause", "reset", "load", "insert", "save", "quit"}
+var editorCommandControls = []string{"run", "pause", "reset", "load", "insert", "save", "quit", "delete", "select all"}
 
 var shortcutCommands = map[string]string{
 	"Space":  "pause",
+	"Delete": "delete",
+	"Ctrl+A": "select all",
 	"R":      "reset",
 	"Ctrl+S": "save",
 	"Ctrl+O": "load",
@@ -91,10 +93,6 @@ func (g *Game) HandleShortcut(shortcut string) bool {
 	}
 	g.RunCommand(command)
 	return true
-}
-
-func (g *Game) RunCommand(command string) {
-	g.lastCommand = command
 }
 
 func (g *Game) LastCommand() string {
