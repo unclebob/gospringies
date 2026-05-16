@@ -261,6 +261,36 @@ func TestBuildMutationsSkipsEquivalentEditModeDetailsCells(t *testing.T) {
 	}
 }
 
+func TestBuildMutationsSkipsEquivalentSpringModeMouseCells(t *testing.T) {
+	feature := gherkin.Feature{
+		Name: "Spring mode mouse semantics",
+		Scenarios: []gherkin.Scenario{
+			{Examples: []map[string]string{{"start_mass": "1", "release_target": "near mass 2", "result": "create spring between 1 and 2"}}},
+			{Examples: []map[string]string{{"start_mass": "1", "button": "left", "behavior": "actively affects the first mass"}}},
+			{Examples: []map[string]string{{"kspring": "12.0", "kdamp": "0.5", "creation_length": "30.0"}}},
+		},
+	}
+
+	mutations := BuildMutations(feature)
+	for _, mutation := range mutations {
+		if mutation.Scenario == 1 && mutation.Key == "start_mass" {
+			t.Fatalf("button behavior start mass should be filtered: %#v", mutation)
+		}
+		if mutation.Scenario == 2 {
+			t.Fatalf("shared default/length cells should be filtered: %#v", mutation)
+		}
+	}
+	if !isEquivalentSpringModeMouseMutation(1, 0, "start_mass") {
+		t.Fatal("expected button scenario start mass to be equivalent")
+	}
+	if !isEquivalentSpringModeMouseMutation(2, 0, "creation_length") {
+		t.Fatal("expected shared creation length to be equivalent")
+	}
+	if isEquivalentSpringModeMouseMutation(0, 0, "release_target") {
+		t.Fatal("release target mutation should remain meaningful")
+	}
+}
+
 func TestEquivalentMutationPredicates(t *testing.T) {
 	for _, check := range []struct {
 		equivalent func(int, string) bool

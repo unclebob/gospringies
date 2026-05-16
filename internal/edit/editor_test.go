@@ -337,3 +337,88 @@ func TestMoveAndThrowSelectedSkipFixedMasses(t *testing.T) {
 		t.Fatalf("fixed = %#v", fixed)
 	}
 }
+
+func TestSpringPointerCreatesOrDiscardsSpringByReleaseTarget(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 0, Y: 0}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 30, Y: 0}, Mass: 1})
+	editor := NewEditor(world)
+	editor.Mode = ModeAddSpring
+
+	if err := editor.BeginSpring(sim.Vec2{X: 1, Y: 0}, SpringButtonLeft); err != nil {
+		t.Fatal(err)
+	}
+	id, created, err := editor.ReleaseSpring(sim.Vec2{X: 30, Y: 1})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !created || id != 1 {
+		t.Fatalf("created = %t id = %d", created, id)
+	}
+	spring, ok := world.SpringByID(id)
+	if !ok || spring.MassA != 1 || spring.MassB != 2 {
+		t.Fatalf("spring = %#v, ok = %t", spring, ok)
+	}
+
+	if err := editor.BeginSpring(sim.Vec2{X: 0, Y: 0}, SpringButtonLeft); err != nil {
+		t.Fatal(err)
+	}
+	if _, created, err := editor.ReleaseSpring(sim.Vec2{X: 100, Y: 100}); err != nil || created {
+		t.Fatalf("created = %t err = %v", created, err)
+	}
+}
+
+func TestSpringPointerButtonBehavior(t *testing.T) {
+	tests := []struct {
+		button    string
+		active    bool
+		temporary bool
+	}{
+		{button: SpringButtonLeft, active: true},
+		{button: SpringButtonMiddle, active: true, temporary: true},
+		{button: SpringButtonRight},
+	}
+
+	for _, test := range tests {
+		t.Run(test.button, func(t *testing.T) {
+			world := sim.NewWorld()
+			_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{}, Mass: 1})
+			editor := NewEditor(world)
+			editor.Mode = ModeAddSpring
+
+			if err := editor.BeginSpring(sim.Vec2{}, test.button); err != nil {
+				t.Fatal(err)
+			}
+			editor.DragSpring(sim.Vec2{X: 10})
+			pending, ok := editor.PendingSpring()
+
+			if !ok || pending.StartMassID != 1 || pending.Active != test.active || pending.Temporary != test.temporary || pending.Cursor != (sim.Vec2{X: 10}) {
+				t.Fatalf("pending = %#v, ok = %t", pending, ok)
+			}
+		})
+	}
+}
+
+func TestSpringPointerUsesDefaultsAndReleaseLength(t *testing.T) {
+	world := sim.NewWorld()
+	world.Parameters.Set("spring constant", "12")
+	world.Parameters.Set("damping", "0.5")
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 30}, Mass: 1})
+	editor := NewEditor(world)
+	editor.Mode = ModeAddSpring
+
+	if err := editor.BeginSpring(sim.Vec2{}, SpringButtonLeft); err != nil {
+		t.Fatal(err)
+	}
+	id, created, err := editor.ReleaseSpring(sim.Vec2{X: 30})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	spring, ok := world.SpringByID(id)
+	if !created || !ok || spring.SpringConstant != 12 || spring.Damping != 0.5 || spring.RestLength != 30 {
+		t.Fatalf("created = %t spring = %#v ok = %t", created, spring, ok)
+	}
+}
