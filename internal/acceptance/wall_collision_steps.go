@@ -10,20 +10,39 @@ import (
 const wallCollisionSpeed = 10.0
 
 var wallReleaseForces = map[string]float64{"insufficient": 5, "sufficient": 20}
-var wallCollisionPositions = map[string]struct {
-	inside  sim.Vec2
-	outside sim.Vec2
-}{
-	"left":   {inside: sim.Vec2{X: 1, Y: 50}, outside: sim.Vec2{X: -5, Y: 50}},
-	"right":  {inside: sim.Vec2{X: 99, Y: 50}, outside: sim.Vec2{X: 105, Y: 50}},
-	"top":    {inside: sim.Vec2{X: 50, Y: 1}, outside: sim.Vec2{X: 50, Y: -5}},
-	"bottom": {inside: sim.Vec2{X: 50, Y: 99}, outside: sim.Vec2{X: 50, Y: 105}},
+
+type collisionWallSpec struct {
+	inside        sim.Vec2
+	outside       sim.Vec2
+	outward       sim.Vec2
+	passedThrough func(sim.Vec2) bool
 }
-var wallBoundaryChecks = map[string]func(sim.Vec2) bool{
-	"left":   func(position sim.Vec2) bool { return position.X > 0 },
-	"right":  func(position sim.Vec2) bool { return position.X < 100 },
-	"top":    func(position sim.Vec2) bool { return position.Y > 0 },
-	"bottom": func(position sim.Vec2) bool { return position.Y < 100 },
+
+var wallCollisionSpecs = map[string]collisionWallSpec{
+	"left": {
+		inside:        sim.Vec2{X: 1, Y: 50},
+		outside:       sim.Vec2{X: -5, Y: 50},
+		outward:       sim.Vec2{X: -wallCollisionSpeed},
+		passedThrough: func(position sim.Vec2) bool { return position.X > 0 },
+	},
+	"right": {
+		inside:        sim.Vec2{X: 99, Y: 50},
+		outside:       sim.Vec2{X: 105, Y: 50},
+		outward:       sim.Vec2{X: wallCollisionSpeed},
+		passedThrough: func(position sim.Vec2) bool { return position.X < 100 },
+	},
+	"top": {
+		inside:        sim.Vec2{X: 50, Y: 1},
+		outside:       sim.Vec2{X: 50, Y: -5},
+		outward:       sim.Vec2{Y: -wallCollisionSpeed},
+		passedThrough: func(position sim.Vec2) bool { return position.Y > 0 },
+	},
+	"bottom": {
+		inside:        sim.Vec2{X: 50, Y: 99},
+		outside:       sim.Vec2{X: 50, Y: 105},
+		outward:       sim.Vec2{Y: wallCollisionSpeed},
+		passedThrough: func(position sim.Vec2) bool { return position.Y < 100 },
+	},
 }
 
 func setCollisionMassElasticity(w *world, example map[string]string) error {
@@ -242,14 +261,10 @@ func collisionMassAndWall(example map[string]string) (int, string, error) {
 	if err != nil {
 		return 0, "", err
 	}
-	if !validCollisionWall(wall) {
+	if _, ok := wallCollisionSpecs[wall]; !ok {
 		return 0, "", fmt.Errorf("unsupported wall %q", wall)
 	}
 	return id, wall, nil
-}
-
-func validCollisionWall(wall string) bool {
-	return wall == "left" || wall == "right" || wall == "top" || wall == "bottom"
 }
 
 func collisionMassByExample(w *world, example map[string]string) (sim.Mass, string, error) {
@@ -265,24 +280,15 @@ func collisionMassByExample(w *world, example map[string]string) (sim.Mass, stri
 }
 
 func insideCollisionPosition(wall string) sim.Vec2 {
-	return wallCollisionPositions[wall].inside
+	return wallCollisionSpecs[wall].inside
 }
 
 func outsideCollisionPosition(wall string) sim.Vec2 {
-	return wallCollisionPositions[wall].outside
+	return wallCollisionSpecs[wall].outside
 }
 
 func outwardVelocity(wall string) sim.Vec2 {
-	switch wall {
-	case "left":
-		return sim.Vec2{X: -wallCollisionSpeed}
-	case "right":
-		return sim.Vec2{X: wallCollisionSpeed}
-	case "top":
-		return sim.Vec2{Y: -wallCollisionSpeed}
-	default:
-		return sim.Vec2{Y: wallCollisionSpeed}
-	}
+	return wallCollisionSpecs[wall].outward
 }
 
 func inwardVelocity(wall string) sim.Vec2 {
@@ -304,5 +310,5 @@ func normalSignTowardInside(wall string) float64 {
 }
 
 func insideWallBoundary(position sim.Vec2, wall string) bool {
-	return wallBoundaryChecks[wall](position)
+	return wallCollisionSpecs[wall].passedThrough(position)
 }

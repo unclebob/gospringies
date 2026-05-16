@@ -17,13 +17,18 @@ type wallCollision struct {
 
 func (s *Simulation) applyWallCollision(mass *Mass) {
 	for _, wall := range s.collisionWalls(mass) {
-		if enabled, _ := s.Parameters.WallEnabled(wall.name); !enabled || !wall.outside(*wall.position) || !wall.movingOutward(*wall.velocity) {
+		if !s.wallCollisionActive(wall) {
 			continue
 		}
 		*wall.position = wall.boundary
 		s.bounceOrStick(mass, wall)
 		return
 	}
+}
+
+func (s *Simulation) wallCollisionActive(wall wallCollision) bool {
+	enabled, _ := s.Parameters.WallEnabled(wall.name)
+	return enabled && wall.outside(*wall.position) && wall.movingOutward(*wall.velocity)
 }
 
 func (s *Simulation) bounceOrStick(mass *Mass, wall wallCollision) {
@@ -42,13 +47,17 @@ func (s *Simulation) keepStuck(mass *Mass, acceleration Vec2) bool {
 		return false
 	}
 	wall, ok := s.stuckWall(mass)
-	if !ok || wall.releaseForce(acceleration) > parameterFloat(s.Parameters, "stickiness") {
+	if !ok || s.wallReleasedBy(wall, acceleration) {
 		mass.StuckWall = ""
 		return false
 	}
 	*wall.position = wall.boundary
 	wall.keepTangential(mass)
 	return true
+}
+
+func (s *Simulation) wallReleasedBy(wall wallCollision, acceleration Vec2) bool {
+	return wall.releaseForce(acceleration) > parameterFloat(s.Parameters, "stickiness")
 }
 
 func (s *Simulation) stuckWall(mass *Mass) (wallCollision, bool) {
