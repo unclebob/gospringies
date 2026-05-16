@@ -110,8 +110,15 @@ func TestLoadXSPReportsMalformedInput(t *testing.T) {
 
 func TestLoadXSPReportsBadCommandFields(t *testing.T) {
 	cases := []string{
+		"#1.0\nbogus\n",
+		"#1.0\ncmas\n",
 		"#1.0\nfrce gravity true magnitude\n",
 		"#1.0\nfrce gravity\n",
+		"#1.0\nmass bad 0 0 1 0.8\n",
+		"#1.0\nmass 1 bad 0 1 0.8\n",
+		"#1.0\nmass 1 0 bad 1 0.8\n",
+		"#1.0\nmass 1 0 0 bad 0.8\n",
+		"#1.0\nmass 1 0 0 1 bad\n",
 		"#1.0\nspng 1 1 2 bad 1 0\n",
 	}
 	for _, text := range cases {
