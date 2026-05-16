@@ -31,6 +31,7 @@ type world struct {
 	xspLoadErr           error
 	xspSavedFirst        string
 	xspSavedSecond       string
+	xspResolvedFilename  string
 	appGame              appGame
 	appErr               error
 	appBeforeTime        float64
@@ -195,9 +196,19 @@ var stepHandlers = map[string]stepHandler{
 	"each saved output should end with a newline":                                          assertXSPSaveEndsWithNewline,
 	"XSP input contains mass <mass_id> with file mass value <file_mass_value>":             createXSPInputWithFileMass,
 	"the coder loads and saves the XSP input":                                              loadAndSaveXSPInput,
+	"saved XSP output should include command <command>":                                    assertSavedXSPIncludesCommand,
 	"saved mass <mass_id> should use file mass sign <file_mass_sign>":                      assertSavedMassSign,
 	"XSP input has problem <problem>":                                                      createMalformedXSPInput,
 	"loading should fail with reason <reason>":                                             assertXSPLoadErrorReason,
+	"the XSP complete file format task is accepted":                                        acceptStep,
+	"filename input is <filename>":                                                         createFilenameInput,
+	"environment variable SPRINGDIR is <springdir>":                                        setSpringDirEnvironment,
+	"the coder resolves an XSP filename":                                                   resolveXSPFilename,
+	"resolved filename should be <resolved_filename>":                                      assertResolvedXSPFilename,
+	"current parameters are <current_parameters>":                                          createCurrentParameters,
+	"the coder inserts XSP file <input_file>":                                              insertXSPFile,
+	"inserted masses and springs should be added":                                          assertInsertedObjectsAdded,
+	"parameters should remain <current_parameters>":                                        assertParametersRemain,
 	"the Ebitengine window task is accepted":                                               acceptStep,
 	"the coder starts the desktop application":                                             startDesktopApplication,
 	"the application window should open successfully":                                      assertApplicationWindowOpened,
