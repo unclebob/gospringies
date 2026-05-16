@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-FEATURE="${1:-features/007_xsp_load_save.feature}"
+FEATURE="${1:-features/008_ebitengine_window.feature}"
 BASENAME=$(basename "$FEATURE" .feature)
 BUILD_DIR="${ACCEPTANCE_BUILD_DIR:-build/acceptance}"
 GENERATED_DIR="${ACCEPTANCE_GENERATED_DIR:-acceptance/generated}"
