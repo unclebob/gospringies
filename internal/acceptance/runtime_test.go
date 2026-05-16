@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"springs/internal/app"
 	"springs/internal/gherkin"
 	"springs/internal/sim"
 )
@@ -318,6 +319,98 @@ func TestRunFeatureExecutesEbitengineWindowFeature(t *testing.T) {
 	if err := RunFeature(feature); err != nil {
 		t.Fatalf("RunFeature returned error: %v", err)
 	}
+}
+
+func TestApplicationWindowHelpersReportFailures(t *testing.T) {
+	if err := assertApplicationWindowOpened(&world{appErr: errors.New("open failed")}, nil); err == nil {
+		t.Fatal("expected application error")
+	}
+	if err := assertApplicationWorldEmpty(&world{}, nil); err == nil {
+		t.Fatal("expected missing application")
+	}
+
+	worldWithMass := appWorldWithMassAndSpring(true, false)
+	if err := assertApplicationWorldEmpty(worldWithMass, nil); err == nil {
+		t.Fatal("expected nonempty mass error")
+	}
+	worldWithSpring := appWorldWithMassAndSpring(false, true)
+	if err := assertApplicationWorldEmpty(worldWithSpring, nil); err == nil {
+		t.Fatal("expected nonempty spring error")
+	}
+
+	if err := resizeApplicationWindow(&world{}, map[string]string{"window_size": "small"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := resizeApplicationWindow(&world{}, map[string]string{"window_size": "large"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := resizeApplicationWindow(&world{}, map[string]string{"window_size": "medium"}); err == nil {
+		t.Fatal("expected unsupported window size")
+	}
+}
+
+func TestApplicationSteppingHelpersReportFailures(t *testing.T) {
+	steppingGame := newSteppingGame()
+	if len(steppingGame.World().Masses) != 1 || steppingGame.World().Masses[0].ID != 1 || steppingGame.World().Masses[0].Mass != 1 {
+		t.Fatalf("stepping mass = %#v", steppingGame.World().Masses)
+	}
+
+	if err := assertApplicationStepping(&world{}, map[string]string{"stepping": "active"}); err == nil {
+		t.Fatal("expected missing application")
+	}
+	if err := assertApplicationStepping(&world{appGame: steppingGame}, map[string]string{}); err == nil {
+		t.Fatal("expected missing stepping")
+	}
+	if err := assertApplicationStepping(&world{appGame: steppingGame}, map[string]string{"stepping": "paused"}); err == nil {
+		t.Fatal("expected unsupported stepping")
+	}
+
+	activeWorld := &world{appGame: steppingGame, appBeforeTime: steppingGame.World().Time - 1}
+	if err := assertApplicationStepping(activeWorld, map[string]string{"stepping": "active"}); err != nil {
+		t.Fatal(err)
+	}
+	stoppedWorld := &world{appGame: steppingGame, appBeforeTime: steppingGame.World().Time}
+	if err := assertApplicationStepping(stoppedWorld, map[string]string{"stepping": "stopped"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertApplicationStepping(activeWorld, map[string]string{"stepping": "stopped"}); err == nil {
+		t.Fatal("expected stepping mismatch")
+	}
+}
+
+func TestApplicationActivityAndExitHelpersReportFailures(t *testing.T) {
+	if err := assertApplicationActive(&world{}, "input handling", appGame.InputActive); err == nil {
+		t.Fatal("expected missing application")
+	}
+
+	game := app.NewGame()
+	if err := assertApplicationActive(&world{appGame: game}, "input handling", appGame.InputActive); err == nil {
+		t.Fatal("expected inactive input")
+	}
+
+	if err := assertApplicationExitClean(&world{}, nil); err == nil {
+		t.Fatal("expected missing application")
+	}
+	if err := assertApplicationExitClean(&world{appGame: game, appErr: errors.New("close failed")}, nil); err == nil {
+		t.Fatal("expected close error")
+	}
+	if err := assertApplicationExitClean(&world{appGame: game}, nil); err == nil {
+		t.Fatal("expected unclosed application")
+	}
+}
+
+func appWorldWithMassAndSpring(includeMass, includeSpring bool) *world {
+	game := app.NewGame()
+	if includeMass || includeSpring {
+		_ = game.World().AddMass(sim.Mass{ID: 1, Mass: 1})
+	}
+	if includeSpring {
+		game.World().Springs = append(game.World().Springs, sim.Spring{ID: 1, MassA: 1, MassB: 2, RestLength: 1, SpringConstant: 1})
+		if !includeMass {
+			game.World().Masses = nil
+		}
+	}
+	return &world{appGame: game}
 }
 
 func TestXSPLoadedStateChecksSuccessfulLoadState(t *testing.T) {
