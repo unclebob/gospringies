@@ -186,6 +186,25 @@ func TestBuildMutationsSkipsEquivalentMouseEditingCells(t *testing.T) {
 	}
 }
 
+func TestBuildMutationsSkipsEquivalentSelectionEditingCells(t *testing.T) {
+	feature := gherkin.Feature{
+		Name: "Selection and editing",
+		Scenarios: []gherkin.Scenario{
+			{Examples: []map[string]string{{"object_type": "mass", "id": "1"}}},
+			{},
+			{Examples: []map[string]string{{"object_type": "spring", "id": "2"}}},
+		},
+	}
+
+	mutations := BuildMutations(feature)
+	if len(mutations) != 2 {
+		t.Fatalf("mutations = %#v", mutations)
+	}
+	if !isEquivalentSelectionEditingMutation(0, "id") || !isEquivalentSelectionEditingMutation(2, "id") {
+		t.Fatal("expected selection id setup mutations to be equivalent")
+	}
+}
+
 func TestBuildMutationReturnsStableMutationOrSkipsEquivalent(t *testing.T) {
 	feature := gherkin.Feature{Scenarios: []gherkin.Scenario{{}}}
 	mutation, ok := buildMutation(feature, 0, 0, "count", "20", 1)
