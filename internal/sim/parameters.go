@@ -1,9 +1,10 @@
 package sim
 
 type Parameters struct {
-	Values map[string]string
-	Forces map[string]ForceConfig
-	Walls  map[string]bool
+	Values      map[string]string
+	Forces      map[string]ForceConfig
+	Walls       map[string]bool
+	ActiveForce string
 }
 
 type ForceConfig struct {
@@ -40,14 +41,16 @@ func DefaultParameters() Parameters {
 			"right":  false,
 			"bottom": false,
 		},
+		ActiveForce: "gravity",
 	}
 }
 
 func (p Parameters) Clone() Parameters {
 	clone := Parameters{
-		Values: map[string]string{},
-		Forces: map[string]ForceConfig{},
-		Walls:  map[string]bool{},
+		Values:      map[string]string{},
+		Forces:      map[string]ForceConfig{},
+		Walls:       map[string]bool{},
+		ActiveForce: p.ActiveForce,
 	}
 	for key, value := range p.Values {
 		clone.Values[key] = value
@@ -78,7 +81,7 @@ func (p Parameters) Set(name, value string) {
 	p.Values[name] = value
 }
 
-func (p Parameters) EnableForce(name string, values map[string]string) {
+func (p *Parameters) EnableForce(name string, values map[string]string) {
 	force := p.Forces[name]
 	force.Enabled = "true"
 	if force.Values == nil {
@@ -88,6 +91,11 @@ func (p Parameters) EnableForce(name string, values map[string]string) {
 		force.Values[key] = value
 	}
 	p.Forces[name] = force
+	p.ActiveForce = name
+}
+
+func (p *Parameters) SelectForce(name string) {
+	p.ActiveForce = name
 }
 
 func (p Parameters) EnableWall(name string) {

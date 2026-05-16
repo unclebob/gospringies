@@ -126,11 +126,12 @@ func TestRenderWorldReportsVisibleObjects(t *testing.T) {
 	game := NewGame()
 	addRenderableSpring(game)
 	game.World().Parameters.EnableWall("left")
+	game.World().SetForceCenter([]int{1})
 	game.SetSelected(true)
 
 	result := game.RenderWorld()
 
-	for _, object := range []string{"movable mass", "fixed mass", "spring", "enabled wall", "selection"} {
+	for _, object := range []string{"movable mass", "fixed mass", "spring", "enabled wall", "selection", "force center"} {
 		if !result.HasVisibleRepresentation(object) {
 			t.Fatalf("missing representation for %q: %#v", object, result.Representations)
 		}

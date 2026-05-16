@@ -366,6 +366,15 @@ func TestBuildMutationsSkipsEquivalentWallCollisionCells(t *testing.T) {
 	}
 }
 
+func TestBuildMutationsSkipsEquivalentForceCenterCells(t *testing.T) {
+	if !isEquivalentForceCenterMutation(3, "center_mass") {
+		t.Fatal("center mass setup/assertion cell should be equivalent")
+	}
+	if isEquivalentForceCenterMutation(3, "force") || isEquivalentForceCenterMutation(2, "center_mass") {
+		t.Fatal("force and unrelated center mass mutations should remain meaningful")
+	}
+}
+
 func TestEquivalentMutationPredicates(t *testing.T) {
 	for _, check := range []struct {
 		equivalent func(int, string) bool

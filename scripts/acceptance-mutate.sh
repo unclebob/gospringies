@@ -1,4 +1,4 @@
 #!/bin/sh
 set -eu
 
-go run ./cmd/gherkin-mutator --feature features/020_xsp_complete_file_format.feature "$@"
+go run ./cmd/gherkin-mutator --feature features/021_force_center_and_force_parameters.feature "$@"

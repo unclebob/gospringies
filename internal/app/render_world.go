@@ -37,6 +37,7 @@ func (g *Game) renderRepresentations() map[string]string {
 	g.springRepresentation(representations)
 	g.wallRepresentation(representations)
 	g.selectionRepresentation(representations)
+	g.centerRepresentation(representations)
 	return representations
 }
 
@@ -55,6 +56,12 @@ func (g *Game) wallRepresentation(representations map[string]string) {
 func (g *Game) selectionRepresentation(representations map[string]string) {
 	if g.selected {
 		representations["selection"] = "selection outline"
+	}
+}
+
+func (g *Game) centerRepresentation(representations map[string]string) {
+	if g.simulation.CenterMassID() > 0 {
+		representations["force center"] = "center marker"
 	}
 }
 

@@ -97,6 +97,7 @@ var equivalentMutationChecks = map[string]equivalentMutationCheck{
 	"State save restore":                isEquivalentStateSaveRestoreMutation,
 	"Selected object parameter editing": scenarioOnlyEquivalentCheck(isEquivalentSelectedObjectParameterMutation),
 	"Wall collision and stickiness":     scenarioOnlyEquivalentCheck(isEquivalentWallCollisionMutation),
+	"Force center and force parameters": scenarioOnlyEquivalentCheck(isEquivalentForceCenterMutation),
 }
 
 func isEquivalentMutation(feature gherkin.Feature, scenarioIndex, exampleIndex int, key string) bool {
@@ -218,6 +219,10 @@ func isEquivalentWallCollisionMutation(scenarioIndex int, key string) bool {
 		3: {"mass_id": true},
 	}
 	return keys[scenarioIndex][key]
+}
+
+func isEquivalentForceCenterMutation(scenarioIndex int, key string) bool {
+	return scenarioIndex == 3 && key == "center_mass"
 }
 
 func controlsParameterSetupKey(key string) bool {
