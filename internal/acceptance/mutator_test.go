@@ -193,6 +193,39 @@ func TestBuildMutationsSkipsEquivalentSelectionEditingCells(t *testing.T) {
 	}
 }
 
+func TestBuildMutationsSkipsEquivalentMouseEditingCells(t *testing.T) {
+	if !isEquivalentMouseEditingMutation(1, "snap_size") {
+		t.Fatal("expected snap size setup mutation to be equivalent")
+	}
+	if !isEquivalentMouseEditingMutation(2, "mass_a") {
+		t.Fatal("expected spring endpoint setup mutation to be equivalent")
+	}
+	if !isEquivalentMouseEditingMutation(2, "mass_b") {
+		t.Fatal("expected second spring endpoint setup mutation to be equivalent")
+	}
+	if !isEquivalentMouseEditingMutation(3, "mass_id") {
+		t.Fatal("expected drag mass id setup mutation to be equivalent")
+	}
+	if !isEquivalentMouseEditingMutation(3, "start_position") {
+		t.Fatal("expected drag start position setup mutation to be equivalent")
+	}
+	if !isEquivalentMouseEditingMutation(3, "target_position") {
+		t.Fatal("expected fixed drag target setup mutation to be equivalent")
+	}
+	if isEquivalentMouseEditingMutation(1, "grid_snap") {
+		t.Fatal("expected grid snap state mutation to be meaningful")
+	}
+	if isEquivalentMouseEditingMutation(2, "mode") {
+		t.Fatal("expected spring mode mutation to be meaningful")
+	}
+	if isEquivalentMouseEditingMutation(3, "fixed") {
+		t.Fatal("expected fixed state mutation to be meaningful")
+	}
+	if isEquivalentMouseEditingMutation(0, "expected_position") {
+		t.Fatal("expected mass placement assertion mutation to be meaningful")
+	}
+}
+
 func TestEquivalentMutationPredicates(t *testing.T) {
 	for _, check := range []struct {
 		equivalent func(int, string) bool
