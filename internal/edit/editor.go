@@ -11,6 +11,7 @@ import (
 const (
 	ModeAddMass   = "add mass"
 	ModeAddSpring = "add spring"
+	ModeEdit      = "edit"
 )
 
 type Editor struct {
@@ -84,6 +85,47 @@ func (e *Editor) SelectSpring(id int) error {
 	return e.selectExisting(id, "spring", e.springExists, func() { e.SelectedSprings[id] = true })
 }
 
+func (e *Editor) SelectNearest(position sim.Vec2, toggle bool) error {
+	id, ok := e.nearestMassID(position)
+	if !ok {
+		return fmt.Errorf("no object near pointer")
+	}
+	if toggle {
+		e.toggleMassSelection(id)
+		return nil
+	}
+	e.clearSelection()
+	e.SelectedMasses[id] = true
+	return nil
+}
+
+func (e *Editor) BoxSelect(min sim.Vec2, max sim.Vec2, add bool) {
+	if !add {
+		e.clearSelection()
+	}
+	for _, mass := range e.World.Masses {
+		if withinBox(mass.Position, min, max) {
+			e.SelectedMasses[mass.ID] = true
+		}
+	}
+}
+
+func (e *Editor) MoveSelected(delta sim.Vec2) {
+	for i := range e.World.Masses {
+		if e.SelectedMasses[e.World.Masses[i].ID] && !e.World.Masses[i].Fixed {
+			e.World.Masses[i].Position = e.World.Masses[i].Position.Add(delta)
+		}
+	}
+}
+
+func (e *Editor) ThrowSelected(velocity sim.Vec2) {
+	for i := range e.World.Masses {
+		if e.SelectedMasses[e.World.Masses[i].ID] && !e.World.Masses[i].Fixed {
+			e.World.Masses[i].Velocity = velocity
+		}
+	}
+}
+
 func (e *Editor) selectExisting(id int, objectType string, exists func(int) bool, selectObject func()) error {
 	if !exists(id) {
 		return fmt.Errorf("%s %d not found", objectType, id)
@@ -137,6 +179,14 @@ func (e *Editor) DuplicateSelected() (DuplicatedObjects, error) {
 func (e *Editor) clearSelection() {
 	e.SelectedMasses = map[int]bool{}
 	e.SelectedSprings = map[int]bool{}
+}
+
+func (e *Editor) toggleMassSelection(id int) {
+	if e.SelectedMasses[id] {
+		delete(e.SelectedMasses, id)
+		return
+	}
+	e.SelectedMasses[id] = true
 }
 
 func (e *Editor) deleteSelectedMasses() {
@@ -229,6 +279,34 @@ func (e *Editor) worldIndexByMassID(id int) (int, bool) {
 		}
 	}
 	return 0, false
+}
+
+func (e *Editor) nearestMassID(position sim.Vec2) (int, bool) {
+	if len(e.World.Masses) == 0 {
+		return 0, false
+	}
+	nearestID := e.World.Masses[0].ID
+	nearestDistance := distance(e.World.Masses[0].Position, position)
+	for _, mass := range e.World.Masses[1:] {
+		if d := distance(mass.Position, position); d < nearestDistance {
+			nearestID = mass.ID
+			nearestDistance = d
+		}
+	}
+	return nearestID, true
+}
+
+func withinBox(position sim.Vec2, min sim.Vec2, max sim.Vec2) bool {
+	lowX, highX := ordered(min.X, max.X)
+	lowY, highY := ordered(min.Y, max.Y)
+	return position.X >= lowX && position.X <= highX && position.Y >= lowY && position.Y <= highY
+}
+
+func ordered(a float64, b float64) (float64, float64) {
+	if a > b {
+		return b, a
+	}
+	return a, b
 }
 
 func (e *Editor) snap(position sim.Vec2) sim.Vec2 {

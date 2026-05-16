@@ -1,4 +1,4 @@
 #!/bin/sh
 set -eu
 
-go run ./cmd/gherkin-mutator --feature features/014_packaging_and_docs.feature "$@"
+go run ./cmd/gherkin-mutator --feature features/015_edit_mode_details.feature "$@"

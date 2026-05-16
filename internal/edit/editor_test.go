@@ -243,3 +243,72 @@ func TestDuplicateSelectedObjectsCreatesIndependentIDs(t *testing.T) {
 		t.Fatalf("duplicate spring = %#v, ok = %t", dupSpring, ok)
 	}
 }
+
+func TestSelectNearestReplacesOrTogglesSelection(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 0, Y: 0}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 20, Y: 0}, Mass: 1})
+	editor := NewEditor(world)
+	editor.SelectedMasses[1] = true
+
+	if err := editor.SelectNearest(sim.Vec2{X: 19, Y: 0}, false); err != nil {
+		t.Fatal(err)
+	}
+	if editor.MassSelected(1) || !editor.MassSelected(2) {
+		t.Fatalf("selection = %#v", editor.SelectedMasses)
+	}
+
+	if err := editor.SelectNearest(sim.Vec2{X: 1, Y: 0}, true); err != nil {
+		t.Fatal(err)
+	}
+	if !editor.MassSelected(1) || !editor.MassSelected(2) {
+		t.Fatalf("selection = %#v", editor.SelectedMasses)
+	}
+	if err := editor.SelectNearest(sim.Vec2{X: 1, Y: 0}, true); err != nil {
+		t.Fatal(err)
+	}
+	if editor.MassSelected(1) || !editor.MassSelected(2) {
+		t.Fatalf("selection = %#v", editor.SelectedMasses)
+	}
+}
+
+func TestBoxSelectAndShiftBoxSelect(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 20, Y: 20}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 3, Position: sim.Vec2{X: 100, Y: 100}, Mass: 1})
+	editor := NewEditor(world)
+
+	editor.BoxSelect(sim.Vec2{}, sim.Vec2{X: 50, Y: 50}, false)
+	if !editor.MassSelected(1) || !editor.MassSelected(2) || editor.MassSelected(3) {
+		t.Fatalf("selection = %#v", editor.SelectedMasses)
+	}
+
+	editor.clearSelection()
+	editor.SelectedMasses[3] = true
+	editor.BoxSelect(sim.Vec2{}, sim.Vec2{X: 15, Y: 15}, true)
+	if !editor.MassSelected(1) || editor.MassSelected(2) || !editor.MassSelected(3) {
+		t.Fatalf("selection = %#v", editor.SelectedMasses)
+	}
+}
+
+func TestMoveAndThrowSelectedSkipFixedMasses(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 20, Y: 20}, Mass: 1, Fixed: true})
+	editor := NewEditor(world)
+	editor.SelectedMasses[1] = true
+	editor.SelectedMasses[2] = true
+
+	editor.MoveSelected(sim.Vec2{X: 5, Y: -3})
+	editor.ThrowSelected(sim.Vec2{X: 4, Y: -2})
+
+	movable, _ := world.MassByID(1)
+	fixed, _ := world.MassByID(2)
+	if movable.Position != (sim.Vec2{X: 15, Y: 7}) || movable.Velocity != (sim.Vec2{X: 4, Y: -2}) {
+		t.Fatalf("movable = %#v", movable)
+	}
+	if fixed.Position != (sim.Vec2{X: 20, Y: 20}) || fixed.Velocity != (sim.Vec2{}) {
+		t.Fatalf("fixed = %#v", fixed)
+	}
+}
