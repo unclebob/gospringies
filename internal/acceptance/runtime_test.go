@@ -342,6 +342,10 @@ func TestRunFeatureExecutesSelectedObjectParameterEditingFeature(t *testing.T) {
 	runFeatureFile(t, "features/018_selected_object_parameter_editing.feature")
 }
 
+func TestRunFeatureExecutesWallCollisionStickinessFeature(t *testing.T) {
+	runFeatureFile(t, "features/019_wall_collision_and_stickiness.feature")
+}
+
 func TestRenderWorldHelpersValidateInputs(t *testing.T) {
 	if err := createApplicationWorldState(&world{}, map[string]string{}); err == nil {
 		t.Fatal("expected missing world state")

@@ -42,6 +42,7 @@ type Mass struct {
 	Mass       float64
 	Elasticity float64
 	Fixed      bool
+	StuckWall  string
 }
 
 type Spring struct {
@@ -219,8 +220,12 @@ func (s *Simulation) Step(dt float64) {
 			continue
 		}
 		acceleration := evaluation.ByMassID[mass.ID].Acceleration
+		if s.keepStuck(mass, acceleration) {
+			continue
+		}
 		mass.Velocity = mass.Velocity.Add(acceleration.Scale(dt)).Scale(s.Damping)
 		mass.Position = mass.Position.Add(mass.Velocity.Scale(dt))
+		s.applyWallCollision(mass)
 	}
 	s.Time += dt
 }

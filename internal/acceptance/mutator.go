@@ -81,34 +81,33 @@ func buildMutation(feature gherkin.Feature, scenarioIndex, exampleIndex int, key
 	}, true
 }
 
+type equivalentMutationCheck func(int, int, string) bool
+
+var equivalentMutationChecks = map[string]equivalentMutationCheck{
+	"Domain model":                      scenarioOnlyEquivalentCheck(isEquivalentDomainModelMutation),
+	"System parameters":                 scenarioOnlyEquivalentCheck(isEquivalentSystemParameterMutation),
+	"Force evaluation":                  scenarioOnlyEquivalentCheck(isEquivalentForceEvaluationMutation),
+	"Simulation step":                   scenarioOnlyEquivalentCheck(isEquivalentSimulationStepMutation),
+	"XSP load and save":                 scenarioOnlyEquivalentCheck(isEquivalentXSPMutation),
+	"Mouse editing":                     scenarioOnlyEquivalentCheck(isEquivalentMouseEditingMutation),
+	"Selection and editing":             scenarioOnlyEquivalentCheck(isEquivalentSelectionEditingMutation),
+	"Controls and hotkeys":              scenarioOnlyEquivalentCheck(isEquivalentControlsHotkeysMutation),
+	"Edit mode details":                 isEquivalentEditModeDetailsMutation,
+	"Spring mode mouse semantics":       isEquivalentSpringModeMouseMutation,
+	"State save restore":                isEquivalentStateSaveRestoreMutation,
+	"Selected object parameter editing": scenarioOnlyEquivalentCheck(isEquivalentSelectedObjectParameterMutation),
+	"Wall collision and stickiness":     scenarioOnlyEquivalentCheck(isEquivalentWallCollisionMutation),
+}
+
 func isEquivalentMutation(feature gherkin.Feature, scenarioIndex, exampleIndex int, key string) bool {
-	if feature.Name == "Edit mode details" {
-		return isEquivalentEditModeDetailsMutation(scenarioIndex, exampleIndex, key)
+	check, ok := equivalentMutationChecks[feature.Name]
+	return ok && check(scenarioIndex, exampleIndex, key)
+}
+
+func scenarioOnlyEquivalentCheck(check func(int, string) bool) equivalentMutationCheck {
+	return func(scenarioIndex, _ int, key string) bool {
+		return check(scenarioIndex, key)
 	}
-	if feature.Name == "Spring mode mouse semantics" {
-		return isEquivalentSpringModeMouseMutation(scenarioIndex, exampleIndex, key)
-	}
-	if feature.Name == "State save restore" {
-		return isEquivalentStateSaveRestoreMutation(scenarioIndex, exampleIndex, key)
-	}
-	if feature.Name == "Selected object parameter editing" {
-		return isEquivalentSelectedObjectParameterMutation(scenarioIndex, key)
-	}
-	equivalent := map[string]func(int, string) bool{
-		"Domain model":          isEquivalentDomainModelMutation,
-		"System parameters":     isEquivalentSystemParameterMutation,
-		"Force evaluation":      isEquivalentForceEvaluationMutation,
-		"Simulation step":       isEquivalentSimulationStepMutation,
-		"XSP load and save":     isEquivalentXSPMutation,
-		"Mouse editing":         isEquivalentMouseEditingMutation,
-		"Selection and editing": isEquivalentSelectionEditingMutation,
-		"Controls and hotkeys":  isEquivalentControlsHotkeysMutation,
-	}
-	check, ok := equivalent[feature.Name]
-	if !ok {
-		return false
-	}
-	return check(scenarioIndex, key)
 }
 
 func isEquivalentDomainModelMutation(scenarioIndex int, key string) bool {
@@ -207,6 +206,16 @@ func isEquivalentSelectedObjectParameterMutation(scenarioIndex int, key string) 
 		1: {"spring_id": true, "value": true},
 		2: {"spring_id": true, "current_length": true},
 		3: {"value": true},
+	}
+	return keys[scenarioIndex][key]
+}
+
+func isEquivalentWallCollisionMutation(scenarioIndex int, key string) bool {
+	keys := map[int]map[string]bool{
+		0: {"mass_id": true, "elasticity": true},
+		1: {"mass_id": true},
+		2: {"mass_id": true},
+		3: {"mass_id": true},
 	}
 	return keys[scenarioIndex][key]
 }

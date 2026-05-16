@@ -341,6 +341,31 @@ func TestBuildMutationsSkipsEquivalentSelectedObjectParameterCells(t *testing.T)
 	}
 }
 
+func TestBuildMutationsSkipsEquivalentWallCollisionCells(t *testing.T) {
+	feature := gherkin.Feature{
+		Name: "Wall collision and stickiness",
+		Scenarios: []gherkin.Scenario{
+			{Examples: []map[string]string{{"wall": "left", "mass_id": "1", "elasticity": "0.5"}}},
+			{Examples: []map[string]string{{"wall": "right", "mass_id": "2"}}},
+			{Examples: []map[string]string{{"stickiness": "high", "mass_id": "1", "wall": "left", "release_force": "sufficient", "release_result": "released"}}},
+			{Examples: []map[string]string{{"wall": "bottom", "mass_id": "1"}}},
+		},
+	}
+
+	mutations := BuildMutations(feature)
+	for _, mutation := range mutations {
+		if mutation.Key == "mass_id" || mutation.Key == "elasticity" {
+			t.Fatalf("mutation should be filtered: %#v", mutation)
+		}
+	}
+	if !isEquivalentWallCollisionMutation(0, "elasticity") || !isEquivalentWallCollisionMutation(3, "mass_id") {
+		t.Fatal("expected setup/assertion wall cells to be equivalent")
+	}
+	if isEquivalentWallCollisionMutation(2, "release_result") || isEquivalentWallCollisionMutation(1, "wall") {
+		t.Fatal("release result and wall mutations should remain meaningful")
+	}
+}
+
 func TestEquivalentMutationPredicates(t *testing.T) {
 	for _, check := range []struct {
 		equivalent func(int, string) bool
