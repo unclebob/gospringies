@@ -343,6 +343,111 @@ func TestRunFeatureExecutesRenderWorldFeature(t *testing.T) {
 	}
 }
 
+func TestRenderWorldHelpersValidateInputs(t *testing.T) {
+	if err := createApplicationWorldState(&world{}, map[string]string{}); err == nil {
+		t.Fatal("expected missing world state")
+	}
+	if err := createApplicationWorldState(&world{}, map[string]string{"world_state": "unsupported"}); err == nil {
+		t.Fatal("expected unsupported world state")
+	}
+	if err := assertVisibleRepresentation(&world{}, map[string]string{}); err == nil {
+		t.Fatal("expected missing object")
+	}
+	if err := assertSpringLineVisibility(&world{}, map[string]string{}); err == nil {
+		t.Fatal("expected missing spring visibility")
+	}
+	if err := assertSpringLineVisibility(&world{}, map[string]string{"spring_visibility": "blurred"}); err == nil {
+		t.Fatal("expected unsupported spring visibility")
+	}
+	if visible, ok := booleanState("visible", springVisibilityStates); !ok || !visible {
+		t.Fatalf("visible spring state = %t, %t", visible, ok)
+	}
+	if hidden, ok := booleanState("hidden", springVisibilityStates); !ok || hidden {
+		t.Fatalf("hidden spring state = %t, %t", hidden, ok)
+	}
+}
+
+func TestRenderableObjectSetupsCreateExpectedWorlds(t *testing.T) {
+	tests := []struct {
+		name      string
+		masses    []sim.Mass
+		springs   []sim.Spring
+		wallLeft  bool
+		visibleAs string
+	}{
+		{
+			name:      "movable mass",
+			masses:    []sim.Mass{{ID: 1, Position: sim.Vec2{X: 20, Y: 20}, Mass: 1}},
+			visibleAs: "movable mass",
+		},
+		{
+			name:      "fixed mass",
+			masses:    []sim.Mass{{ID: 1, Position: sim.Vec2{X: 20, Y: 20}, Mass: 1, Fixed: true}},
+			visibleAs: "fixed mass",
+		},
+		{
+			name: "spring",
+			masses: []sim.Mass{
+				{ID: 1, Position: sim.Vec2{X: 20, Y: 20}, Mass: 1, Fixed: true},
+				{ID: 2, Position: sim.Vec2{X: 40, Y: 20}, Mass: 1},
+			},
+			springs:   []sim.Spring{{ID: 1, A: 0, B: 1, MassA: 1, MassB: 2, RestLength: 20, Stiffness: 12, SpringConstant: 12}},
+			visibleAs: "spring",
+		},
+		{name: "enabled wall", wallLeft: true, visibleAs: "enabled wall"},
+		{
+			name:      "selection",
+			masses:    []sim.Mass{{ID: 1, Position: sim.Vec2{X: 20, Y: 20}, Mass: 1}},
+			visibleAs: "selection",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			game := app.NewGame()
+			if err := addRenderableObject(game, test.name); err != nil {
+				t.Fatal(err)
+			}
+			assertMasses(t, game.World().Masses, test.masses)
+			assertSprings(t, game.World().Springs, test.springs)
+			if game.World().Parameters.Walls["left"] != test.wallLeft {
+				t.Fatalf("left wall = %t, want %t", game.World().Parameters.Walls["left"], test.wallLeft)
+			}
+			if result := game.RenderWorld(); !result.HasVisibleRepresentation(test.visibleAs) {
+				t.Fatalf("render result missing %q: %#v", test.visibleAs, result.Representations)
+			}
+		})
+	}
+
+	if err := addRenderableObject(app.NewGame(), "unsupported"); err == nil {
+		t.Fatal("expected unsupported renderable object")
+	}
+}
+
+func assertMasses(t *testing.T, actual, expected []sim.Mass) {
+	t.Helper()
+	if len(actual) != len(expected) {
+		t.Fatalf("mass count = %d, want %d", len(actual), len(expected))
+	}
+	for i := range expected {
+		if actual[i] != expected[i] {
+			t.Fatalf("mass %d = %#v, want %#v", i, actual[i], expected[i])
+		}
+	}
+}
+
+func assertSprings(t *testing.T, actual, expected []sim.Spring) {
+	t.Helper()
+	if len(actual) != len(expected) {
+		t.Fatalf("spring count = %d, want %d", len(actual), len(expected))
+	}
+	for i := range expected {
+		if actual[i] != expected[i] {
+			t.Fatalf("spring %d = %#v, want %#v", i, actual[i], expected[i])
+		}
+	}
+}
+
 func TestApplicationWindowHelpersReportFailures(t *testing.T) {
 	openErr := errors.New("open failed")
 	if err := assertApplicationWindowOpened(&world{appErr: openErr}, nil); err != openErr {
