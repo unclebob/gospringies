@@ -302,6 +302,10 @@ func TestRunFeatureExecutesSelectionEditingFeature(t *testing.T) {
 	runFeatureFile(t, "features/011_selection_and_editing.feature")
 }
 
+func TestRunFeatureExecutesControlsHotkeysFeature(t *testing.T) {
+	runFeatureFile(t, "features/012_controls_and_hotkeys.feature")
+}
+
 func TestApplicationWindowHelpersReportFailures(t *testing.T) {
 	openErr := errors.New("open failed")
 	if err := assertApplicationWindowOpened(&world{appErr: openErr}, nil); err != openErr {
