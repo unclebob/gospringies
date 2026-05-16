@@ -33,6 +33,23 @@ func TestRunFeatureExecutesProjectSkeletonScenarios(t *testing.T) {
 	}
 }
 
+func TestRunFeatureExecutesPipelineSmokeScenario(t *testing.T) {
+	feature := gherkin.Feature{
+		Name: "Pipeline smoke",
+		Scenarios: []gherkin.Scenario{{
+			Name: "smoke",
+			Steps: []gherkin.Step{
+				{Keyword: "Given", Text: "acceptance smoke is ready"},
+				{Keyword: "Then", Text: "acceptance smoke should pass"},
+			},
+		}},
+	}
+
+	if err := RunFeature(feature); err != nil {
+		t.Fatalf("RunFeature returned error: %v", err)
+	}
+}
+
 func TestRunFeatureFailsUnsupportedSteps(t *testing.T) {
 	feature := gherkin.Feature{
 		Name: "Unsupported",
@@ -71,13 +88,22 @@ func TestStepPrerequisitesReturnHelpfulErrors(t *testing.T) {
 		{Text: "the Go test suite should pass"},
 		{Text: "I advance the simulation <steps> steps"},
 		{Text: "mass <mass> x should be <x>"},
+		{Text: "the Gherkin parser should run successfully"},
+		{Text: "the acceptance test generator should run successfully"},
+		{Text: "the generated executable acceptance tests should run successfully"},
+		{Text: "generated acceptance <artifact> should be written under <generated_location>"},
+		{Text: "the smoke feature should parse successfully"},
+		{Text: "the smoke feature should generate an executable acceptance test"},
+		{Text: "the generated smoke acceptance test should pass"},
 	}
 	example := map[string]string{
-		"package":          "simulation",
-		"graphics_library": "Ebitengine",
-		"steps":            "1",
-		"mass":             "0",
-		"x":                "160",
+		"package":            "simulation",
+		"graphics_library":   "Ebitengine",
+		"steps":              "1",
+		"mass":               "0",
+		"x":                  "160",
+		"artifact":           "test source",
+		"generated_location": "acceptance/generated",
 	}
 
 	for _, step := range cases {
@@ -112,6 +138,71 @@ func TestPackageDirDoesNotImportDetectsGraphicsLibrary(t *testing.T) {
 	}
 }
 
+func TestArtifactHelpers(t *testing.T) {
+	if artifact, location, err := artifactExample(map[string]string{
+		"artifact":           "test source",
+		"generated_location": "acceptance/generated",
+	}); err != nil || artifact != "test source" || location != "acceptance/generated" {
+		t.Fatalf("artifactExample = %q, %q, %v", artifact, location, err)
+	}
+	if _, _, err := artifactExample(map[string]string{"artifact": "test source"}); err == nil {
+		t.Fatal("expected missing generated location error")
+	}
+	if err := generatedArtifactExists("unsupported", "acceptance/generated"); err == nil {
+		t.Fatal("expected unsupported artifact error")
+	}
+	path, err := generatedArtifactPath("test source", "acceptance/generated")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasSuffix(path, filepath.Join("acceptance", "generated", "pipeline_artifacts_acceptance_test.go")) {
+		t.Fatalf("generated artifact path = %s", path)
+	}
+}
+
+func TestHandwrittenTestsOutside(t *testing.T) {
+	if err := handwrittenTestsOutside("acceptance/generated"); err != nil {
+		t.Fatalf("handwrittenTestsOutside returned error: %v", err)
+	}
+	if err := handwrittenTestsOutside("internal"); err == nil {
+		t.Fatal("expected internal tests to violate generated location")
+	}
+}
+
+func TestAssertHandwrittenTestsOutside(t *testing.T) {
+	example := map[string]string{
+		"test_type":          "unit",
+		"generated_location": "acceptance/generated",
+	}
+	if err := assertHandwrittenTestsOutside(nil, example); err != nil {
+		t.Fatalf("assertHandwrittenTestsOutside returned error: %v", err)
+	}
+	example["test_type"] = "integration"
+	if err := assertHandwrittenTestsOutside(nil, example); err == nil {
+		t.Fatal("expected unsupported test type error")
+	}
+}
+
+func TestHandwrittenViolationHelpers(t *testing.T) {
+	dir := t.TempDir()
+	testPath := filepath.Join(dir, "example_test.go")
+	writeSource(t, testPath, "package example\n")
+
+	violations, err := handwrittenTestViolations(dir, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(violations) != 1 || violations[0] != testPath {
+		t.Fatalf("violations = %#v", violations)
+	}
+	if !isHandwrittenTestUnder(testPath, fakeDirEntry{name: "example_test.go"}, dir) {
+		t.Fatal("expected test file under generated location")
+	}
+	if err := reportHandwrittenViolations(violations); err == nil {
+		t.Fatal("expected violation report")
+	}
+}
+
 func TestRunCommandInDirReportsFailures(t *testing.T) {
 	if err := runCommandInDir(t.TempDir(), "go", "version"); err != nil {
 		t.Fatalf("runCommandInDir returned error: %v", err)
@@ -123,7 +214,19 @@ func TestRunCommandInDirReportsFailures(t *testing.T) {
 
 func writeSource(t *testing.T, path, source string) {
 	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(path, []byte(source), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }
+
+type fakeDirEntry struct {
+	name string
+}
+
+func (f fakeDirEntry) Name() string               { return f.name }
+func (f fakeDirEntry) IsDir() bool                { return false }
+func (f fakeDirEntry) Type() os.FileMode          { return 0 }
+func (f fakeDirEntry) Info() (os.FileInfo, error) { return nil, nil }
