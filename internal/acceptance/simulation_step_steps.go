@@ -79,28 +79,40 @@ func resultingMass(w *world, id int) (sim.Mass, error) {
 }
 
 func createMassStartPosition(w *world, example map[string]string) error {
-	if err := requireMarker(example, "start_position", "initial"); err != nil {
-		return err
-	}
 	world := ensureDomainWorld(w)
 	id, err := intValue(example, "mass_id")
 	if err != nil {
 		return err
 	}
-	if setMassStartPosition(world, id) {
+	position, err := startPosition(example)
+	if err != nil {
+		return err
+	}
+	if setMassStartPosition(world, id, position) {
 		return nil
 	}
-	return world.AddMass(sim.Mass{ID: id, Position: sim.Vec2{X: 5, Y: 6}, Mass: 1})
+	return world.AddMass(sim.Mass{ID: id, Position: position, Mass: 1})
 }
 
-func setMassStartPosition(world *sim.Simulation, id int) bool {
+func setMassStartPosition(world *sim.Simulation, id int, position sim.Vec2) bool {
 	for i := range world.Masses {
 		if world.Masses[i].ID == id {
-			world.Masses[i].Position = sim.Vec2{X: 5, Y: 6}
+			world.Masses[i].Position = position
 			return true
 		}
 	}
 	return false
+}
+
+func startPosition(example map[string]string) (sim.Vec2, error) {
+	value, err := stringValue(example, "start_position")
+	if err != nil {
+		return sim.Vec2{}, err
+	}
+	if value == "initial" {
+		return sim.Vec2{X: 5, Y: 6}, nil
+	}
+	return positionValue(example, "start_position")
 }
 
 func assertMassPositionRemains(w *world, example map[string]string) error {

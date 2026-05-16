@@ -88,6 +88,7 @@ func isEquivalentMutation(feature gherkin.Feature, scenarioIndex int, key string
 		"Force evaluation":  isEquivalentForceEvaluationMutation,
 		"Simulation step":   isEquivalentSimulationStepMutation,
 		"XSP load and save": isEquivalentXSPMutation,
+		"Mouse editing":     isEquivalentMouseEditingMutation,
 	}
 	check, ok := equivalent[feature.Name]
 	if !ok {
@@ -147,6 +148,15 @@ func isEquivalentSimulationStepMutation(scenarioIndex int, key string) bool {
 
 func isEquivalentXSPMutation(scenarioIndex int, key string) bool {
 	return scenarioIndex == 3 && (key == "file_mass_value" || key == "mass_id")
+}
+
+func isEquivalentMouseEditingMutation(scenarioIndex int, key string) bool {
+	keys := map[int]map[string]bool{
+		1: {"snap_size": true},
+		2: {"mass_a": true, "mass_b": true},
+		3: {"mass_id": true, "start_position": true, "target_position": true},
+	}
+	return keys[scenarioIndex][key]
 }
 
 func RunMutations(feature gherkin.Feature, workDir string) ([]MutationResult, error) {
