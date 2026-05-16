@@ -93,14 +93,21 @@ func printResult(w io.Writer, result acceptance.MutationResult) {
 }
 
 func printError(w io.Writer, message string) {
-	if message != "" {
-		fmt.Fprintf(w, "  error: %s\n", message)
-	}
+	printOptional(w, "error", message, false)
 }
 
 func printOutput(w io.Writer, output string) {
-	if output != "" {
-		fmt.Fprintf(w, "  output:\n%s", output)
+	printOptional(w, "output", output, true)
+}
+
+func printOptional(w io.Writer, label, value string, block bool) {
+	if value == "" {
+		return
+	}
+	if block {
+		fmt.Fprintf(w, "  %s:\n%s", label, value)
+	} else {
+		fmt.Fprintf(w, "  %s: %s\n", label, value)
 	}
 }
 

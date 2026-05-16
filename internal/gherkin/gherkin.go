@@ -104,18 +104,18 @@ func parseBackgroundLine(p *lineParser, line string) (bool, error) {
 }
 
 func parseScenarioOutlineLine(p *lineParser, line string) (bool, error) {
-	if !strings.HasPrefix(line, "Scenario Outline:") {
-		return false, nil
-	}
-	p.startScenario(strings.TrimSpace(strings.TrimPrefix(line, "Scenario Outline:")))
-	return true, nil
+	return parseScenarioWithPrefix(p, line, "Scenario Outline:")
 }
 
 func parseScenarioLine(p *lineParser, line string) (bool, error) {
-	if !strings.HasPrefix(line, "Scenario:") {
+	return parseScenarioWithPrefix(p, line, "Scenario:")
+}
+
+func parseScenarioWithPrefix(p *lineParser, line, prefix string) (bool, error) {
+	if !strings.HasPrefix(line, prefix) {
 		return false, nil
 	}
-	p.startScenario(strings.TrimSpace(strings.TrimPrefix(line, "Scenario:")))
+	p.startScenario(strings.TrimSpace(strings.TrimPrefix(line, prefix)))
 	return true, nil
 }
 
