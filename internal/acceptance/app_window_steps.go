@@ -50,7 +50,7 @@ func resizeApplicationWindow(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	if size != "small" && size != "large" {
+	if !supportedWindowSizes[size] {
 		return fmt.Errorf("unsupported window size %q", size)
 	}
 	if !app.DefaultWindowConfig().Resizable {
@@ -59,6 +59,11 @@ func resizeApplicationWindow(w *world, example map[string]string) error {
 	w.appWindowSize = size
 	w.appGame = app.NewGame()
 	return nil
+}
+
+var supportedWindowSizes = map[string]bool{
+	"small": true,
+	"large": true,
 }
 
 func assertApplicationContinuesRunning(w *world, _ map[string]string) error {
@@ -73,13 +78,18 @@ func setApplicationPauseState(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	game := app.NewGame()
-	_ = game.World().AddMass(sim.Mass{ID: 1, Mass: 1})
-	game.World().Parameters.EnableForce("gravity", map[string]string{"magnitude": "10", "direction": "90"})
+	game := newSteppingGame()
 	game.SetPaused(paused)
 	w.appGame = game
 	w.appBeforeTime = game.World().Time
 	return nil
+}
+
+func newSteppingGame() appGame {
+	game := app.NewGame()
+	_ = game.World().AddMass(sim.Mass{ID: 1, Mass: 1})
+	game.World().Parameters.EnableForce("gravity", map[string]string{"magnitude": "10", "direction": "90"})
+	return game
 }
 
 func updateApplicationLoop(w *world, _ map[string]string) error {
@@ -104,7 +114,7 @@ func assertApplicationStepping(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	expected, ok := map[string]bool{"active": true, "stopped": false}[stepping]
+	expected, ok := steppingStates[stepping]
 	if !ok {
 		return fmt.Errorf("unsupported stepping state %q", stepping)
 	}
@@ -112,6 +122,11 @@ func assertApplicationStepping(w *world, example map[string]string) error {
 		return fmt.Errorf("simulation stepping = %t, expected %t", stepped, expected)
 	}
 	return nil
+}
+
+var steppingStates = map[string]bool{
+	"active":  true,
+	"stopped": false,
 }
 
 func assertApplicationInputActive(w *world, _ map[string]string) error {
