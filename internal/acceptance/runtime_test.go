@@ -313,8 +313,8 @@ func TestRenderWorldHelpersValidateInputs(t *testing.T) {
 	if err := createApplicationWorldState(&world{}, map[string]string{"world_state": "unsupported"}); err == nil {
 		t.Fatal("expected unsupported world state")
 	}
-	if err := assertVisibleRepresentation(&world{}, map[string]string{}); err == nil {
-		t.Fatal("expected missing object")
+	if err := assertVisibleRepresentation(&world{}, map[string]string{}); err == nil || !strings.Contains(err.Error(), "object") {
+		t.Fatalf("expected missing object, got %v", err)
 	}
 	if err := assertSpringLineVisibility(&world{}, map[string]string{}); err == nil {
 		t.Fatal("expected missing spring visibility")

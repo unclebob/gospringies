@@ -63,6 +63,24 @@ func TestGameDraw(t *testing.T) {
 	}
 }
 
+func TestDrawWallsUsesSimulationBounds(t *testing.T) {
+	lines := wallDrawLines(sim.Bounds{Width: 20, Height: 16})
+	expected := []wallDrawLine{
+		{name: "top", x1: 0, y1: 0, x2: 20, y2: 0},
+		{name: "bottom", x1: 0, y1: 15, x2: 20, y2: 15},
+		{name: "left", x1: 0, y1: 0, x2: 0, y2: 16},
+		{name: "right", x1: 19, y1: 0, x2: 19, y2: 16},
+	}
+	if len(lines) != len(expected) {
+		t.Fatalf("line count = %d, want %d", len(lines), len(expected))
+	}
+	for i, line := range lines {
+		if line != expected[i] {
+			t.Fatalf("line %d = %#v, want %#v", i, line, expected[i])
+		}
+	}
+}
+
 func TestRenderWorldCompletesForEmptyAndNonEmptyWorlds(t *testing.T) {
 	for _, setup := range []func(*Game){func(*Game) {}, addRenderableSpring} {
 		game := NewGame()
@@ -157,6 +175,73 @@ func TestShowSpringsControlsSpringVisibility(t *testing.T) {
 	}
 	if !result.MassesVisible {
 		t.Fatal("expected masses to remain visible")
+	}
+}
+
+func TestMassVisibilityAndFixedDistinctionRequireExpectedMassTypes(t *testing.T) {
+	tests := []struct {
+		name       string
+		masses     []sim.Mass
+		wantMasses bool
+		wantBoth   bool
+	}{
+		{name: "only movable", masses: []sim.Mass{{ID: 1, Mass: 1}}, wantMasses: true},
+		{name: "only fixed", masses: []sim.Mass{{ID: 1, Mass: 1, Fixed: true}}, wantMasses: true},
+		{name: "both", masses: []sim.Mass{{ID: 1, Mass: 1, Fixed: true}, {ID: 2, Mass: 1}}, wantMasses: true, wantBoth: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			game := NewGame()
+			game.World().Masses = append(game.World().Masses, test.masses...)
+
+			result := game.RenderWorld()
+
+			if result.MassesVisible != test.wantMasses {
+				t.Fatalf("masses visible = %t, want %t", result.MassesVisible, test.wantMasses)
+			}
+			if result.FixedMassDistinguishable != test.wantBoth {
+				t.Fatalf("fixed distinguishable = %t, want %t", result.FixedMassDistinguishable, test.wantBoth)
+			}
+		})
+	}
+}
+
+func TestRenderWorldOmitsAbsentSpringAndWallRepresentations(t *testing.T) {
+	game := NewGame()
+
+	result := game.RenderWorld()
+
+	if result.HasVisibleRepresentation("spring") {
+		t.Fatalf("unexpected spring representation: %#v", result.Representations)
+	}
+	if result.HasVisibleRepresentation("enabled wall") {
+		t.Fatalf("unexpected wall representation: %#v", result.Representations)
+	}
+}
+
+func TestValidSpringRejectsOutOfRangeEndpoints(t *testing.T) {
+	game := NewGame()
+	_ = game.World().AddMass(sim.Mass{ID: 1, Mass: 1})
+	_ = game.World().AddMass(sim.Mass{ID: 2, Mass: 1})
+
+	tests := []struct {
+		name   string
+		spring sim.Spring
+		valid  bool
+	}{
+		{name: "valid", spring: sim.Spring{A: 0, B: 1}, valid: true},
+		{name: "valid zero b", spring: sim.Spring{A: 1, B: 0}, valid: true},
+		{name: "negative a", spring: sim.Spring{A: -1, B: 1}},
+		{name: "negative b", spring: sim.Spring{A: 0, B: -1}},
+		{name: "a too high", spring: sim.Spring{A: 2, B: 1}},
+		{name: "b too high", spring: sim.Spring{A: 0, B: 2}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := game.validSpring(test.spring); got != test.valid {
+				t.Fatalf("validSpring(%#v) = %t, want %t", test.spring, got, test.valid)
+			}
+		})
 	}
 }
 

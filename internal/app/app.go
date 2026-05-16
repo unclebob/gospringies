@@ -114,16 +114,28 @@ func massDrawColor(mass sim.Mass) color.RGBA {
 }
 
 func (g *Game) drawWalls(screen *ebiten.Image) {
-	bounds := g.simulation.Bounds
 	drawWallLine := func(name string, x1, y1, x2, y2 float64) {
 		if enabled, _ := g.simulation.Parameters.WallEnabled(name); enabled {
 			ebitenutil.DrawLine(screen, x1, y1, x2, y2, wallColor)
 		}
 	}
-	drawWallLine("top", 0, 0, bounds.Width, 0)
-	drawWallLine("bottom", 0, bounds.Height-1, bounds.Width, bounds.Height-1)
-	drawWallLine("left", 0, 0, 0, bounds.Height)
-	drawWallLine("right", bounds.Width-1, 0, bounds.Width-1, bounds.Height)
+	for _, line := range wallDrawLines(g.simulation.Bounds) {
+		drawWallLine(line.name, line.x1, line.y1, line.x2, line.y2)
+	}
+}
+
+type wallDrawLine struct {
+	name           string
+	x1, y1, x2, y2 float64
+}
+
+func wallDrawLines(bounds sim.Bounds) []wallDrawLine {
+	return []wallDrawLine{
+		{name: "top", x1: 0, y1: 0, x2: bounds.Width, y2: 0},
+		{name: "bottom", x1: 0, y1: bounds.Height - 1, x2: bounds.Width, y2: bounds.Height - 1},
+		{name: "left", x1: 0, y1: 0, x2: 0, y2: bounds.Height},
+		{name: "right", x1: bounds.Width - 1, y1: 0, x2: bounds.Width - 1, y2: bounds.Height},
+	}
 }
 
 func (g *Game) drawSelection(screen *ebiten.Image) {
