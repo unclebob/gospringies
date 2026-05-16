@@ -22,8 +22,12 @@ var documentedCommands = map[string]documentedCommand{
 	},
 	"acceptance tests": {
 		marker: "./scripts/acceptance.sh features/013_demo_files.feature",
-		name:   "./scripts/acceptance.sh",
-		args:   []string{"features/013_demo_files.feature"},
+		env: []string{
+			"ACCEPTANCE_BUILD_DIR=build/_packaging-docs-acceptance",
+			"ACCEPTANCE_GENERATED_DIR=build/_packaging-docs-acceptance/generated",
+		},
+		name: "./scripts/acceptance.sh",
+		args: []string{"features/013_demo_files.feature"},
 	},
 	"mutation tests": {
 		marker: "./scripts/acceptance-mutate.sh",
