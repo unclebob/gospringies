@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"strings"
 
 	"springs/internal/sim"
 )
@@ -23,7 +22,10 @@ func assertDomainMassCount(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	return assertCount("masses", len(world.Masses), expected)
+	if len(world.Masses) != expected {
+		return fmt.Errorf("expected %d masses, got %d", expected, len(world.Masses))
+	}
+	return nil
 }
 
 func assertDomainSpringCount(w *world, example map[string]string) error {
@@ -35,33 +37,29 @@ func assertDomainSpringCount(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	return assertCount("springs", len(world.Springs), expected)
-}
-
-func assertCount(name string, got, expected int) error {
-	if got != expected {
-		return fmt.Errorf("expected %d %s, got %d", expected, name, got)
+	if len(world.Springs) != expected {
+		return fmt.Errorf("expected %d springs, got %d", expected, len(world.Springs))
 	}
 	return nil
 }
 
-func addDomainMass(w *world, example map[string]string) error {
-	return addDomainMassFromKeys(w, example, "id", "x", "y")
+func createDomainMassFromID(w *world, example map[string]string) error {
+	return createDomainMass(w, example, "id", "x", "y")
 }
 
-func addDomainMassA(w *world, example map[string]string) error {
-	return addDomainMassFromKeys(w, example, "mass_a", "x_a", "y_a")
+func createDomainMassA(w *world, example map[string]string) error {
+	return createDomainMass(w, example, "mass_a", "x_a", "y_a")
 }
 
-func addDomainMassB(w *world, example map[string]string) error {
-	return addDomainMassFromKeys(w, example, "mass_b", "x_b", "y_b")
+func createDomainMassB(w *world, example map[string]string) error {
+	return createDomainMass(w, example, "mass_b", "x_b", "y_b")
 }
 
-func addExistingDomainMass(w *world, example map[string]string) error {
-	return addDomainMassFromKeys(w, example, "existing_mass", "x", "y")
+func createExistingDomainMass(w *world, example map[string]string) error {
+	return createDomainMass(w, example, "existing_mass", "x", "y")
 }
 
-func addDomainMassFromKeys(w *world, example map[string]string, idKey, xKey, yKey string) error {
+func createDomainMass(w *world, example map[string]string, idKey, xKey, yKey string) error {
 	world := ensureDomainWorld(w)
 	id, x, y, err := massFields(example, idKey, xKey, yKey)
 	if err != nil {
@@ -73,30 +71,44 @@ func addDomainMassFromKeys(w *world, example map[string]string, idKey, xKey, yKe
 	return world.AddMass(sim.Mass{ID: id, Position: sim.Vec2{X: x, Y: y}, Mass: 1})
 }
 
-func setDomainMassVelocity(w *world, example map[string]string) error {
+func setMassVelocity(w *world, example map[string]string) error {
 	return updateMass(w, example, func(mass *sim.Mass) error {
-		velocity, err := vecFromExample(example, "vx", "vy")
+		vx, err := floatValue(example, "vx")
 		if err != nil {
 			return err
 		}
-		mass.Velocity = velocity
+		vy, err := floatValue(example, "vy")
+		if err != nil {
+			return err
+		}
+		mass.Velocity = sim.Vec2{X: vx, Y: vy}
 		return nil
 	})
 }
 
-func setDomainMassValue(w *world, example map[string]string) error {
-	return updateMassFloat(w, example, "mass_value", func(mass *sim.Mass, value float64) {
+func setMassValue(w *world, example map[string]string) error {
+	return updateMass(w, example, func(mass *sim.Mass) error {
+		value, err := floatValue(example, "mass_value")
+		if err != nil {
+			return err
+		}
 		mass.Mass = value
+		return nil
 	})
 }
 
-func setDomainMassElasticity(w *world, example map[string]string) error {
-	return updateMassFloat(w, example, "elasticity", func(mass *sim.Mass, value float64) {
+func setMassElasticity(w *world, example map[string]string) error {
+	return updateMass(w, example, func(mass *sim.Mass) error {
+		value, err := floatValue(example, "elasticity")
+		if err != nil {
+			return err
+		}
 		mass.Elasticity = value
+		return nil
 	})
 }
 
-func setDomainMassFixed(w *world, example map[string]string) error {
+func setMassFixed(w *world, example map[string]string) error {
 	return updateMass(w, example, func(mass *sim.Mass) error {
 		value, err := boolValue(example, "fixed")
 		if err != nil {
@@ -107,18 +119,7 @@ func setDomainMassFixed(w *world, example map[string]string) error {
 	})
 }
 
-func updateMassFloat(w *world, example map[string]string, key string, assign func(*sim.Mass, float64)) error {
-	return updateMass(w, example, func(mass *sim.Mass) error {
-		value, err := floatValue(example, key)
-		if err != nil {
-			return err
-		}
-		assign(mass, value)
-		return nil
-	})
-}
-
-func lookupDomainMass(w *world, example map[string]string) error {
+func lookupMass(w *world, example map[string]string) error {
 	world, err := domainWorld(w)
 	if err != nil {
 		return err
@@ -135,51 +136,47 @@ func lookupDomainMass(w *world, example map[string]string) error {
 	return nil
 }
 
-func assertDomainMassPosition(w *world, example map[string]string) error {
-	expected, err := vecFromExample(example, "x", "y")
+func assertMassPosition(w *world, example map[string]string) error {
+	x, err := floatValue(example, "x")
 	if err != nil {
 		return err
 	}
-	return assertVec("position", w.lookedMass.Position, expected.X, expected.Y)
-}
-
-func assertDomainMassVelocity(w *world, example map[string]string) error {
-	expected, err := vecFromExample(example, "vx", "vy")
+	y, err := floatValue(example, "y")
 	if err != nil {
 		return err
 	}
-	return assertVec("velocity", w.lookedMass.Velocity, expected.X, expected.Y)
+	return assertVec("position", w.lookedMass.Position, x, y)
 }
 
-func vecFromExample(example map[string]string, xKey, yKey string) (sim.Vec2, error) {
-	x, err := floatValue(example, xKey)
-	if err != nil {
-		return sim.Vec2{}, err
-	}
-	y, err := floatValue(example, yKey)
-	if err != nil {
-		return sim.Vec2{}, err
-	}
-	return sim.Vec2{X: x, Y: y}, nil
-}
-
-func assertDomainMassValue(w *world, example map[string]string) error {
-	return assertFloatExample("mass value", w.lookedMass.Mass, example, "mass_value")
-}
-
-func assertDomainMassElasticity(w *world, example map[string]string) error {
-	return assertFloatExample("elasticity", w.lookedMass.Elasticity, example, "elasticity")
-}
-
-func assertFloatExample(name string, got float64, example map[string]string, key string) error {
-	expected, err := floatValue(example, key)
+func assertMassVelocity(w *world, example map[string]string) error {
+	vx, err := floatValue(example, "vx")
 	if err != nil {
 		return err
 	}
-	return assertFloat(name, got, expected)
+	vy, err := floatValue(example, "vy")
+	if err != nil {
+		return err
+	}
+	return assertVec("velocity", w.lookedMass.Velocity, vx, vy)
 }
 
-func assertDomainMassFixed(w *world, example map[string]string) error {
+func assertMassValue(w *world, example map[string]string) error {
+	expected, err := floatValue(example, "mass_value")
+	if err != nil {
+		return err
+	}
+	return assertFloat("mass value", w.lookedMass.Mass, expected)
+}
+
+func assertMassElasticity(w *world, example map[string]string) error {
+	expected, err := floatValue(example, "elasticity")
+	if err != nil {
+		return err
+	}
+	return assertFloat("elasticity", w.lookedMass.Elasticity, expected)
+}
+
+func assertMassFixed(w *world, example map[string]string) error {
 	expected, err := boolValue(example, "fixed")
 	if err != nil {
 		return err
@@ -190,7 +187,7 @@ func assertDomainMassFixed(w *world, example map[string]string) error {
 	return nil
 }
 
-func addDomainSpring(w *world, example map[string]string) error {
+func createDomainSpring(w *world, example map[string]string) error {
 	world := ensureDomainWorld(w)
 	spring, err := springFromExample(example)
 	if err != nil {
@@ -202,37 +199,41 @@ func addDomainSpring(w *world, example map[string]string) error {
 	return world.AddSpring(spring)
 }
 
-func setDomainSpringConstant(w *world, example map[string]string) error {
-	return updateSpringFloat(w, example, "spring_constant", func(spring *sim.Spring, value float64) {
-		spring.SpringConstant = value
-		spring.Stiffness = value
-	})
-}
-
-func setDomainSpringDamping(w *world, example map[string]string) error {
-	return updateSpringFloat(w, example, "damping_constant", func(spring *sim.Spring, value float64) {
-		spring.Damping = value
-	})
-}
-
-func setDomainSpringRestLength(w *world, example map[string]string) error {
-	return updateSpringFloat(w, example, "rest_length", func(spring *sim.Spring, value float64) {
-		spring.RestLength = value
-	})
-}
-
-func updateSpringFloat(w *world, example map[string]string, key string, assign func(*sim.Spring, float64)) error {
+func setSpringConstant(w *world, example map[string]string) error {
 	return updateSpring(w, example, func(spring *sim.Spring) error {
-		value, err := floatValue(example, key)
+		value, err := floatValue(example, "spring_constant")
 		if err != nil {
 			return err
 		}
-		assign(spring, value)
+		spring.SpringConstant = value
+		spring.Stiffness = value
 		return nil
 	})
 }
 
-func lookupDomainSpring(w *world, example map[string]string) error {
+func setSpringDamping(w *world, example map[string]string) error {
+	return updateSpring(w, example, func(spring *sim.Spring) error {
+		value, err := floatValue(example, "damping_constant")
+		if err != nil {
+			return err
+		}
+		spring.Damping = value
+		return nil
+	})
+}
+
+func setSpringRestLength(w *world, example map[string]string) error {
+	return updateSpring(w, example, func(spring *sim.Spring) error {
+		value, err := floatValue(example, "rest_length")
+		if err != nil {
+			return err
+		}
+		spring.RestLength = value
+		return nil
+	})
+}
+
+func lookupSpring(w *world, example map[string]string) error {
 	world, err := domainWorld(w)
 	if err != nil {
 		return err
@@ -249,7 +250,7 @@ func lookupDomainSpring(w *world, example map[string]string) error {
 	return nil
 }
 
-func assertDomainSpringEndpoints(w *world, example map[string]string) error {
+func assertSpringEndpoints(w *world, example map[string]string) error {
 	massA, err := intValue(example, "mass_a")
 	if err != nil {
 		return err
@@ -264,33 +265,67 @@ func assertDomainSpringEndpoints(w *world, example map[string]string) error {
 	return nil
 }
 
-func assertDomainSpringConstant(w *world, example map[string]string) error {
-	return assertFloatExample("spring constant", w.lookedSpring.SpringConstant, example, "spring_constant")
+func assertSpringConstant(w *world, example map[string]string) error {
+	expected, err := floatValue(example, "spring_constant")
+	if err != nil {
+		return err
+	}
+	return assertFloat("spring constant", w.lookedSpring.SpringConstant, expected)
 }
 
-func assertDomainSpringDamping(w *world, example map[string]string) error {
-	return assertFloatExample("damping constant", w.lookedSpring.Damping, example, "damping_constant")
+func assertSpringDamping(w *world, example map[string]string) error {
+	expected, err := floatValue(example, "damping_constant")
+	if err != nil {
+		return err
+	}
+	return assertFloat("damping constant", w.lookedSpring.Damping, expected)
 }
 
-func assertDomainSpringRestLength(w *world, example map[string]string) error {
-	return assertFloatExample("rest length", w.lookedSpring.RestLength, example, "rest_length")
+func assertSpringRestLength(w *world, example map[string]string) error {
+	expected, err := floatValue(example, "rest_length")
+	if err != nil {
+		return err
+	}
+	return assertFloat("rest length", w.lookedSpring.RestLength, expected)
 }
 
-func addExistingDomainObject(w *world, example map[string]string) error {
+func createDuplicateSubject(w *world, example map[string]string) error {
 	world := ensureDomainWorld(w)
-	objectType, id, err := objectTypeAndID(example)
+	objectType, err := stringValue(example, "object_type")
+	if err != nil {
+		return err
+	}
+	id, err := intValue(example, "id")
 	if err != nil {
 		return err
 	}
 	if objectType == "mass" {
-		return world.AddMass(sim.Mass{ID: id, Mass: 1})
+		return createDuplicateMassSubject(world, id)
 	}
-	return addExistingSpring(world, id)
+	return createDuplicateSpringSubject(world, id)
 }
 
-func addDuplicateDomainObject(w *world, example map[string]string) error {
+func createDuplicateMassSubject(world *sim.Simulation, id int) error {
+	return world.AddMass(sim.Mass{ID: id, Mass: 1})
+}
+
+func createDuplicateSpringSubject(world *sim.Simulation, id int) error {
+	if err := world.AddMass(sim.Mass{ID: 1, Mass: 1}); err != nil {
+		return err
+	}
+	if err := world.AddMass(sim.Mass{ID: 2, Mass: 1}); err != nil {
+		return err
+	}
+	return world.AddSpring(sim.Spring{ID: id, MassA: 1, MassB: 2})
+}
+
+func addDuplicateSubject(w *world, example map[string]string) error {
 	world := ensureDomainWorld(w)
-	objectType, id, err := objectTypeAndID(example)
+	objectType, err := stringValue(example, "object_type")
+	if err != nil {
+		return err
+	}
+	id, err := intValue(example, "id")
 	if err != nil {
 		return err
 	}
@@ -302,29 +337,7 @@ func addDuplicateDomainObject(w *world, example map[string]string) error {
 	return nil
 }
 
-func objectTypeAndID(example map[string]string) (string, int, error) {
-	objectType, err := stringValue(example, "object_type")
-	if err != nil {
-		return "", 0, err
-	}
-	id, err := intValue(example, "id")
-	if err != nil {
-		return "", 0, err
-	}
-	return objectType, id, nil
-}
-
-func addExistingSpring(world *sim.Simulation, id int) error {
-	if err := world.AddMass(sim.Mass{ID: 1, Mass: 1}); err != nil {
-		return err
-	}
-	if err := world.AddMass(sim.Mass{ID: 2, Mass: 1}); err != nil {
-		return err
-	}
-	return world.AddSpring(sim.Spring{ID: id, MassA: 1, MassB: 2})
-}
-
-func addInvalidDomainSpring(w *world, example map[string]string) error {
+func addDomainSpringForValidation(w *world, example map[string]string) error {
 	world := ensureDomainWorld(w)
 	spring, err := springFromExample(example)
 	if err != nil {
@@ -334,7 +347,7 @@ func addInvalidDomainSpring(w *world, example map[string]string) error {
 	return nil
 }
 
-func assertDomainValidationReason(w *world, example map[string]string) error {
+func assertValidationFailure(w *world, example map[string]string) error {
 	reason, err := stringValue(example, "reason")
 	if err != nil {
 		return err
@@ -410,7 +423,7 @@ func assertValidationReason(err error, reason string) error {
 	if err == nil {
 		return fmt.Errorf("validation succeeded, expected %s", reason)
 	}
-	switch strings.TrimSpace(reason) {
+	switch reason {
 	case "duplicate id":
 		if errors.Is(err, sim.ErrDuplicateID) {
 			return nil

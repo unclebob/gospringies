@@ -145,10 +145,10 @@ func TestDomainModelHelpersReportFailures(t *testing.T) {
 	if _, err := domainWorld(w); err == nil {
 		t.Fatal("expected missing domain world error")
 	}
-	if err := lookupDomainMass(&world{domainWorld: sim.NewWorld()}, map[string]string{"id": "7"}); err == nil {
+	if err := lookupMass(&world{domainWorld: sim.NewWorld()}, map[string]string{"id": "7"}); err == nil {
 		t.Fatal("expected missing mass error")
 	}
-	if err := lookupDomainSpring(&world{domainWorld: sim.NewWorld()}, map[string]string{"spring_id": "7"}); err == nil {
+	if err := lookupSpring(&world{domainWorld: sim.NewWorld()}, map[string]string{"spring_id": "7"}); err == nil {
 		t.Fatal("expected missing spring error")
 	}
 	if err := assertValidationReason(nil, "duplicate id"); err == nil {
@@ -179,17 +179,17 @@ func TestDomainModelHandlerHelpers(t *testing.T) {
 		"mass_value": "5.5", "elasticity": "0.8", "fixed": "true",
 	}
 	for _, fn := range []stepHandler{
-		addDomainMass,
-		setDomainMassVelocity,
-		setDomainMassValue,
-		setDomainMassElasticity,
-		setDomainMassFixed,
-		lookupDomainMass,
-		assertDomainMassPosition,
-		assertDomainMassVelocity,
-		assertDomainMassValue,
-		assertDomainMassElasticity,
-		assertDomainMassFixed,
+		createDomainMassFromID,
+		setMassVelocity,
+		setMassValue,
+		setMassElasticity,
+		setMassFixed,
+		lookupMass,
+		assertMassPosition,
+		assertMassVelocity,
+		assertMassValue,
+		assertMassElasticity,
+		assertMassFixed,
 	} {
 		if err := fn(w, massExample); err != nil {
 			t.Fatalf("mass handler returned error: %v", err)
@@ -199,10 +199,10 @@ func TestDomainModelHandlerHelpers(t *testing.T) {
 
 func TestDomainSpringHandlerHelpers(t *testing.T) {
 	w := &world{}
-	if err := addDomainMassA(w, map[string]string{"mass_a": "1", "x_a": "0", "y_a": "0"}); err != nil {
+	if err := createDomainMassA(w, map[string]string{"mass_a": "1", "x_a": "0", "y_a": "0"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := addDomainMassB(w, map[string]string{"mass_b": "2", "x_b": "10", "y_b": "0"}); err != nil {
+	if err := createDomainMassB(w, map[string]string{"mass_b": "2", "x_b": "10", "y_b": "0"}); err != nil {
 		t.Fatal(err)
 	}
 	springExample := map[string]string{
@@ -210,15 +210,15 @@ func TestDomainSpringHandlerHelpers(t *testing.T) {
 		"spring_constant": "12.5", "damping_constant": "0.7", "rest_length": "10",
 	}
 	for _, fn := range []stepHandler{
-		addDomainSpring,
-		setDomainSpringConstant,
-		setDomainSpringDamping,
-		setDomainSpringRestLength,
-		lookupDomainSpring,
-		assertDomainSpringEndpoints,
-		assertDomainSpringConstant,
-		assertDomainSpringDamping,
-		assertDomainSpringRestLength,
+		createDomainSpring,
+		setSpringConstant,
+		setSpringDamping,
+		setSpringRestLength,
+		lookupSpring,
+		assertSpringEndpoints,
+		assertSpringConstant,
+		assertSpringDamping,
+		assertSpringRestLength,
 	} {
 		if err := fn(w, springExample); err != nil {
 			t.Fatalf("spring handler returned error: %v", err)
@@ -229,37 +229,37 @@ func TestDomainSpringHandlerHelpers(t *testing.T) {
 func TestDomainValidationHandlers(t *testing.T) {
 	duplicateMass := map[string]string{"object_type": "mass", "id": "1", "reason": "duplicate id"}
 	w := &world{}
-	if err := addExistingDomainObject(w, duplicateMass); err != nil {
+	if err := createDuplicateSubject(w, duplicateMass); err != nil {
 		t.Fatal(err)
 	}
-	if err := addDuplicateDomainObject(w, duplicateMass); err != nil {
+	if err := addDuplicateSubject(w, duplicateMass); err != nil {
 		t.Fatal(err)
 	}
-	if err := assertDomainValidationReason(w, duplicateMass); err != nil {
+	if err := assertValidationFailure(w, duplicateMass); err != nil {
 		t.Fatal(err)
 	}
 
 	duplicateSpring := map[string]string{"object_type": "spring", "id": "5", "reason": "duplicate id"}
 	w = &world{}
-	if err := addExistingDomainObject(w, duplicateSpring); err != nil {
+	if err := createDuplicateSubject(w, duplicateSpring); err != nil {
 		t.Fatal(err)
 	}
-	if err := addDuplicateDomainObject(w, duplicateSpring); err != nil {
+	if err := addDuplicateSubject(w, duplicateSpring); err != nil {
 		t.Fatal(err)
 	}
-	if err := assertDomainValidationReason(w, duplicateSpring); err != nil {
+	if err := assertValidationFailure(w, duplicateSpring); err != nil {
 		t.Fatal(err)
 	}
 
 	missingEndpoint := map[string]string{"existing_mass": "1", "x": "0", "y": "0", "spring_id": "2", "mass_a": "1", "mass_b": "9", "reason": "missing spring endpoint"}
 	w = &world{}
-	if err := addExistingDomainMass(w, missingEndpoint); err != nil {
+	if err := createExistingDomainMass(w, missingEndpoint); err != nil {
 		t.Fatal(err)
 	}
-	if err := addInvalidDomainSpring(w, missingEndpoint); err != nil {
+	if err := addDomainSpringForValidation(w, missingEndpoint); err != nil {
 		t.Fatal(err)
 	}
-	if err := assertDomainValidationReason(w, missingEndpoint); err != nil {
+	if err := assertValidationFailure(w, missingEndpoint); err != nil {
 		t.Fatal(err)
 	}
 }
