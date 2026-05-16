@@ -2,6 +2,7 @@ package acceptance
 
 import (
 	"fmt"
+	"math"
 
 	"springs/internal/sim"
 )
@@ -33,31 +34,48 @@ func advanceByDuration(w *world, example map[string]string) error {
 }
 
 func assertMassPositionDiffers(w *world, example map[string]string) error {
-	if err := requireMarker(example, "start_position", "initial"); err != nil {
+	return assertMassVectorDiffers(w, example, positionDifference())
+}
+
+func assertMassVelocityDiffers(w *world, example map[string]string) error {
+	return assertMassVectorDiffers(w, example, velocityDifference())
+}
+
+type massVectorDifference struct {
+	markerKey   string
+	markerValue string
+	label       string
+	vector      func(sim.Mass) sim.Vec2
+}
+
+func positionDifference() massVectorDifference {
+	return massVectorDifference{"start_position", "initial", "position", func(mass sim.Mass) sim.Vec2 { return mass.Position }}
+}
+
+func velocityDifference() massVectorDifference {
+	return massVectorDifference{"start_velocity", "zero", "velocity", func(mass sim.Mass) sim.Vec2 { return mass.Velocity }}
+}
+
+func assertMassVectorDiffers(w *world, example map[string]string, difference massVectorDifference) error {
+	if err := requireMarker(example, difference.markerKey, difference.markerValue); err != nil {
 		return err
 	}
-	mass, ok := w.resultingWorld.MassByID(1)
-	if !ok {
-		return fmt.Errorf("mass 1 not found")
+	mass, err := resultingMass(w, 1)
+	if err != nil {
+		return err
 	}
-	if mass.Position == (sim.Vec2{}) {
-		return fmt.Errorf("mass position did not differ from initial")
+	if difference.vector(mass) == (sim.Vec2{}) {
+		return fmt.Errorf("mass %s did not differ from %s", difference.label, difference.markerValue)
 	}
 	return nil
 }
 
-func assertMassVelocityDiffers(w *world, example map[string]string) error {
-	if err := requireMarker(example, "start_velocity", "zero"); err != nil {
-		return err
-	}
-	mass, ok := w.resultingWorld.MassByID(1)
+func resultingMass(w *world, id int) (sim.Mass, error) {
+	mass, ok := w.resultingWorld.MassByID(id)
 	if !ok {
-		return fmt.Errorf("mass 1 not found")
+		return sim.Mass{}, fmt.Errorf("mass %d not found", id)
 	}
-	if mass.Velocity == (sim.Vec2{}) {
-		return fmt.Errorf("mass velocity did not differ from zero")
-	}
-	return nil
+	return mass, nil
 }
 
 func createMassStartPosition(w *world, example map[string]string) error {
@@ -123,11 +141,7 @@ func assertZeroVelocity(id int, velocity sim.Vec2) error {
 }
 
 func createWorldInState(w *world, example map[string]string) error {
-	state, err := stringValue(example, "initial_state")
-	if err != nil {
-		return err
-	}
-	world, err := worldForState(state)
+	world, err := worldFromExampleState(example)
 	if err != nil {
 		return err
 	}
@@ -149,23 +163,27 @@ func assertResultDeterministic(_ *world, example map[string]string) error {
 }
 
 func deterministicWorlds(example map[string]string) (*sim.Simulation, *sim.Simulation, float64, error) {
-	state, err := stringValue(example, "initial_state")
-	if err != nil {
-		return nil, nil, 0, err
-	}
 	duration, err := durationValue(example, "duration")
 	if err != nil {
 		return nil, nil, 0, err
 	}
-	first, err := worldForState(state)
+	first, err := worldFromExampleState(example)
 	if err != nil {
 		return nil, nil, 0, err
 	}
-	second, err := worldForState(state)
+	second, err := worldFromExampleState(example)
 	if err != nil {
 		return nil, nil, 0, err
 	}
 	return first, second, duration, nil
+}
+
+func worldFromExampleState(example map[string]string) (*sim.Simulation, error) {
+	state, err := stringValue(example, "initial_state")
+	if err != nil {
+		return nil, err
+	}
+	return worldForState(state)
 }
 
 func advanceByDurationAtFrameRate(w *world, example map[string]string) error {
@@ -207,7 +225,7 @@ func assertSimulationTime(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	if simAbs(w.resultingWorld.Time-expected) > 0.000001 {
+	if math.Abs(w.resultingWorld.Time-expected) > 0.000001 {
 		return fmt.Errorf("time = %f, expected %f", w.resultingWorld.Time, expected)
 	}
 	return nil
@@ -246,7 +264,7 @@ func sameMassState(a, b sim.Mass) bool {
 }
 
 func sameFloat(a, b float64) bool {
-	return simAbs(a-b) <= 0.000001
+	return math.Abs(a-b) <= 0.000001
 }
 
 func durationValue(example map[string]string, key string) (float64, error) {
