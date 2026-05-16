@@ -8,6 +8,14 @@ import (
 
 type editorScreen = app.EditorScreen
 
+var applicationStateChanges = map[string]func(appGame){
+	"select mode":     func(game appGame) { game.SetMode("select") },
+	"paused":          func(game appGame) { game.SetPaused(true) },
+	"running":         func(game appGame) { game.SetPaused(false) },
+	"object selected": func(game appGame) { game.SetSelected(true) },
+	"unsaved changes": func(game appGame) { game.SetDirty(true) },
+}
+
 func assertFirstScreenEditor(w *world, _ map[string]string) error {
 	return assertCurrentScreen(w, func(screen editorScreen) bool { return screen.Editor }, "first screen was not the simulation editor")
 }
@@ -58,7 +66,7 @@ func setApplicationState(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	change, ok := applicationStates()[state]
+	change, ok := applicationStateChanges[state]
 	if !ok {
 		return fmt.Errorf("unsupported application state %q", state)
 	}
@@ -135,11 +143,15 @@ func setSimulationState(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	paused, ok := simulationStates()[state]
+	paused, ok := simulationPausedState(state)
 	if !ok {
 		return fmt.Errorf("unsupported simulation state %q", state)
 	}
 	return updateApplicationGame(w, func(game appGame) { game.SetPaused(paused) })
+}
+
+func simulationPausedState(state string) (bool, bool) {
+	return booleanState(state, map[string]bool{"paused": true, "running": false})
 }
 
 func assertCanvasVisible(w *world, _ map[string]string) error {
@@ -206,18 +218,4 @@ func assertVisibleControl(
 	}
 	message := fmt.Sprintf("%s %q was not visible", controlType, control)
 	return requirePrerequisite(hasControl(w.editorScreen, control), message)
-}
-
-func applicationStates() map[string]func(appGame) {
-	return map[string]func(appGame){
-		"select mode":     func(game appGame) { game.SetMode("select") },
-		"paused":          func(game appGame) { game.SetPaused(true) },
-		"running":         func(game appGame) { game.SetPaused(false) },
-		"object selected": func(game appGame) { game.SetSelected(true) },
-		"unsaved changes": func(game appGame) { game.SetDirty(true) },
-	}
-}
-
-func simulationStates() map[string]bool {
-	return map[string]bool{"paused": true, "running": false}
 }

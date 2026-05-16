@@ -299,7 +299,8 @@ func TestRunFeatureExecutesMouseEditingFeature(t *testing.T) {
 }
 
 func TestApplicationWindowHelpersReportFailures(t *testing.T) {
-	if err := assertApplicationWindowOpened(&world{appErr: errors.New("open failed")}, nil); err == nil {
+	openErr := errors.New("open failed")
+	if err := assertApplicationWindowOpened(&world{appErr: openErr}, nil); err != openErr {
 		t.Fatal("expected application error")
 	}
 	if err := assertApplicationWorldEmpty(&world{}, nil); err == nil {
@@ -341,6 +342,9 @@ func TestApplicationSteppingHelpersReportFailures(t *testing.T) {
 	if err := assertApplicationStepping(&world{appGame: steppingGame}, map[string]string{"stepping": "paused"}); err == nil {
 		t.Fatal("expected unsupported stepping")
 	}
+	if expected, ok := expectedSteppingState("paused"); ok || expected {
+		t.Fatalf("unsupported stepping state = %t, %t", expected, ok)
+	}
 
 	activeWorld := &world{appGame: steppingGame, appBeforeTime: steppingGame.World().Time - 1}
 	if err := assertApplicationStepping(activeWorld, map[string]string{"stepping": "active"}); err != nil {
@@ -373,6 +377,89 @@ func TestApplicationActivityAndExitHelpersReportFailures(t *testing.T) {
 	}
 	if err := assertApplicationExitClean(&world{appGame: game}, nil); err == nil {
 		t.Fatal("expected unclosed application")
+	}
+}
+
+func TestScreenControlHelpersReportFailures(t *testing.T) {
+	screen := app.NewGame().EditorScreen()
+	w := &world{appGame: app.NewGame(), editorScreen: screen}
+
+	if err := assertScreenRegionVisible(w, map[string]string{"region": "footer"}); err == nil {
+		t.Fatal("expected missing region")
+	}
+	if err := assertScreenRegionPurpose(w, map[string]string{"purpose": "anything"}); err == nil {
+		t.Fatal("expected missing region value")
+	}
+	if err := assertScreenRegionPurpose(w, map[string]string{"region": "canvas"}); err == nil {
+		t.Fatal("expected missing purpose value")
+	}
+	if err := assertScreenRegionPurpose(w, map[string]string{"region": "canvas", "purpose": "wrong"}); err == nil {
+		t.Fatal("expected purpose mismatch")
+	}
+	if err := assertScreenRegionPurpose(w, map[string]string{"region": "footer", "purpose": ""}); err == nil {
+		t.Fatal("expected absent region mismatch")
+	}
+
+	if err := assertVisibleIndicator(w, map[string]string{"state": "select mode"}); err == nil {
+		t.Fatal("expected missing indicator value")
+	}
+	if err := assertVisibleIndicator(w, map[string]string{"indicator": "active mode"}); err == nil {
+		t.Fatal("expected missing state value")
+	}
+	if err := assertVisibleIndicator(w, map[string]string{"indicator": "active mode", "state": "select mode"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertVisibleIndicator(w, map[string]string{"indicator": "active mode", "state": "wrong"}); err == nil {
+		t.Fatal("expected indicator mismatch")
+	}
+
+	if err := assertCurrentScreen(&world{}, func(editorScreen) bool { return true }, "missing"); err == nil {
+		t.Fatal("expected missing screen")
+	}
+	if err := assertCurrentScreen(w, func(editorScreen) bool { return false }, "mismatch"); err == nil {
+		t.Fatal("expected screen mismatch")
+	}
+	if err := assertVisibleControl(w, map[string]string{}, "mode", "mode", editorScreen.HasModeControl); err == nil {
+		t.Fatal("expected missing control value")
+	}
+	if err := assertVisibleControl(w, map[string]string{"mode": "paint"}, "mode", "mode", editorScreen.HasModeControl); err == nil {
+		t.Fatal("expected invisible control")
+	}
+}
+
+func TestScreenCommandAndStateHelpersReportFailures(t *testing.T) {
+	if err := setSimulationState(&world{}, map[string]string{}); err == nil {
+		t.Fatal("expected missing simulation state")
+	}
+	if err := setSimulationState(&world{}, map[string]string{"simulation_state": "waiting"}); err == nil {
+		t.Fatal("expected unsupported simulation state")
+	}
+	if err := setSimulationState(&world{}, map[string]string{"simulation_state": "paused"}); err != nil {
+		t.Fatal(err)
+	}
+	if paused, ok := simulationPausedState("paused"); !ok || !paused {
+		t.Fatalf("paused state = %t, %t", paused, ok)
+	}
+	if paused, ok := simulationPausedState("running"); !ok || paused {
+		t.Fatalf("running paused state = %t, %t", paused, ok)
+	}
+
+	game := app.NewGame()
+	if err := assertCommandRan(&world{}, map[string]string{"command": "pause"}); err == nil {
+		t.Fatal("expected missing application")
+	}
+	if err := assertCommandRan(&world{appGame: game}, map[string]string{}); err == nil {
+		t.Fatal("expected missing command")
+	}
+	game.RunCommand("pause")
+	if err := assertCommandRan(&world{appGame: game, appCommand: ""}, map[string]string{"command": "pause"}); err == nil {
+		t.Fatal("expected queued command mismatch")
+	}
+	if err := assertCommandRan(&world{appGame: app.NewGame(), appCommand: "pause"}, map[string]string{"command": "pause"}); err == nil {
+		t.Fatal("expected executed command mismatch")
+	}
+	if err := assertCommandRan(&world{appGame: game, appCommand: "pause"}, map[string]string{"command": "pause"}); err != nil {
+		t.Fatal(err)
 	}
 }
 
