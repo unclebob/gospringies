@@ -153,10 +153,3 @@ func forceFloat(force ForceConfig, key string) float64 {
 func dot(a, b Vec2) float64 {
 	return a.X*b.X + a.Y*b.Y
 }
-
-func abs(value float64) float64 {
-	if value < 0 {
-		return -value
-	}
-	return value
-}

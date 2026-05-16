@@ -2,6 +2,7 @@ package acceptance
 
 import (
 	"fmt"
+	"math"
 
 	"springs/internal/sim"
 )
@@ -207,7 +208,7 @@ func assertSimulationTime(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	if simAbs(w.resultingWorld.Time-expected) > 0.000001 {
+	if math.Abs(w.resultingWorld.Time-expected) > 0.000001 {
 		return fmt.Errorf("time = %f, expected %f", w.resultingWorld.Time, expected)
 	}
 	return nil
@@ -246,7 +247,7 @@ func sameMassState(a, b sim.Mass) bool {
 }
 
 func sameFloat(a, b float64) bool {
-	return simAbs(a-b) <= 0.000001
+	return math.Abs(a-b) <= 0.000001
 }
 
 func durationValue(example map[string]string, key string) (float64, error) {

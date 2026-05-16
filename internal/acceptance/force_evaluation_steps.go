@@ -2,6 +2,7 @@ package acceptance
 
 import (
 	"fmt"
+	"math"
 
 	"springs/internal/sim"
 )
@@ -48,26 +49,11 @@ func ensureForceSpring(world *sim.Simulation, massA, massB int) error {
 }
 
 func setOnlySpringRestLength(w *world, example map[string]string) error {
-	return updateFirstSpring(w, func(spring *sim.Spring) error {
-		value, err := floatValue(example, "rest_length")
-		if err != nil {
-			return err
-		}
-		spring.RestLength = value
-		return nil
-	})
+	return setSpringFloat(w, example, "rest_length", setSpringRestLength)
 }
 
 func setOnlySpringConstant(w *world, example map[string]string) error {
-	return updateFirstSpring(w, func(spring *sim.Spring) error {
-		value, err := floatValue(example, "spring_constant")
-		if err != nil {
-			return err
-		}
-		spring.SpringConstant = value
-		spring.Stiffness = value
-		return nil
-	})
+	return setSpringFloat(w, example, "spring_constant", setSpringConstant)
 }
 
 func setMassAVelocity(w *world, example map[string]string) error {
@@ -117,12 +103,16 @@ func setMassVelocityByID(world *sim.Simulation, massID int, velocity sim.Vec2) e
 }
 
 func setOnlySpringDamping(w *world, example map[string]string) error {
+	return setSpringFloat(w, example, "damping_constant", setSpringDamping)
+}
+
+func setSpringFloat(w *world, example map[string]string, key string, apply func(*sim.Spring, float64)) error {
 	return updateFirstSpring(w, func(spring *sim.Spring) error {
-		value, err := floatValue(example, "damping_constant")
+		value, err := floatValue(example, key)
 		if err != nil {
 			return err
 		}
-		spring.Damping = value
+		apply(spring, value)
 		return nil
 	})
 }
@@ -353,16 +343,9 @@ func insideDirection(wall string) sim.Vec2 {
 }
 
 func vecClose(a, b sim.Vec2) bool {
-	return simAbs(a.X-b.X) <= 0.000001 && simAbs(a.Y-b.Y) <= 0.000001
+	return math.Abs(a.X-b.X) <= 0.000001 && math.Abs(a.Y-b.Y) <= 0.000001
 }
 
 func simDot(a, b sim.Vec2) float64 {
 	return a.X*b.X + a.Y*b.Y
-}
-
-func simAbs(value float64) float64 {
-	if value < 0 {
-		return -value
-	}
-	return value
 }

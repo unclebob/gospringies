@@ -190,10 +190,7 @@ func addDomainSpring(w *world, example map[string]string) error {
 }
 
 func setDomainSpringConstant(w *world, example map[string]string) error {
-	return updateSpringFloat(w, example, "spring_constant", func(spring *sim.Spring, value float64) {
-		spring.SpringConstant = value
-		spring.Stiffness = value
-	})
+	return updateSpringFloat(w, example, "spring_constant", setSpringConstant)
 }
 
 func setDomainSpringDamping(w *world, example map[string]string) error {
@@ -210,6 +207,11 @@ func updateSpringFloat(w *world, example map[string]string, key string, assign f
 
 func setSpringDamping(spring *sim.Spring, value float64) {
 	spring.Damping = value
+}
+
+func setSpringConstant(spring *sim.Spring, value float64) {
+	spring.SpringConstant = value
+	spring.Stiffness = value
 }
 
 func setSpringRestLength(spring *sim.Spring, value float64) {
