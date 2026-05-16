@@ -30,6 +30,10 @@ type world struct {
 	xspLoadErr      error
 	xspSavedFirst   string
 	xspSavedSecond  string
+	appGame         appGame
+	appErr          error
+	appBeforeTime   float64
+	appWindowSize   string
 }
 
 type stepHandler func(*world, map[string]string) error
@@ -175,6 +179,19 @@ var stepHandlers = map[string]stepHandler{
 	"saved mass <mass_id> should use file mass sign <file_mass_sign>":                      assertSavedMassSign,
 	"XSP input has problem <problem>":                                                      createMalformedXSPInput,
 	"loading should fail with reason <reason>":                                             assertXSPLoadErrorReason,
+	"the Ebitengine window task is accepted":                                               acceptStep,
+	"the coder starts the desktop application":                                             startDesktopApplication,
+	"the application window should open successfully":                                      assertApplicationWindowOpened,
+	"the world should be empty":                                                            assertApplicationWorldEmpty,
+	"the coder resizes the application window to <window_size>":                            resizeApplicationWindow,
+	"the application should continue running":                                              assertApplicationContinuesRunning,
+	"the application simulation pause state is <paused>":                                   setApplicationPauseState,
+	"the coder updates the application loop":                                               updateApplicationLoop,
+	"simulation stepping should be <stepping>":                                             assertApplicationStepping,
+	"input handling should remain active":                                                  assertApplicationInputActive,
+	"rendering should remain active":                                                       assertApplicationRenderingActive,
+	"the coder closes the application window":                                              closeApplicationWindow,
+	"the application should exit without error":                                            assertApplicationExitClean,
 	"a demo spring simulation":                                                             createDemoSimulation,
 	"I advance the simulation <steps> steps":                                               advanceSimulation,
 	"mass <mass> x should be <x>":                                                          assertMassX,
