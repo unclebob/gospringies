@@ -9,38 +9,41 @@ import (
 )
 
 type world struct {
-	simulation      *sim.Simulation
-	layoutCreated   bool
-	commandCreated  bool
-	moduleCreated   bool
-	parserRan       bool
-	generatorRan    bool
-	generatedRan    bool
-	generated       bool
-	smokeAdded      bool
-	smokeParsed     bool
-	smokeGenerated  bool
-	domainWorld     *sim.Simulation
-	lookedMass      sim.Mass
-	lookedSpring    sim.Spring
-	validationErr   error
-	forceEvaluation sim.ForceEvaluation
-	resultingWorld  *sim.Simulation
-	xspInput        string
-	xspWorld        *sim.Simulation
-	xspLoadErr      error
-	xspSavedFirst   string
-	xspSavedSecond  string
-	appGame         appGame
-	appErr          error
-	appBeforeTime   float64
-	appWindowSize   string
-	editorScreen    editorScreen
-	renderResult    renderResult
-	mouseEditor     *edit.Editor
-	createdMassID   int
-	createdSpringID int
-	appCommand      string
+	simulation        *sim.Simulation
+	layoutCreated     bool
+	commandCreated    bool
+	moduleCreated     bool
+	parserRan         bool
+	generatorRan      bool
+	generatedRan      bool
+	generated         bool
+	smokeAdded        bool
+	smokeParsed       bool
+	smokeGenerated    bool
+	domainWorld       *sim.Simulation
+	lookedMass        sim.Mass
+	lookedSpring      sim.Spring
+	validationErr     error
+	forceEvaluation   sim.ForceEvaluation
+	resultingWorld    *sim.Simulation
+	xspInput          string
+	xspWorld          *sim.Simulation
+	xspLoadErr        error
+	xspSavedFirst     string
+	xspSavedSecond    string
+	appGame           appGame
+	appErr            error
+	appBeforeTime     float64
+	appWindowSize     string
+	editorScreen      editorScreen
+	renderResult      renderResult
+	mouseEditor       *edit.Editor
+	createdMassID     int
+	createdSpringID   int
+	duplicated        edit.DuplicatedObjects
+	originalMassIDs   []int
+	originalSpringIDs []int
+	appCommand        string
 }
 
 type stepHandler func(*world, map[string]string) error
@@ -237,6 +240,26 @@ var stepHandlers = map[string]stepHandler{
 	"the coder drags mass <mass_id> to <target_position>":                                  dragMouseMass,
 	"mass <mass_id> position should be <expected_position>":                                assertMouseMassPosition,
 	"mass <mass_id> id should remain <mass_id>":                                            assertMouseMassID,
+	"the selection and editing task is accepted":                                           acceptStep,
+	"the world contains a <object_type> with id <id>":                                      createSelectableObject,
+	"the coder selects <object_type> <id>":                                                 selectObject,
+	"<object_type> <id> should be selected":                                                assertObjectSelected,
+	"the world contains masses and springs":                                                createSelectionWorld,
+	"the coder selects all objects":                                                        selectAllObjects,
+	"every mass should be selected":                                                        assertEveryMassSelected,
+	"every spring should be selected":                                                      assertEverySpringSelected,
+	"<object_type> <id> is selected":                                                       selectObject,
+	"the coder deletes selected objects":                                                   deleteSelectedObjects,
+	"<object_type> <id> should not exist":                                                  assertObjectDeleted,
+	"mass 1 is connected to mass 2 by spring 3":                                            createSelectionConnectedMasses,
+	"mass 1 is selected":                                                                   selectMassOne,
+	"mass 1 should not exist":                                                              assertMassOneDeleted,
+	"spring 3 should not exist":                                                            assertSpringThreeDeleted,
+	"mass 2 should still exist":                                                            assertMassTwoExists,
+	"selected <object_set> exists":                                                         createSelectedObjectSet,
+	"the coder duplicates selected objects":                                                duplicateSelectedObjects,
+	"duplicated objects should have unique ids":                                            assertDuplicatedUniqueIDs,
+	"duplicated objects should be independent from the original objects":                   assertDuplicatedIndependent,
 	"the render world task is accepted":                                                    acceptStep,
 	"the application has <world_state>":                                                    createApplicationWorldState,
 	"the coder renders the world":                                                          renderApplicationWorld,
