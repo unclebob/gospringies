@@ -19,6 +19,10 @@ type world struct {
 	smokeAdded     bool
 	smokeParsed    bool
 	smokeGenerated bool
+	domainWorld    *sim.Simulation
+	lookedMass     sim.Mass
+	lookedSpring   sim.Spring
+	validationErr  error
 }
 
 type stepHandler func(*world, map[string]string) error
@@ -52,6 +56,39 @@ func runStep(w *world, step gherkin.Step, example map[string]string) error {
 }
 
 var stepHandlers = map[string]stepHandler{
+	"the domain model task is accepted":                                            acceptStep,
+	"the coder creates a new world":                                                createDomainWorld,
+	"the world should contain <mass_count> masses":                                 assertDomainMassCount,
+	"the world should contain <spring_count> springs":                              assertDomainSpringCount,
+	"a world with mass <id> at <x>, <y>":                                           addDomainMass,
+	"a world with mass <mass_a> at <x_a>, <y_a>":                                   addDomainMassA,
+	"a world with mass <mass_b> at <x_b>, <y_b>":                                   addDomainMassB,
+	"a world with mass <existing_mass> at <x>, <y>":                                addExistingDomainMass,
+	"mass <id> has velocity <vx>, <vy>":                                            setDomainMassVelocity,
+	"mass <id> has mass value <mass_value>":                                        setDomainMassValue,
+	"mass <id> has elasticity <elasticity>":                                        setDomainMassElasticity,
+	"mass <id> fixed state is <fixed>":                                             setDomainMassFixed,
+	"the coder looks up mass <id>":                                                 lookupDomainMass,
+	"the coder reads mass <id> from the domain model":                              lookupDomainMass,
+	"mass <id> should have position <x>, <y>":                                      assertDomainMassPosition,
+	"mass <id> should have velocity <vx>, <vy>":                                    assertDomainMassVelocity,
+	"mass <id> should have mass value <mass_value>":                                assertDomainMassValue,
+	"mass <id> mass value should remain <mass_value>":                              assertDomainMassValue,
+	"mass <id> should have elasticity <elasticity>":                                assertDomainMassElasticity,
+	"mass <id> fixed state should be <fixed>":                                      assertDomainMassFixed,
+	"a spring <spring_id> connects mass <mass_a> to mass <mass_b>":                 addDomainSpring,
+	"spring <spring_id> has spring constant <spring_constant>":                     setDomainSpringConstant,
+	"spring <spring_id> has damping constant <damping_constant>":                   setDomainSpringDamping,
+	"spring <spring_id> has rest length <rest_length>":                             setDomainSpringRestLength,
+	"the coder looks up spring <spring_id>":                                        lookupDomainSpring,
+	"spring <spring_id> should connect mass <mass_a> to mass <mass_b>":             assertDomainSpringEndpoints,
+	"spring <spring_id> should have spring constant <spring_constant>":             assertDomainSpringConstant,
+	"spring <spring_id> should have damping constant <damping_constant>":           assertDomainSpringDamping,
+	"spring <spring_id> should have rest length <rest_length>":                     assertDomainSpringRestLength,
+	"a world already contains a <object_type> with id <id>":                        addExistingDomainObject,
+	"the coder adds another <object_type> with id <id>":                            addDuplicateDomainObject,
+	"the coder adds spring <spring_id> connecting mass <mass_a> to mass <mass_b>":  addInvalidDomainSpring,
+	"validation should fail with reason <reason>":                                  assertDomainValidationReason,
 	"the acceptance pipeline task is accepted":                                     acceptStep,
 	"the coder runs the acceptance test command":                                   runAcceptanceCommand,
 	"the Gherkin parser should run successfully":                                   assertParserRan,
@@ -93,5 +130,10 @@ func requirePrerequisite(ready bool, message string) error {
 
 func markCreated(created *bool) error {
 	*created = true
+	return nil
+}
+
+func setSimulation(target **sim.Simulation, simulation *sim.Simulation) error {
+	*target = simulation
 	return nil
 }

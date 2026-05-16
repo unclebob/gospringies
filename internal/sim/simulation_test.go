@@ -4,9 +4,9 @@ import "testing"
 
 func TestStepMovesFreeMassTowardSpringRestLength(t *testing.T) {
 	s := NewSimulation()
-	left := s.AddMass(Vec2{X: 0, Y: 0}, 1, true)
-	right := s.AddMass(Vec2{X: 120, Y: 0}, 1, false)
-	s.AddSpring(left, right, 100, 10)
+	left := s.AddMassAt(Vec2{X: 0, Y: 0}, 1, true)
+	right := s.AddMassAt(Vec2{X: 120, Y: 0}, 1, false)
+	s.AddSpringBetween(left, right, 100, 10)
 
 	s.Step(0.1)
 

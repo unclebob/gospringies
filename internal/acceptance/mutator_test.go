@@ -33,6 +33,46 @@ func TestBuildMutationsUsesStableExampleCellPaths(t *testing.T) {
 	}
 }
 
+func TestBuildMutationsSkipsEquivalentDomainModelCells(t *testing.T) {
+	feature := gherkin.Feature{
+		Name: "Domain model",
+		Scenarios: []gherkin.Scenario{
+			{Examples: []map[string]string{{"mass_count": "0"}}},
+			{Examples: []map[string]string{{"id": "1", "reason": "duplicate id"}}},
+		},
+	}
+
+	mutations := BuildMutations(feature)
+	if len(mutations) != 2 {
+		t.Fatalf("mutation count = %d: %#v", len(mutations), mutations)
+	}
+	if mutations[0].Key != "mass_count" || mutations[1].Key != "reason" {
+		t.Fatalf("mutations = %#v", mutations)
+	}
+	if !isEquivalentMutation(feature, 1, "id") {
+		t.Fatal("expected domain property mutation to be equivalent")
+	}
+	if isEquivalentMutation(feature, 1, "reason") {
+		t.Fatal("reason mutations should remain meaningful")
+	}
+}
+
+func TestBuildMutationReturnsStableMutationOrSkipsEquivalent(t *testing.T) {
+	feature := gherkin.Feature{Scenarios: []gherkin.Scenario{{}}}
+	mutation, ok := buildMutation(feature, 0, 0, "count", "20", 1)
+	if !ok {
+		t.Fatal("expected mutation")
+	}
+	if mutation.ID != "m1" || mutation.Path != "$.scenarios[0].examples[0].count" || mutation.Key != "count" {
+		t.Fatalf("mutation = %#v", mutation)
+	}
+
+	domainFeature := gherkin.Feature{Name: "Domain model", Scenarios: []gherkin.Scenario{{}, {}}}
+	if _, ok := buildMutation(domainFeature, 1, 0, "id", "1", 1); ok {
+		t.Fatal("expected equivalent mutation to be skipped")
+	}
+}
+
 func TestRunMutationsReturnsNoResultsWhenFeatureHasNoExamples(t *testing.T) {
 	results, err := RunMutations(gherkin.Feature{Scenarios: []gherkin.Scenario{{Name: "empty"}}}, t.TempDir())
 	if err != nil {

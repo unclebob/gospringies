@@ -1,5 +1,15 @@
 package sim
 
+import (
+	"errors"
+	"fmt"
+)
+
+var (
+	ErrDuplicateID           = errors.New("duplicate id")
+	ErrMissingSpringEndpoint = errors.New("missing spring endpoint")
+)
+
 type Vec2 struct {
 	X float64
 	Y float64
@@ -18,17 +28,24 @@ func (v Vec2) Scale(factor float64) Vec2 {
 }
 
 type Mass struct {
-	Position Vec2
-	Velocity Vec2
-	Mass     float64
-	Fixed    bool
+	ID         int
+	Position   Vec2
+	Velocity   Vec2
+	Mass       float64
+	Elasticity float64
+	Fixed      bool
 }
 
 type Spring struct {
-	A          int
-	B          int
-	RestLength float64
-	Stiffness  float64
+	ID             int
+	A              int
+	B              int
+	MassA          int
+	MassB          int
+	RestLength     float64
+	Stiffness      float64
+	SpringConstant float64
+	Damping        float64
 }
 
 type Simulation struct {
@@ -41,21 +58,91 @@ func NewSimulation() *Simulation {
 	return &Simulation{Damping: 0.98}
 }
 
+func NewWorld() *Simulation {
+	return NewSimulation()
+}
+
 func NewDemoSimulation() *Simulation {
 	s := NewSimulation()
-	left := s.AddMass(Vec2{X: 160, Y: 240}, 1, true)
-	right := s.AddMass(Vec2{X: 320, Y: 240}, 1, false)
-	s.AddSpring(left, right, 100, 12)
+	left := s.AddMassAt(Vec2{X: 160, Y: 240}, 1, true)
+	right := s.AddMassAt(Vec2{X: 320, Y: 240}, 1, false)
+	s.AddSpringBetween(left, right, 100, 12)
 	return s
 }
 
-func (s *Simulation) AddMass(position Vec2, mass float64, fixed bool) int {
-	s.Masses = append(s.Masses, Mass{Position: position, Mass: mass, Fixed: fixed})
+func (s *Simulation) AddMass(mass Mass) error {
+	if _, ok := s.MassByID(mass.ID); ok {
+		return fmt.Errorf("%w: mass %d", ErrDuplicateID, mass.ID)
+	}
+	s.Masses = append(s.Masses, mass)
+	return nil
+}
+
+func (s *Simulation) AddMassAt(position Vec2, mass float64, fixed bool) int {
+	id := len(s.Masses) + 1
+	s.Masses = append(s.Masses, Mass{ID: id, Position: position, Mass: mass, Fixed: fixed})
 	return len(s.Masses) - 1
 }
 
-func (s *Simulation) AddSpring(a, b int, restLength, stiffness float64) {
-	s.Springs = append(s.Springs, Spring{A: a, B: b, RestLength: restLength, Stiffness: stiffness})
+func (s *Simulation) AddSpring(spring Spring) error {
+	if _, ok := s.SpringByID(spring.ID); ok {
+		return fmt.Errorf("%w: spring %d", ErrDuplicateID, spring.ID)
+	}
+	aIndex, okA := s.massIndexByID(spring.MassA)
+	bIndex, okB := s.massIndexByID(spring.MassB)
+	if !okA || !okB {
+		return fmt.Errorf("%w: spring %d", ErrMissingSpringEndpoint, spring.ID)
+	}
+	spring.A = aIndex
+	spring.B = bIndex
+	if spring.Stiffness == 0 {
+		spring.Stiffness = spring.SpringConstant
+	}
+	if spring.SpringConstant == 0 {
+		spring.SpringConstant = spring.Stiffness
+	}
+	s.Springs = append(s.Springs, spring)
+	return nil
+}
+
+func (s *Simulation) AddSpringBetween(a, b int, restLength, stiffness float64) {
+	s.Springs = append(s.Springs, Spring{
+		ID:             len(s.Springs) + 1,
+		A:              a,
+		B:              b,
+		MassA:          s.Masses[a].ID,
+		MassB:          s.Masses[b].ID,
+		RestLength:     restLength,
+		Stiffness:      stiffness,
+		SpringConstant: stiffness,
+	})
+}
+
+func (s *Simulation) MassByID(id int) (Mass, bool) {
+	return byID(s.Masses, id, func(mass Mass) int { return mass.ID })
+}
+
+func (s *Simulation) SpringByID(id int) (Spring, bool) {
+	return byID(s.Springs, id, func(spring Spring) int { return spring.ID })
+}
+
+func byID[T any](items []T, id int, itemID func(T) int) (T, bool) {
+	for _, item := range items {
+		if itemID(item) == id {
+			return item, true
+		}
+	}
+	var zero T
+	return zero, false
+}
+
+func (s *Simulation) massIndexByID(id int) (int, bool) {
+	for i, mass := range s.Masses {
+		if mass.ID == id {
+			return i, true
+		}
+	}
+	return 0, false
 }
 
 func (s *Simulation) Advance(steps int, dt float64) {
