@@ -414,6 +414,101 @@ func TestSystemParameterHandlerHelpers(t *testing.T) {
 	}
 }
 
+func TestForceEvaluationHandlerHelpers(t *testing.T) {
+	springExample := map[string]string{
+		"mass_a": "1", "mass_b": "2", "rest_length": "10", "spring_constant": "12",
+		"velocity_a": "moving", "velocity_b": "still", "damping_constant": "0.5",
+	}
+	w := &world{}
+	for _, fn := range []stepHandler{
+		createSpringForceWorld,
+		setOnlySpringRestLength,
+		setOnlySpringConstant,
+		setMassAVelocity,
+		setMassBVelocity,
+		setOnlySpringDamping,
+		evaluateForces,
+		assertSpringForcesEqualOpposite,
+		assertSpringDampingDirection,
+	} {
+		if err := fn(w, springExample); err != nil {
+			t.Fatalf("force handler returned error: %v", err)
+		}
+	}
+
+	for _, force := range []string{"gravity", "viscosity", "wall repulsion", "center attraction", "center of mass attraction"} {
+		w = &world{}
+		example := map[string]string{"force": force}
+		if err := enableEnvironmentalForce(w, example); err != nil {
+			t.Fatal(err)
+		}
+		if err := createMovableMassAffectedByForce(w, example); err != nil {
+			t.Fatal(err)
+		}
+		if err := evaluateForces(w, nil); err != nil {
+			t.Fatal(err)
+		}
+		if err := assertMassReceivesForce(w, example); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	fixedExample := map[string]string{"mass_id": "1", "fixed": "true", "force": "gravity", "acceleration": "zero"}
+	w = &world{}
+	if err := createMassFixedState(w, fixedExample); err != nil {
+		t.Fatal(err)
+	}
+	if err := affectMassByForce(w, fixedExample); err != nil {
+		t.Fatal(err)
+	}
+	if err := evaluateForces(w, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertMassAcceleration(w, fixedExample); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, wall := range []string{"top", "left", "right", "bottom"} {
+		w = &world{}
+		example := map[string]string{"wall": wall, "mass_id": "1"}
+		if err := enableWall(w, example); err != nil {
+			t.Fatal(err)
+		}
+		if err := createMassOutsideWall(w, example); err != nil {
+			t.Fatal(err)
+		}
+		if err := evaluateForces(w, nil); err != nil {
+			t.Fatal(err)
+		}
+		if err := assertWallForceTowardInside(w, example); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestForceEvaluationHandlersReportFailures(t *testing.T) {
+	if err := updateFirstSpring(&world{domainWorld: sim.NewWorld()}, nil); err == nil {
+		t.Fatal("expected missing spring error")
+	}
+	if _, err := namedVelocity("fast"); err == nil {
+		t.Fatal("expected unsupported velocity")
+	}
+	w := &world{domainWorld: sim.NewWorld()}
+	if err := setMassNamedVelocity(w, map[string]string{"mass_a": "9", "velocity_a": "moving"}, "mass_a", "velocity_a"); err == nil {
+		t.Fatal("expected missing mass error")
+	}
+	if err := affectMassByForce(&world{}, map[string]string{"force": "wind"}); err == nil {
+		t.Fatal("expected unsupported force")
+	}
+	w = &world{forceEvaluation: sim.ForceEvaluation{ByMassID: map[int]sim.MassForces{1: {Force: sim.Vec2{}}}}}
+	if err := assertMassReceivesForce(w, map[string]string{"force": "gravity"}); err == nil {
+		t.Fatal("expected missing force assertion")
+	}
+	if err := assertMassAcceleration(&world{}, map[string]string{"mass_id": "1", "acceleration": "moving"}); err == nil {
+		t.Fatal("expected unsupported acceleration expectation")
+	}
+}
+
 func TestPackageDirDoesNotImportDetectsGraphicsLibrary(t *testing.T) {
 	dir := t.TempDir()
 	writeSource(t, filepath.Join(dir, "domain.go"), "package domain\n")

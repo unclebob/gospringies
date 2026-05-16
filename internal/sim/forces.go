@@ -13,19 +13,6 @@ type MassForces struct {
 	Acceleration Vec2
 }
 
-type wallBoundary struct {
-	name      string
-	breached  func(Mass, Bounds) bool
-	direction Vec2
-}
-
-var wallBoundaries = []wallBoundary{
-	{name: "top", breached: func(mass Mass, _ Bounds) bool { return mass.Position.Y < 0 }, direction: Vec2{Y: 1}},
-	{name: "left", breached: func(mass Mass, _ Bounds) bool { return mass.Position.X < 0 }, direction: Vec2{X: 1}},
-	{name: "right", breached: func(mass Mass, bounds Bounds) bool { return mass.Position.X > bounds.Width }, direction: Vec2{X: -1}},
-	{name: "bottom", breached: func(mass Mass, bounds Bounds) bool { return mass.Position.Y > bounds.Height }, direction: Vec2{Y: -1}},
-}
-
 func (s *Simulation) EvaluateForces() ForceEvaluation {
 	evaluation := ForceEvaluation{ByMassID: map[int]MassForces{}}
 	for _, mass := range s.Masses {
@@ -106,17 +93,27 @@ func (s *Simulation) wallForce(mass Mass) Vec2 {
 	}
 	magnitude := forceFloat(force, "magnitude")
 	var total Vec2
-	for _, wall := range wallBoundaries {
-		if s.wallIsRepelling(wall, mass) {
-			total = total.Add(wall.direction.Scale(magnitude))
+	for _, wall := range s.wallChecks(mass, magnitude) {
+		if enabled, _ := s.Parameters.WallEnabled(wall.name); enabled && wall.outside {
+			total = total.Add(wall.force)
 		}
 	}
 	return total
 }
 
-func (s *Simulation) wallIsRepelling(wall wallBoundary, mass Mass) bool {
-	enabled, _ := s.Parameters.WallEnabled(wall.name)
-	return enabled && wall.breached(mass, s.Bounds)
+type wallCheck struct {
+	name    string
+	outside bool
+	force   Vec2
+}
+
+func (s *Simulation) wallChecks(mass Mass, magnitude float64) []wallCheck {
+	return []wallCheck{
+		{name: "top", outside: mass.Position.Y < 0, force: Vec2{Y: magnitude}},
+		{name: "left", outside: mass.Position.X < 0, force: Vec2{X: magnitude}},
+		{name: "right", outside: mass.Position.X > s.Bounds.Width, force: Vec2{X: -magnitude}},
+		{name: "bottom", outside: mass.Position.Y > s.Bounds.Height, force: Vec2{Y: -magnitude}},
+	}
 }
 
 func (s *Simulation) centerOfMass() Vec2 {
