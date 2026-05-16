@@ -16,25 +16,48 @@ const (
 )
 
 type Game struct {
-	simulation *sim.Simulation
+	simulation      *sim.Simulation
+	paused          bool
+	inputActive     bool
+	renderingActive bool
+	closed          bool
+}
+
+type WindowConfig struct {
+	Width     int
+	Height    int
+	Title     string
+	Resizable bool
 }
 
 func NewGame() *Game {
-	return &Game{simulation: sim.NewDemoSimulation()}
+	return &Game{simulation: sim.NewWorld()}
+}
+
+func DefaultWindowConfig() WindowConfig {
+	return WindowConfig{Width: screenWidth, Height: screenHeight, Title: "Springs", Resizable: true}
 }
 
 func Run() error {
-	ebiten.SetWindowSize(screenWidth, screenHeight)
-	ebiten.SetWindowTitle("Springs")
+	config := DefaultWindowConfig()
+	ebiten.SetWindowSize(config.Width, config.Height)
+	ebiten.SetWindowTitle(config.Title)
+	if config.Resizable {
+		ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
+	}
 	return ebiten.RunGame(NewGame())
 }
 
 func (g *Game) Update() error {
-	g.simulation.Step(1.0 / 60.0)
+	g.inputActive = true
+	if !g.paused {
+		g.simulation.Step(1.0 / 60.0)
+	}
 	return nil
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
+	g.RenderFrame()
 	screen.Fill(color.RGBA{R: 18, G: 20, B: 24, A: 255})
 	for _, spring := range g.simulation.Springs {
 		a := g.simulation.Masses[spring.A].Position
@@ -53,4 +76,37 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 func (g *Game) Layout(int, int) (int, int) {
 	return screenWidth, screenHeight
+}
+
+func (g *Game) World() *sim.Simulation {
+	return g.simulation
+}
+
+func (g *Game) SetPaused(paused bool) {
+	g.paused = paused
+}
+
+func (g *Game) Paused() bool {
+	return g.paused
+}
+
+func (g *Game) InputActive() bool {
+	return g.inputActive
+}
+
+func (g *Game) RenderingActive() bool {
+	return g.renderingActive
+}
+
+func (g *Game) RenderFrame() {
+	g.renderingActive = true
+}
+
+func (g *Game) Close() error {
+	g.closed = true
+	return nil
+}
+
+func (g *Game) Closed() bool {
+	return g.closed
 }
