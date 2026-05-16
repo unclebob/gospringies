@@ -6,3 +6,5 @@
 swarmtools/
 logs/
 agent_context/
+build/
+acceptance/generated/
