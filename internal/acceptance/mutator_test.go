@@ -87,26 +87,46 @@ func TestBuildMutationsSkipsEquivalentForceEvaluationSetupCells(t *testing.T) {
 	feature := gherkin.Feature{
 		Name: "Force evaluation",
 		Scenarios: []gherkin.Scenario{
-			{Examples: []map[string]string{{"mass_a": "1", "spring_constant": "12", "result": "opposite"}}},
-			{Examples: []map[string]string{{"mass_b": "2", "damping_constant": "0.5", "result": "direction"}}},
+			{Examples: []map[string]string{{"mass_a": "1", "mass_b": "2", "expected": "opposite"}}},
+			{Examples: []map[string]string{{"damping_constant": "1", "expected": "directional"}}},
 			{},
-			{Examples: []map[string]string{{"mass_id": "1", "fixed": "true", "force": "gravity"}}},
-			{Examples: []map[string]string{{"mass_id": "1", "wall": "left"}}},
+			{Examples: []map[string]string{{"mass_id": "1", "acceleration": "zero"}}},
 		},
 	}
 
 	mutations := BuildMutations(feature)
-	if len(mutations) != 5 {
+	if len(mutations) != 3 {
 		t.Fatalf("mutation count = %d: %#v", len(mutations), mutations)
 	}
-	if !isEquivalentForceEvaluationMutation(0, "spring_constant") {
-		t.Fatal("expected spring force setup mutation to be equivalent")
+	if mutations[0].Key != "expected" || mutations[1].Key != "expected" || mutations[2].Key != "acceleration" {
+		t.Fatalf("mutations = %#v", mutations)
 	}
-	if !isEquivalentForceEvaluationMutation(1, "damping_constant") {
-		t.Fatal("expected spring damping setup mutation to be equivalent")
+	if !isEquivalentForceEvaluationMutation(0, "mass_a") {
+		t.Fatal("expected force setup mutation to be equivalent")
 	}
-	if isEquivalentForceEvaluationMutation(2, "force") {
-		t.Fatal("environmental force mutation should remain meaningful")
+	if isEquivalentForceEvaluationMutation(0, "expected") {
+		t.Fatal("expected assertion mutation to remain meaningful")
+	}
+}
+
+func TestBuildMutationsSkipsEquivalentSimulationStepMassID(t *testing.T) {
+	feature := gherkin.Feature{
+		Name: "Simulation step",
+		Scenarios: []gherkin.Scenario{
+			{},
+			{Examples: []map[string]string{{"mass_id": "1", "fixed": "true"}}},
+		},
+	}
+
+	mutations := BuildMutations(feature)
+	if len(mutations) != 1 || mutations[0].Key != "fixed" {
+		t.Fatalf("mutations = %#v", mutations)
+	}
+	if !isEquivalentSimulationStepMutation(1, "mass_id") {
+		t.Fatal("expected fixed-mass id mutation to be equivalent")
+	}
+	if isEquivalentSimulationStepMutation(1, "fixed") {
+		t.Fatal("fixed state mutation should remain meaningful")
 	}
 }
 
@@ -128,6 +148,29 @@ func TestBuildMutationsSkipsEquivalentSimulationStepSetupCells(t *testing.T) {
 	}
 	if isEquivalentSimulationStepMutation(1, "duration") {
 		t.Fatal("duration mutation should remain meaningful")
+	}
+}
+
+func TestBuildMutationsSkipsEquivalentXSPFixedMassSetupCells(t *testing.T) {
+	feature := gherkin.Feature{
+		Name: "XSP load and save",
+		Scenarios: []gherkin.Scenario{
+			{},
+			{},
+			{},
+			{Examples: []map[string]string{{"mass_id": "1", "file_mass_value": "-3.0", "fixed": "true", "file_mass_sign": "negative"}}},
+		},
+	}
+
+	mutations := BuildMutations(feature)
+	if len(mutations) != 2 {
+		t.Fatalf("mutations = %#v", mutations)
+	}
+	if mutations[0].Key != "file_mass_sign" || mutations[1].Key != "fixed" {
+		t.Fatalf("mutations = %#v", mutations)
+	}
+	if !isEquivalentXSPMutation(3, "file_mass_value") {
+		t.Fatal("expected file mass value mutation to be equivalent")
 	}
 }
 
