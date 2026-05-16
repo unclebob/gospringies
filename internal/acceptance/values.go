@@ -14,6 +14,18 @@ func stringValue(example map[string]string, key string) (string, error) {
 	return value, nil
 }
 
+func stringPair(example map[string]string, firstKey, secondKey string) (string, string, error) {
+	first, err := stringValue(example, firstKey)
+	if err != nil {
+		return "", "", err
+	}
+	second, err := stringValue(example, secondKey)
+	if err != nil {
+		return "", "", err
+	}
+	return first, second, nil
+}
+
 func intValue(example map[string]string, key string) (int, error) {
 	value, err := stringValue(example, key)
 	if err != nil {

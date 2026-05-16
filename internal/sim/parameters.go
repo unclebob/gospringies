@@ -92,13 +92,16 @@ func (p Parameters) EnableWall(name string) {
 }
 
 func (p Parameters) Force(name string) (ForceConfig, bool) {
-	force, ok := p.Forces[name]
-	return force, ok
+	return mapValue(p.Forces, name)
 }
 
 func (p Parameters) WallEnabled(name string) (bool, bool) {
-	enabled, ok := p.Walls[name]
-	return enabled, ok
+	return mapValue(p.Walls, name)
+}
+
+func mapValue[T any](values map[string]T, name string) (T, bool) {
+	value, ok := values[name]
+	return value, ok
 }
 
 func (p Parameters) StepDuration() float64 {

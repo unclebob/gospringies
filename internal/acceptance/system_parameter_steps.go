@@ -100,20 +100,19 @@ func performNamedWorldOperation(world *sim.Simulation, operation string, example
 }
 
 func loadWorldWithChangedParameter(world *sim.Simulation, example map[string]string) error {
-	loaded, err := worldWithParameter(example, "loaded")
-	if err != nil {
-		return err
-	}
-	world.LoadFrom(loaded)
-	return nil
+	return applyWorldWithParameter(world, example, "loaded", (*sim.Simulation).LoadFrom)
 }
 
 func insertWorldWithChangedParameter(world *sim.Simulation, example map[string]string) error {
-	inserted, err := worldWithParameter(example, "inserted")
+	return applyWorldWithParameter(world, example, "inserted", (*sim.Simulation).InsertFrom)
+}
+
+func applyWorldWithParameter(world *sim.Simulation, example map[string]string, value string, apply func(*sim.Simulation, *sim.Simulation)) error {
+	other, err := worldWithParameter(example, value)
 	if err != nil {
 		return err
 	}
-	world.InsertFrom(inserted)
+	apply(world, other)
 	return nil
 }
 
@@ -193,15 +192,7 @@ func parameterSourceFields(w *world, example map[string]string) (*sim.Simulation
 }
 
 func parameterChange(example map[string]string) (string, string, error) {
-	parameter, err := stringValue(example, "parameter")
-	if err != nil {
-		return "", "", err
-	}
-	value, err := stringValue(example, "changed_value")
-	if err != nil {
-		return "", "", err
-	}
-	return parameter, value, nil
+	return stringPair(example, "parameter", "changed_value")
 }
 
 func requireSetMarker(label, value string) error {
