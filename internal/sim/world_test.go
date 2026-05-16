@@ -118,3 +118,34 @@ func TestFixedMassStateIsIndependentFromMassValue(t *testing.T) {
 		t.Fatalf("mass value = %f", mass.Mass)
 	}
 }
+
+func TestCloneCopiesObjectsAndParametersIndependently(t *testing.T) {
+	world := NewWorld()
+	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: 5, Y: 6}, Velocity: Vec2{X: 1}, Mass: 2, Elasticity: 0.7, Fixed: true})
+	_ = world.AddMass(Mass{ID: 2, Position: Vec2{X: 20, Y: 6}, Mass: 3})
+	_ = world.AddSpring(Spring{ID: 3, MassA: 1, MassB: 2, RestLength: 15, SpringConstant: 9, Damping: 0.4})
+	world.Parameters.Set("current mass", "4.5")
+	world.Parameters.EnableForce("gravity", map[string]string{"magnitude": "8"})
+	world.Parameters.EnableWall("left")
+	world.Time = 1.25
+
+	clone := world.Clone()
+	world.Masses[0].Position.X = 99
+	world.Springs[0].RestLength = 99
+	world.Parameters.Set("current mass", "changed")
+	world.Parameters.EnableForce("gravity", map[string]string{"magnitude": "changed"})
+	world.Time = 9
+
+	mass, _ := clone.MassByID(1)
+	spring, _ := clone.SpringByID(3)
+	force, _ := clone.Parameters.Force("gravity")
+	if mass.Position != (Vec2{X: 5, Y: 6}) || spring.RestLength != 15 || clone.Parameters.Value("current mass") != "4.5" {
+		t.Fatalf("clone changed with source: %#v %#v %#v", mass, spring, clone.Parameters)
+	}
+	if force.Values["magnitude"] != "8" || clone.Time != 1.25 {
+		t.Fatalf("clone force/time = %#v %f", force, clone.Time)
+	}
+	if enabled, _ := clone.Parameters.WallEnabled("left"); !enabled {
+		t.Fatal("clone did not preserve wall state")
+	}
+}

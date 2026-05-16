@@ -344,6 +344,19 @@ var stepHandlers = map[string]stepHandler{
 	"the spring Kspring should be <kspring>":                                               assertCreatedSpringKspring,
 	"the spring Kdamp should be <kdamp>":                                                   assertCreatedSpringKdamp,
 	"the spring rest length should be <creation_length>":                                   assertCreatedSpringRestLength,
+	"the state save restore task is accepted":                                              acceptStep,
+	"the world is in state <saved_state>":                                                  createMemoryWorldState,
+	"the coder saves state":                                                                saveApplicationState,
+	"the world changes to state <changed_state>":                                           changeApplicationState,
+	"the coder restores state <restore_count> times":                                       restoreApplicationStateTimes,
+	"the world should be in state <saved_state>":                                           assertApplicationStateWorld,
+	"no state has been saved":                                                              createNoSavedApplicationState,
+	"the world has changed from the initial state":                                         changeFromInitialApplicationState,
+	"the coder restores state":                                                             restoreApplicationStateOnce,
+	"the world should be in the initial state":                                             assertInitialApplicationState,
+	"the world is in state <memory_state>":                                                 createMemoryWorldState,
+	"the coder performs file operation <file_operation>":                                   runStateFileOperation,
+	"the world should be in state <memory_state>":                                          assertApplicationStateWorld,
 }
 
 func acceptStep(*world, map[string]string) error {

@@ -291,6 +291,31 @@ func TestBuildMutationsSkipsEquivalentSpringModeMouseCells(t *testing.T) {
 	}
 }
 
+func TestBuildMutationsSkipsEquivalentStateSaveRestoreRepeatedRestoreCount(t *testing.T) {
+	feature := gherkin.Feature{
+		Name: "State save restore",
+		Scenarios: []gherkin.Scenario{
+			{Examples: []map[string]string{
+				{"saved_state": "A", "changed_state": "B", "restore_count": "1"},
+				{"saved_state": "A", "changed_state": "B", "restore_count": "2"},
+			}},
+		},
+	}
+
+	mutations := BuildMutations(feature)
+	for _, mutation := range mutations {
+		if mutation.Example == 1 && mutation.Key == "restore_count" {
+			t.Fatalf("repeated restore count should be filtered: %#v", mutation)
+		}
+	}
+	if !isEquivalentStateSaveRestoreMutation(0, 1, "restore_count") {
+		t.Fatal("expected repeated restore count mutation to be equivalent")
+	}
+	if isEquivalentStateSaveRestoreMutation(0, 0, "restore_count") {
+		t.Fatal("single restore count mutation should remain meaningful")
+	}
+}
+
 func TestEquivalentMutationPredicates(t *testing.T) {
 	for _, check := range []struct {
 		equivalent func(int, string) bool
