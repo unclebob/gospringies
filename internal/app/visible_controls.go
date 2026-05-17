@@ -192,18 +192,23 @@ func (g *Game) visibleRegionControlCounts() map[string]int {
 }
 
 func visibleLabelsFit(game *Game) bool {
-	for _, control := range visibleControls() {
-		if !labelFits(control.Label, control.Rect) {
-			return false
-		}
-	}
-	for _, section := range inspectorSections() {
-		if !labelFits(section.Label, section.Rect) {
-			return false
-		}
-	}
-	for _, field := range game.statusFields() {
-		if !labelFits(field.Label, field.Rect) {
+	return controlLabelsFit(visibleControls()) &&
+		controlLabelsFit(inspectorSections()) &&
+		statusLabelsFit(game.statusFields())
+}
+
+func controlLabelsFit(boxes []controlBox) bool {
+	return labelsFitItems(boxes, func(box controlBox) (string, image.Rectangle) { return box.Label, box.Rect })
+}
+
+func statusLabelsFit(fields []statusField) bool {
+	return labelsFitItems(fields, func(field statusField) (string, image.Rectangle) { return field.Label, field.Rect })
+}
+
+func labelsFitItems[T any](items []T, labelAndRect func(T) (string, image.Rectangle)) bool {
+	for _, item := range items {
+		label, rect := labelAndRect(item)
+		if !labelFits(label, rect) {
 			return false
 		}
 	}

@@ -9,6 +9,13 @@ import (
 
 type drawFrameReport = app.DrawFrameReport
 
+var visibleControlStateSetters = map[string]func(*app.Game){
+	"Select mode":   func(game *app.Game) { game.SetMode("select") },
+	"running":       func(game *app.Game) { game.SetPaused(false) },
+	"object counts": func(*app.Game) {},
+	"saved":         func(game *app.Game) { game.SetDirty(false) },
+}
+
 func drawApplicationFrame(w *world, _ map[string]string) error {
 	game, err := visibleControlsGame(w)
 	if err != nil {
@@ -68,17 +75,11 @@ func setVisibleControlsApplicationState(w *world, example map[string]string) err
 	if err != nil {
 		return err
 	}
-	switch state {
-	case "Select mode":
-		game.SetMode("select")
-	case "running":
-		game.SetPaused(false)
-	case "object counts":
-	case "saved":
-		game.SetDirty(false)
-	default:
+	setState, ok := visibleControlStateSetters[state]
+	if !ok {
 		return fmt.Errorf("unsupported visible controls state %q", state)
 	}
+	setState(game)
 	return nil
 }
 

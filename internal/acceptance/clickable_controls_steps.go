@@ -31,22 +31,6 @@ func supportedClickableMode(mode string) bool {
 	}
 }
 
-func clickVisibleControl(w *world, example map[string]string) error {
-	control, err := stringValue(example, "control")
-	if err != nil {
-		return err
-	}
-	game, err := visibleControlsGame(w)
-	if err != nil {
-		return err
-	}
-	if !game.ClickVisibleControl(control) {
-		return fmt.Errorf("visible control %q was not clickable", control)
-	}
-	w.appCommand = game.LastCommand()
-	return nil
-}
-
 func clickInsideRenderedVisibleControlBounds(w *world, example map[string]string) error {
 	control, err := stringValue(example, "control")
 	if err != nil {
@@ -75,6 +59,15 @@ func clickInsideRenderedBoundsOfControl(w *world, control string) error {
 	}
 	w.appCommand = game.LastCommand()
 	return nil
+}
+
+func clickInsideRenderedDragControlBounds(w *world, example map[string]string) error {
+	values := map[string]string{}
+	for key, value := range example {
+		values[key] = value
+	}
+	values["control"] = "Drag"
+	return clickInsideRenderedVisibleControlBounds(w, values)
 }
 
 func assertClickableEditorMode(w *world, example map[string]string) error {
@@ -137,19 +130,37 @@ func assertClickMatchesShortcut(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	if w.clickShortcut != shortcut {
-		return fmt.Errorf("recorded shortcut = %q, want %q", w.clickShortcut, shortcut)
+	if err := assertRecordedShortcut(w, shortcut); err != nil {
+		return err
 	}
 	clicked, err := visibleControlsGame(w)
 	if err != nil {
 		return err
 	}
-	shortcutGame := app.NewGame()
-	if !shortcutGame.HandleShortcut(shortcut) {
-		return fmt.Errorf("shortcut %q was not handled", shortcut)
-	}
 	clickedState := clickableApplicationState(clicked)
-	shortcutState := clickableApplicationState(shortcutGame)
+	shortcutState, err := shortcutApplicationState(shortcut)
+	if err != nil {
+		return err
+	}
+	return assertSameClickableApplicationState(clickedState, shortcutState)
+}
+
+func assertRecordedShortcut(w *world, shortcut string) error {
+	if w.clickShortcut != shortcut {
+		return fmt.Errorf("recorded shortcut = %q, want %q", w.clickShortcut, shortcut)
+	}
+	return nil
+}
+
+func shortcutApplicationState(shortcut string) (string, error) {
+	game := app.NewGame()
+	if !game.HandleShortcut(shortcut) {
+		return "", fmt.Errorf("shortcut %q was not handled", shortcut)
+	}
+	return clickableApplicationState(game), nil
+}
+
+func assertSameClickableApplicationState(clickedState string, shortcutState string) error {
 	if clickedState != shortcutState {
 		return fmt.Errorf("click state = %q, shortcut state = %q", clickedState, shortcutState)
 	}

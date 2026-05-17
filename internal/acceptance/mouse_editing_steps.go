@@ -150,11 +150,19 @@ func dragMouseMass(w *world, example map[string]string) error {
 }
 
 func assertMouseMassPosition(w *world, example map[string]string) error {
+	return assertMouseMassPositionValue(w, example, "expected_position", "mass position")
+}
+
+func assertMouseMassInitialPosition(w *world, example map[string]string) error {
+	return assertMouseMassPositionValue(w, example, "expected_start_position", "mass initial position")
+}
+
+func assertMouseMassPositionValue(w *world, example map[string]string, key string, name string) error {
 	id, err := intValue(example, "mass_id")
 	if err != nil {
 		return err
 	}
-	position, err := positionValue(example, "expected_position")
+	position, err := positionValue(example, key)
 	if err != nil {
 		return err
 	}
@@ -162,11 +170,24 @@ func assertMouseMassPosition(w *world, example map[string]string) error {
 	if !ok {
 		return fmt.Errorf("mass %d not found", id)
 	}
-	return assertVec("mass position", mass.Position, position.X, position.Y)
+	return assertVec(name, mass.Position, position.X, position.Y)
 }
 
 func assertMouseMassID(w *world, example map[string]string) error {
 	return withMouseMass(w, example, func(_ sim.Mass) error { return nil })
+}
+
+func assertMouseMassExpectedID(w *world, example map[string]string) error {
+	expected, err := intValue(example, "expected_mass_id")
+	if err != nil {
+		return err
+	}
+	return withMouseMass(w, example, func(mass sim.Mass) error {
+		if mass.ID != expected {
+			return fmt.Errorf("mass id = %d, want %d", mass.ID, expected)
+		}
+		return nil
+	})
 }
 
 func ensureMouseEditor(w *world) *edit.Editor {
