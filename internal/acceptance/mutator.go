@@ -9,9 +9,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"springs/internal/gherkin"
@@ -41,6 +43,20 @@ type MutationSummary struct {
 	Killed   int
 	Survived int
 	Errors   int
+}
+
+type MutationProgress struct {
+	Completed int
+	Total     int
+	Killed    int
+	Survived  int
+	Errors    int
+}
+
+type RunMutationOptions struct {
+	Workers       int
+	ProgressEvery int
+	Progress      func(MutationProgress)
 }
 
 func BuildMutations(feature gherkin.Feature) []Mutation {
@@ -250,15 +266,121 @@ func mutationKeyIn(key string, candidates ...string) bool {
 }
 
 func RunMutations(feature gherkin.Feature, workDir string) ([]MutationResult, error) {
+	return RunMutationsWithOptions(feature, workDir, RunMutationOptions{Workers: 1})
+}
+
+func RunMutationsWithOptions(feature gherkin.Feature, workDir string, options RunMutationOptions) ([]MutationResult, error) {
 	mutations := BuildMutations(feature)
-	results := make([]MutationResult, 0, len(mutations))
 	if err := os.MkdirAll(workDir, 0o755); err != nil {
 		return nil, err
 	}
-	for _, mutation := range mutations {
-		results = append(results, runMutation(feature, mutation, workDir))
+	return runMutationJobs(feature, mutations, workDir, options), nil
+}
+
+type mutationJob struct {
+	index    int
+	mutation Mutation
+}
+
+type indexedMutationResult struct {
+	index  int
+	result MutationResult
+}
+
+func runMutationJobs(feature gherkin.Feature, mutations []Mutation, workDir string, options RunMutationOptions) []MutationResult {
+	results := make([]MutationResult, len(mutations))
+	if len(mutations) == 0 {
+		return results
 	}
-	return results, nil
+	workerCount := mutationWorkerCount(options.Workers, len(mutations))
+	jobs := make(chan mutationJob)
+	completed := make(chan indexedMutationResult)
+	var workers sync.WaitGroup
+	for range workerCount {
+		workers.Add(1)
+		go runMutationWorker(feature, workDir, jobs, completed, &workers)
+	}
+	go enqueueMutationJobs(mutations, jobs)
+	go closeCompletedWhenDone(completed, &workers)
+	progress := mutationProgressTracker{total: len(mutations), every: options.ProgressEvery, report: options.Progress}
+	for completedResult := range completed {
+		results[completedResult.index] = completedResult.result
+		progress.record(completedResult.result)
+	}
+	return results
+}
+
+func mutationWorkerCount(requested int, mutationCount int) int {
+	if mutationCount == 0 {
+		return 0
+	}
+	if requested <= 0 {
+		requested = runtime.NumCPU()
+	}
+	if requested > mutationCount {
+		return mutationCount
+	}
+	return requested
+}
+
+func runMutationWorker(feature gherkin.Feature, workDir string, jobs <-chan mutationJob, completed chan<- indexedMutationResult, workers *sync.WaitGroup) {
+	defer workers.Done()
+	for job := range jobs {
+		completed <- indexedMutationResult{index: job.index, result: runMutation(feature, job.mutation, workDir)}
+	}
+}
+
+func enqueueMutationJobs(mutations []Mutation, jobs chan<- mutationJob) {
+	defer close(jobs)
+	for i, mutation := range mutations {
+		jobs <- mutationJob{index: i, mutation: mutation}
+	}
+}
+
+func closeCompletedWhenDone(completed chan indexedMutationResult, workers *sync.WaitGroup) {
+	workers.Wait()
+	close(completed)
+}
+
+type mutationProgressTracker struct {
+	completed int
+	total     int
+	every     int
+	report    func(MutationProgress)
+	summary   MutationSummary
+}
+
+func (p *mutationProgressTracker) record(result MutationResult) {
+	p.completed++
+	p.add(result)
+	if p.shouldReport() {
+		p.report(MutationProgress{
+			Completed: p.completed,
+			Total:     p.total,
+			Killed:    p.summary.Killed,
+			Survived:  p.summary.Survived,
+			Errors:    p.summary.Errors,
+		})
+	}
+}
+
+func (p *mutationProgressTracker) add(result MutationResult) {
+	switch result.Status {
+	case "killed":
+		p.summary.Killed++
+	case "survived":
+		p.summary.Survived++
+	default:
+		p.summary.Errors++
+	}
+	p.summary.Total++
+}
+
+func (p *mutationProgressTracker) shouldReport() bool {
+	if p.report == nil || p.every <= 0 {
+		return false
+	}
+	return p.completed%p.every == 0 || p.completed == p.total
 }
 
 func runMutation(feature gherkin.Feature, mutation Mutation, workDir string) MutationResult {

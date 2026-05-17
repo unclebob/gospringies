@@ -471,6 +471,44 @@ func TestRunMutationsReturnsWorkDirCreationError(t *testing.T) {
 	}
 }
 
+func TestMutationWorkerCountUsesRequestedDefaultAndCapsAtMutationCount(t *testing.T) {
+	if got := mutationWorkerCount(3, 10); got != 3 {
+		t.Fatalf("worker count = %d, want 3", got)
+	}
+	if got := mutationWorkerCount(20, 3); got != 3 {
+		t.Fatalf("capped worker count = %d, want 3", got)
+	}
+	if got := mutationWorkerCount(0, 1); got != 1 {
+		t.Fatalf("default worker count = %d, want 1", got)
+	}
+	if got := mutationWorkerCount(4, 0); got != 0 {
+		t.Fatalf("empty worker count = %d, want 0", got)
+	}
+}
+
+func TestMutationProgressTrackerReportsEveryIntervalAndAtEnd(t *testing.T) {
+	var reports []MutationProgress
+	tracker := mutationProgressTracker{
+		total:  3,
+		every:  2,
+		report: func(progress MutationProgress) { reports = append(reports, progress) },
+	}
+
+	tracker.record(MutationResult{Status: "killed"})
+	tracker.record(MutationResult{Status: "survived"})
+	tracker.record(MutationResult{Status: "error"})
+
+	if len(reports) != 2 {
+		t.Fatalf("reports = %#v", reports)
+	}
+	if reports[0].Completed != 2 || reports[0].Killed != 1 || reports[0].Survived != 1 {
+		t.Fatalf("first report = %#v", reports[0])
+	}
+	if reports[1].Completed != 3 || reports[1].Errors != 1 {
+		t.Fatalf("final report = %#v", reports[1])
+	}
+}
+
 func TestSummarizeCountsMutationStatuses(t *testing.T) {
 	summary := Summarize([]MutationResult{
 		{Status: "killed"},

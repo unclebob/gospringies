@@ -60,6 +60,38 @@ func TestPrintJSON(t *testing.T) {
 	}
 }
 
+func TestPrintProgressReportsCounts(t *testing.T) {
+	var stderr bytes.Buffer
+	printProgress(&stderr)(acceptance.MutationProgress{Completed: 20, Total: 39, Killed: 19, Survived: 1})
+
+	if !strings.Contains(stderr.String(), "progress completed=20 total=39 killed=19 survived=1 errors=0") {
+		t.Fatalf("stderr = %s", stderr.String())
+	}
+}
+
+func TestProgressWriterUsesStdoutForTextAndStderrForJSON(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	if progressWriter(options{}, &stdout, &stderr) != &stdout {
+		t.Fatal("expected text progress to use stdout")
+	}
+	if progressWriter(options{jsonReport: true}, &stdout, &stderr) != &stderr {
+		t.Fatal("expected JSON progress to use stderr")
+	}
+}
+
+func TestParseOptionsAcceptsWorkers(t *testing.T) {
+	var stderr bytes.Buffer
+	options, err := parseOptions([]string{"-feature", "feature.feature", "-workers", "4"}, &stderr)
+	if err != nil {
+		t.Fatalf("parseOptions returned error: %v", err)
+	}
+	if options.workers != 4 {
+		t.Fatalf("workers = %d, want 4", options.workers)
+	}
+}
+
 func TestRunReturnsSuccessForFeatureWithoutMutations(t *testing.T) {
 	dir := t.TempDir()
 	featurePath := filepath.Join(dir, "empty.feature")
