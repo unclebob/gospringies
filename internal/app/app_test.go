@@ -519,6 +519,94 @@ func TestCommandsAffectApplicationState(t *testing.T) {
 	}
 }
 
+func TestClickVisibleModeControlsChangeMode(t *testing.T) {
+	tests := map[string]string{
+		"Select": "select",
+		"Mass":   "add mass",
+		"Spring": "add spring",
+		"Drag":   "drag",
+	}
+	for label, mode := range tests {
+		game := NewGame()
+		game.SetMode("select")
+
+		if !game.ClickVisibleControl(label) {
+			t.Fatalf("click %q was not handled", label)
+		}
+		if game.Mode() != mode {
+			t.Fatalf("mode after %q = %q, want %q", label, game.Mode(), mode)
+		}
+		if !game.VisibleControlActive(label) {
+			t.Fatalf("control %q was not active", label)
+		}
+		report := game.DrawFrameReport()
+		if !report.ActiveControls[label] || !report.ActiveControls[labelControlName(label)] {
+			t.Fatalf("active controls after %q = %#v", label, report.ActiveControls)
+		}
+	}
+}
+
+func TestClickVisibleCommandControlsRunCommands(t *testing.T) {
+	tests := map[string]string{
+		"Run":   "run",
+		"Pause": "pause",
+		"Reset": "reset",
+		"Quit":  "quit",
+	}
+	for label, command := range tests {
+		game := NewGame()
+
+		if !game.ClickVisibleControl(label) {
+			t.Fatalf("click %q was not handled", label)
+		}
+		if game.LastCommand() != command {
+			t.Fatalf("command after %q = %q, want %q", label, game.LastCommand(), command)
+		}
+	}
+}
+
+func TestClickVisibleFileControlsOpenPathEntry(t *testing.T) {
+	tests := map[string]string{"Load": "Load", "Insert": "Insert", "Save": "Save"}
+	for label, command := range tests {
+		game := NewGame()
+
+		if !game.ClickVisibleControl(label) {
+			t.Fatalf("click %q was not handled", label)
+		}
+		if game.PathEntryCommand() != command {
+			t.Fatalf("path entry after %q = %q, want %q", label, game.PathEntryCommand(), command)
+		}
+	}
+}
+
+func TestClickVisibleControlsUseRectHitTesting(t *testing.T) {
+	game := NewGame()
+
+	if !game.ClickAt(12, 82) {
+		t.Fatal("expected click inside Mass control to be handled")
+	}
+	if game.Mode() != "add mass" {
+		t.Fatalf("mode = %q, want add mass", game.Mode())
+	}
+	if game.ClickAt(500, 300) {
+		t.Fatal("unexpected handled click outside controls")
+	}
+}
+
+func TestRunAndPauseControlsSetSimulationState(t *testing.T) {
+	game := NewGame()
+	game.SetPaused(false)
+	game.ClickVisibleControl("Pause")
+	if !game.Paused() {
+		t.Fatal("expected Pause click to pause")
+	}
+
+	game.ClickVisibleControl("Run")
+	if game.Paused() {
+		t.Fatal("expected Run click to resume")
+	}
+}
+
 func TestFileCommandsSaveLoadAndInsertXSP(t *testing.T) {
 	game := NewGame()
 	_ = game.World().AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 1, Y: 2}, Mass: 1})
@@ -645,6 +733,21 @@ func assertStarterObjects(t *testing.T, world *sim.Simulation) {
 	}
 	if fixed < 1 || movable < 1 || len(world.Springs) < 1 {
 		t.Fatalf("starter world fixed=%d movable=%d springs=%d: %#v", fixed, movable, len(world.Springs), world)
+	}
+}
+
+func labelControlName(label string) string {
+	switch label {
+	case "Select":
+		return "select mode"
+	case "Mass":
+		return "mass mode"
+	case "Spring":
+		return "spring mode"
+	case "Drag":
+		return "drag mode"
+	default:
+		return ""
 	}
 }
 

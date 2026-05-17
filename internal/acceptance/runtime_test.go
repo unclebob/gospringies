@@ -787,6 +787,10 @@ func TestRunFeatureExecutesRenderVisibleControlsFeature(t *testing.T) {
 	runFeatureFile(t, "features/024_1_render_visible_controls.feature")
 }
 
+func TestRunFeatureExecutesClickableVisibleControlsFeature(t *testing.T) {
+	runFeatureFile(t, "features/024_2_clickable_visible_controls.feature")
+}
+
 func TestRunFeatureExecutesOriginalDemoCorpusFeature(t *testing.T) {
 	runFeatureFile(t, "features/025_original_demo_corpus.feature")
 }

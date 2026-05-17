@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-FEATURE="${1:-features/024_1_render_visible_controls.feature}"
+FEATURE="${1:-features/024_2_clickable_visible_controls.feature}"
 BASENAME=$(basename "$FEATURE" .feature)
 BUILD_DIR="${ACCEPTANCE_BUILD_DIR:-build/acceptance}"
 GENERATED_DIR="${ACCEPTANCE_GENERATED_DIR:-acceptance/generated}"
