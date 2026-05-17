@@ -124,15 +124,7 @@ func assertAcceptanceCommandPassesFromCleanCheckout(*world, map[string]string) e
 }
 
 func setFeatureMutationStampState(_ *world, example map[string]string) error {
-	feature, state, err := stringPair(example, "feature_file", "stamp_state")
-	if err != nil {
-		return err
-	}
-	setter, ok := mutationStampStateSetters[state]
-	if !ok {
-		return fmt.Errorf("unsupported mutation stamp state %q", state)
-	}
-	return setter(repoPath(feature))
+	return applyFeatureMutationStampState(example, "stamp_state", mutationStampStateSetters)
 }
 
 func runAcceptanceMutationForFeature(w *world, example map[string]string) error {
@@ -174,15 +166,19 @@ func assertAcceptanceMutationBehavior(w *world, example map[string]string) error
 }
 
 func assertFeatureMutationStampState(_ *world, example map[string]string) error {
-	feature, state, err := stringPair(example, "feature_file", "expected_stamp_state")
+	return applyFeatureMutationStampState(example, "expected_stamp_state", mutationStampStateAssertions)
+}
+
+func applyFeatureMutationStampState(example map[string]string, stateKey string, actions map[string]func(string) error) error {
+	feature, state, err := stringPair(example, "feature_file", stateKey)
 	if err != nil {
 		return err
 	}
-	assertion, ok := mutationStampStateAssertions[state]
+	action, ok := actions[state]
 	if !ok {
 		return fmt.Errorf("unsupported mutation stamp state %q", state)
 	}
-	return assertion(repoPath(feature))
+	return action(repoPath(feature))
 }
 
 var mutationStampStateSetters = map[string]func(string) error{
