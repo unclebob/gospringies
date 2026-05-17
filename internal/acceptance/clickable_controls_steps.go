@@ -39,8 +39,10 @@ func clickInsideRenderedVisibleControlBounds(w *world, example map[string]string
 	return clickInsideRenderedBoundsOfControl(w, control)
 }
 
-func clickInsideRenderedDragControlBounds(w *world, example map[string]string) error {
-	return clickInsideRenderedBoundsOfControl(w, "Drag")
+func clickInsideRenderedControl(control string) stepHandler {
+	return func(w *world, _ map[string]string) error {
+		return clickInsideRenderedBoundsOfControl(w, control)
+	}
 }
 
 func clickInsideRenderedBoundsOfControl(w *world, control string) error {
