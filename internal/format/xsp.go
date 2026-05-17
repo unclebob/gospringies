@@ -45,7 +45,7 @@ func LoadXSP(text string) (*sim.Simulation, error) {
 		return nil, ErrMissingFinalNewline
 	}
 	lines := strings.Split(strings.TrimSuffix(text, "\n"), "\n")
-	if len(lines) == 0 || strings.TrimSpace(lines[0]) != "#1.0" {
+	if len(lines) == 0 || !strings.HasPrefix(strings.TrimSpace(lines[0]), "#1.0") {
 		return nil, ErrUnsupportedMarker
 	}
 	world := sim.NewWorld()
@@ -83,7 +83,7 @@ var xspLoaders = map[string]func(*sim.Simulation, []string) error{
 	"step": parameterLineLoader("timestep"),
 	"prec": parameterLineLoader("precision"),
 	"adpt": booleanParameterLineLoader("adaptive timestep"),
-	"gsnp": parameterLineLoader("grid snap"),
+	"gsnp": loadGridSnapLine,
 	"wall": loadWallLine,
 	"mass": loadMassLine,
 	"spng": loadSpringLine,
@@ -117,6 +117,14 @@ func setParameterLine(world *sim.Simulation, fields []string, name string) error
 	return nil
 }
 
+func loadGridSnapLine(world *sim.Simulation, fields []string) error {
+	if len(fields) != 2 && len(fields) != 3 {
+		return fmt.Errorf("gsnp expects grid snap value")
+	}
+	world.Parameters.Set("grid snap", fields[1])
+	return nil
+}
+
 func loadCenterLine(world *sim.Simulation, fields []string) error {
 	if len(fields) != 2 {
 		return fmt.Errorf("cent expects one value")
@@ -133,6 +141,11 @@ func loadCenterLine(world *sim.Simulation, fields []string) error {
 }
 
 func loadForceLine(world *sim.Simulation, fields []string) error {
+	if len(fields) == 5 {
+		if _, err := intField(fields[1], "force id"); err == nil {
+			return loadLegacyForceLine(world, fields)
+		}
+	}
 	if len(fields) < 3 {
 		return fmt.Errorf("frce expects name and enabled state")
 	}
@@ -156,6 +169,49 @@ func loadForceLine(world *sim.Simulation, fields []string) error {
 	return nil
 }
 
+func loadLegacyForceLine(world *sim.Simulation, fields []string) error {
+	forceID, err := intField(fields[1], "force id")
+	if err != nil {
+		return err
+	}
+	if forceID < 0 || forceID >= len(legacyForceNames) {
+		return fmt.Errorf("unsupported force id %d", forceID)
+	}
+	enabled, err := booleanField(fields[2], "frce enabled")
+	if err != nil {
+		return err
+	}
+	first, err := floatField(fields[3], "force first parameter")
+	if err != nil {
+		return err
+	}
+	second, err := floatField(fields[4], "force second parameter")
+	if err != nil {
+		return err
+	}
+	name := legacyForceNames[forceID]
+	force, _ := world.Parameters.Force(name)
+	force.Enabled = enabled
+	force.Values = legacyForceValues(name, first, second)
+	world.Parameters.Forces[name] = force
+	return nil
+}
+
+var legacyForceNames = []string{"gravity", "center attraction", "center of mass attraction", "wall repulsion", "mass collision"}
+
+func legacyForceValues(name string, first, second float64) map[string]string {
+	values := map[string]string{"magnitude": formatFloat(first)}
+	switch name {
+	case "gravity":
+		values["direction"] = formatFloat(second)
+	case "center of mass attraction":
+		values["damping"] = formatFloat(second)
+	default:
+		values["exponent"] = formatFloat(second)
+	}
+	return values
+}
+
 func forceValues(fields []string) (map[string]string, error) {
 	values := map[string]string{}
 	for _, field := range fields {
@@ -169,6 +225,9 @@ func forceValues(fields []string) (map[string]string, error) {
 }
 
 func loadWallLine(world *sim.Simulation, fields []string) error {
+	if len(fields) == 5 {
+		return loadLegacyWallLine(world, fields)
+	}
 	if len(fields) != 3 {
 		return fmt.Errorf("wall expects name and enabled state")
 	}
@@ -180,8 +239,19 @@ func loadWallLine(world *sim.Simulation, fields []string) error {
 	return nil
 }
 
+func loadLegacyWallLine(world *sim.Simulation, fields []string) error {
+	for i, name := range []string{"top", "left", "right", "bottom"} {
+		enabled, err := booleanField(fields[i+1], "wall enabled")
+		if err != nil {
+			return err
+		}
+		world.Parameters.Walls[name] = enabled == "true"
+	}
+	return nil
+}
+
 func loadMassLine(world *sim.Simulation, fields []string) error {
-	if len(fields) != 6 {
+	if len(fields) != 6 && len(fields) != 8 {
 		return fmt.Errorf("mass expects id x y mass elasticity")
 	}
 	id, err := intField(fields[1], "mass id")
@@ -191,7 +261,7 @@ func loadMassLine(world *sim.Simulation, fields []string) error {
 	if id <= 0 {
 		return ErrNonPositiveID
 	}
-	x, y, massValue, elasticity, err := massNumericFields(fields)
+	position, velocity, massValue, elasticity, err := massNumericFields(fields)
 	if err != nil {
 		return err
 	}
@@ -201,31 +271,46 @@ func loadMassLine(world *sim.Simulation, fields []string) error {
 	}
 	return world.AddMass(sim.Mass{
 		ID:         id,
-		Position:   sim.Vec2{X: x, Y: y},
+		Position:   position,
+		Velocity:   velocity,
 		Mass:       massValue,
 		Elasticity: elasticity,
 		Fixed:      fixed,
 	})
 }
 
-func massNumericFields(fields []string) (float64, float64, float64, float64, error) {
+func massNumericFields(fields []string) (sim.Vec2, sim.Vec2, float64, float64, error) {
 	x, err := floatField(fields[2], "mass x")
 	if err != nil {
-		return 0, 0, 0, 0, err
+		return sim.Vec2{}, sim.Vec2{}, 0, 0, err
 	}
 	y, err := floatField(fields[3], "mass y")
 	if err != nil {
-		return 0, 0, 0, 0, err
+		return sim.Vec2{}, sim.Vec2{}, 0, 0, err
 	}
-	massValue, err := floatField(fields[4], "mass value")
+	velocity := sim.Vec2{}
+	massIndex := 4
+	if len(fields) == 8 {
+		vx, err := floatField(fields[4], "mass velocity x")
+		if err != nil {
+			return sim.Vec2{}, sim.Vec2{}, 0, 0, err
+		}
+		vy, err := floatField(fields[5], "mass velocity y")
+		if err != nil {
+			return sim.Vec2{}, sim.Vec2{}, 0, 0, err
+		}
+		velocity = sim.Vec2{X: vx, Y: vy}
+		massIndex = 6
+	}
+	massValue, err := floatField(fields[massIndex], "mass value")
 	if err != nil {
-		return 0, 0, 0, 0, err
+		return sim.Vec2{}, sim.Vec2{}, 0, 0, err
 	}
-	elasticity, err := floatField(fields[5], "mass elasticity")
+	elasticity, err := floatField(fields[massIndex+1], "mass elasticity")
 	if err != nil {
-		return 0, 0, 0, 0, err
+		return sim.Vec2{}, sim.Vec2{}, 0, 0, err
 	}
-	return x, y, massValue, elasticity, nil
+	return sim.Vec2{X: x, Y: y}, velocity, massValue, elasticity, nil
 }
 
 func loadSpringLine(world *sim.Simulation, fields []string) error {

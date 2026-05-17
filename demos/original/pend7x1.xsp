@@ -1,0 +1,41 @@
+#1.0 *** XSpringies data file
+cmas 15
+elas 1
+kspr 200
+kdmp 5
+fixm 0
+shws 1
+cent -1
+frce 0 1 10 0
+frce 1 0 5 2
+frce 2 0 10 0
+frce 3 0 10000 1
+frce 4 1 0 0
+visc 0.01
+stck 0
+step 0.02
+prec 1
+adpt 0
+gsnp 200 1
+wall 1 1 1 1
+mass 1 200 350 0 0 -5 1
+mass 2 170 150 6.229442 -0.941096 15 1
+mass 3 215 350 0 0 -5 1
+mass 4 215 150 0 0 15 1
+mass 5 230 350 0 0 -5 1
+mass 6 230 150 0 0 15 1
+mass 7 245 350 0 0 -5 1
+mass 8 245 150 0 0 15 1
+mass 9 260 350 0 0 -5 1
+mass 10 260 150 0 0 15 1
+mass 11 275 350 0 0 -5 1
+mass 12 275 150 0 0 15 1
+mass 13 290 350 0 0 -5 1
+mass 14 290 150 0 0 15 1
+spng 1 1 2 200 100 200
+spng 2 3 4 200 100 200
+spng 3 5 6 200 100 200
+spng 4 7 8 200 100 200
+spng 5 9 10 200 100 200
+spng 6 11 12 200 100 200
+spng 7 13 14 200 100 200

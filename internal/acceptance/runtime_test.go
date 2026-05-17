@@ -773,6 +773,10 @@ func worldWithParameterSpringEndpoints() *sim.Simulation {
 	return world
 }
 
+func TestRunFeatureExecutesOriginalDemoCorpusFeature(t *testing.T) {
+	runFeatureFile(t, "features/025_original_demo_corpus.feature")
+}
+
 func TestRenderWorldHelpersValidateInputs(t *testing.T) {
 	if err := createApplicationWorldState(&world{}, map[string]string{}); err == nil {
 		t.Fatal("expected missing world state")

@@ -1,7 +1,7 @@
-Feature: Nonblank startup editor
+Feature: Nonblank startup editor 23.1
 
 Background:
-  Given the nonblank startup editor task is accepted
+  Given the nonblank startup editor 23.1 task is accepted
 
 Scenario Outline: startup screen shows more than debug text
   When the coder starts the desktop application
