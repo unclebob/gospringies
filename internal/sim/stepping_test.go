@@ -58,3 +58,43 @@ func TestAdvanceDurationTracksRequestedTime(t *testing.T) {
 		t.Fatalf("time = %f", world.Time)
 	}
 }
+
+func TestStepUsesRK4ForConstantAcceleration(t *testing.T) {
+	world := NewWorld()
+	world.Damping = 1
+	world.Parameters.EnableForce("gravity", map[string]string{"magnitude": "10", "direction": "0"})
+	_ = world.AddMass(Mass{ID: 1, Position: Vec2{}, Mass: 1})
+
+	world.Step(1)
+
+	mass, _ := world.MassByID(1)
+	if math.Abs(mass.Position.Y-5) > 0.000001 {
+		t.Fatalf("RK4 position Y = %f, want 5", mass.Position.Y)
+	}
+	if math.Abs(mass.Velocity.Y-10) > 0.000001 {
+		t.Fatalf("RK4 velocity Y = %f, want 10", mass.Velocity.Y)
+	}
+}
+
+func TestAdaptivePrecisionControlsStepCount(t *testing.T) {
+	lowPrecision := adaptiveWorld("0.0001")
+	highPrecision := adaptiveWorld("0.1")
+
+	lowPrecision.AdvanceDuration(1)
+	highPrecision.AdvanceDuration(1)
+
+	if lowPrecision.LastAdvanceSteps <= highPrecision.LastAdvanceSteps {
+		t.Fatalf("adaptive steps low=%d high=%d", lowPrecision.LastAdvanceSteps, highPrecision.LastAdvanceSteps)
+	}
+	if math.Abs(lowPrecision.Time-1) > 0.000001 || math.Abs(highPrecision.Time-1) > 0.000001 {
+		t.Fatalf("adaptive times low=%f high=%f", lowPrecision.Time, highPrecision.Time)
+	}
+}
+
+func adaptiveWorld(precision string) *Simulation {
+	world := NewDemoSimulation()
+	world.Parameters.Set("adaptive timestep", "true")
+	world.Parameters.Set("timestep", "0.1")
+	world.Parameters.Set("precision", precision)
+	return world
+}
