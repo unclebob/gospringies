@@ -618,6 +618,40 @@ func TestRenderedControlBoundsDriveControlClicks(t *testing.T) {
 	}
 }
 
+func TestDragControlEnablesMassDragging(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
+	game.ReplaceWorld(world)
+	rect, ok := game.VisibleControlBounds("Drag")
+	if !ok {
+		t.Fatal("missing Drag bounds")
+	}
+
+	if !game.ClickAt(rect.Min.X+rect.Dx()/2, rect.Min.Y+rect.Dy()/2) {
+		t.Fatal("Drag control click was not handled")
+	}
+	if !game.DragMass(1, sim.Vec2{X: 40, Y: 50}) {
+		t.Fatal("drag was not handled")
+	}
+
+	mass, _ := game.World().MassByID(1)
+	if mass.Position != (sim.Vec2{X: 40, Y: 50}) {
+		t.Fatalf("mass position = %#v", mass.Position)
+	}
+}
+
+func TestMassDraggingRequiresDragMode(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
+	game.ReplaceWorld(world)
+
+	if game.DragMass(1, sim.Vec2{X: 40, Y: 50}) {
+		t.Fatal("drag was handled outside drag mode")
+	}
+}
+
 func TestRunAndPauseControlsSetSimulationState(t *testing.T) {
 	game := NewGame()
 	game.SetPaused(false)

@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"springs/internal/app"
 	"springs/internal/edit"
 	"springs/internal/sim"
 )
@@ -134,6 +135,16 @@ func dragMouseMass(w *world, example map[string]string) error {
 	position, err := positionValue(example, "target_position")
 	if err != nil {
 		return err
+	}
+	if game, ok := w.appGame.(*app.Game); ok && game.Mode() == "drag" {
+		if w.domainWorld != nil {
+			game.ReplaceWorld(w.domainWorld)
+		}
+		if !game.DragMass(id, position) {
+			return fmt.Errorf("mass %d was not draggable", id)
+		}
+		w.domainWorld = game.World().Clone()
+		return nil
 	}
 	return ensureMouseEditor(w).DragMass(id, position)
 }
