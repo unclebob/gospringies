@@ -143,10 +143,18 @@ func TestLoadXSPReportsBadCommandFields(t *testing.T) {
 		"#1.0\nfrce gravity true magnitude\n",
 		"#1.0\nfrce gravity\n",
 		"#1.0\nfrce gravity maybe\n",
+		"#1.0\nfrce bad 1 10 90\n",
+		"#1.0\nfrce -1 1 10 90\n",
+		"#1.0\nfrce 5 1 10 90\n",
+		"#1.0\nfrce 0 maybe 10 90\n",
+		"#1.0\nfrce 0 1 bad 90\n",
+		"#1.0\nfrce 0 1 10 bad\n",
 		"#1.0\nwall left maybe\n",
 		"#1.0\nmass bad 0 0 1 0.8\n",
 		"#1.0\nmass 1 bad 0 1 0.8\n",
 		"#1.0\nmass 1 0 bad 1 0.8\n",
+		"#1.0\nmass 1 0 0 bad 0 1 0.8\n",
+		"#1.0\nmass 1 0 0 1 bad 1 0.8\n",
 		"#1.0\nmass 1 0 0 bad 0.8\n",
 		"#1.0\nmass 1 0 0 1 bad\n",
 		"#1.0\nmass 1 0 0 1\n",
@@ -270,6 +278,12 @@ func TestXSPParseHelperErrorValues(t *testing.T) {
 	}
 	if position, velocity, mass, elasticity, err := massNumericFields([]string{"mass", "1", "1", "bad", "3", "4"}); err == nil || position != (sim.Vec2{}) || velocity != (sim.Vec2{}) || mass != 0 || elasticity != 0 {
 		t.Fatalf("mass y parse = %v, %v, %v, %v, %v", position, velocity, mass, elasticity, err)
+	}
+	if position, velocity, mass, elasticity, err := massNumericFields([]string{"mass", "1", "1", "2", "bad", "0", "3", "4"}); err == nil || position != (sim.Vec2{}) || velocity != (sim.Vec2{}) || mass != 0 || elasticity != 0 {
+		t.Fatalf("mass velocity x parse = %v, %v, %v, %v, %v", position, velocity, mass, elasticity, err)
+	}
+	if position, velocity, mass, elasticity, err := massNumericFields([]string{"mass", "1", "1", "2", "0", "bad", "3", "4"}); err == nil || position != (sim.Vec2{}) || velocity != (sim.Vec2{}) || mass != 0 || elasticity != 0 {
+		t.Fatalf("mass velocity y parse = %v, %v, %v, %v, %v", position, velocity, mass, elasticity, err)
 	}
 	if position, velocity, mass, elasticity, err := massNumericFields([]string{"mass", "1", "1", "2", "bad", "4"}); err == nil || position != (sim.Vec2{}) || velocity != (sim.Vec2{}) || mass != 0 || elasticity != 0 {
 		t.Fatalf("mass value parse = %v, %v, %v, %v, %v", position, velocity, mass, elasticity, err)
