@@ -34,4 +34,5 @@ Suggested order:
 24. `023.1-nonblank-startup-editor.md`
 25. `024-original-style-human-interface.md`
 26. `024.1-render-visible-controls.md`
-27. `025-original-demo-corpus.md`
+27. `024.2-clickable-visible-controls.md`
+28. `025-original-demo-corpus.md`
