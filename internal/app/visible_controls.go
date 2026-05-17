@@ -198,17 +198,17 @@ func visibleLabelsFit(game *Game) bool {
 }
 
 func controlLabelsFit(boxes []controlBox) bool {
-	for _, box := range boxes {
-		if !labelFits(box.Label, box.Rect) {
-			return false
-		}
-	}
-	return true
+	return labelsFitItems(boxes, func(box controlBox) (string, image.Rectangle) { return box.Label, box.Rect })
 }
 
 func statusLabelsFit(fields []statusField) bool {
-	for _, field := range fields {
-		if !labelFits(field.Label, field.Rect) {
+	return labelsFitItems(fields, func(field statusField) (string, image.Rectangle) { return field.Label, field.Rect })
+}
+
+func labelsFitItems[T any](items []T, labelAndRect func(T) (string, image.Rectangle)) bool {
+	for _, item := range items {
+		label, rect := labelAndRect(item)
+		if !labelFits(label, rect) {
 			return false
 		}
 	}
