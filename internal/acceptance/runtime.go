@@ -457,7 +457,6 @@ var stepHandlers = map[string]stepHandler{
 	"visible control labels should fit inside their regions":                               assertVisibleControlLabelsFit,
 	"the clickable visible controls task is accepted":                                      acceptStep,
 	"the editor mode is <old_mode>":                                                        setClickableEditorMode,
-	"the coder clicks visible control <control>":                                           clickVisibleControl,
 	"the coder clicks inside rendered bounds of visible control <control>":                 clickInsideRenderedVisibleControlBounds,
 	"the editor mode should be <new_mode>":                                                 assertClickableEditorMode,
 	"visible control <control> should show active state":                                   assertVisibleControlActive,

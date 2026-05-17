@@ -791,6 +791,82 @@ func TestRunFeatureExecutesClickableVisibleControlsFeature(t *testing.T) {
 	runFeatureFile(t, "features/024_2_clickable_visible_controls.feature")
 }
 
+func TestVisibleControlsApplicationStateSetup(t *testing.T) {
+	tests := []struct {
+		name   string
+		state  string
+		before func(*app.Game)
+		assert func(*testing.T, *app.Game)
+	}{
+		{
+			name:  "select mode",
+			state: "Select mode",
+			before: func(game *app.Game) {
+				game.SetMode("drag")
+			},
+			assert: func(t *testing.T, game *app.Game) {
+				t.Helper()
+				if game.Mode() != "select" {
+					t.Fatalf("mode = %q, want select", game.Mode())
+				}
+			},
+		},
+		{
+			name:  "running",
+			state: "running",
+			before: func(game *app.Game) {
+				game.SetPaused(true)
+			},
+			assert: func(t *testing.T, game *app.Game) {
+				t.Helper()
+				if game.Paused() {
+					t.Fatal("game remained paused")
+				}
+			},
+		},
+		{
+			name:  "object counts",
+			state: "object counts",
+			assert: func(*testing.T, *app.Game) {
+			},
+		},
+		{
+			name:  "saved",
+			state: "saved",
+			before: func(game *app.Game) {
+				game.SetDirty(true)
+			},
+			assert: func(t *testing.T, game *app.Game) {
+				t.Helper()
+				if got := game.DrawFrameReport().StatusFields["file state"]; !strings.Contains(got, "saved") {
+					t.Fatalf("file state = %q, want saved", got)
+				}
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			game := app.NewGame()
+			if test.before != nil {
+				test.before(game)
+			}
+			w := &world{appGame: game}
+			if err := setVisibleControlsApplicationState(w, map[string]string{"state": test.state}); err != nil {
+				t.Fatalf("set state returned error: %v", err)
+			}
+			test.assert(t, game)
+		})
+	}
+}
+
+func TestVisibleControlsApplicationStateRejectsUnsupportedState(t *testing.T) {
+	err := setVisibleControlsApplicationState(&world{appGame: app.NewGame()}, map[string]string{"state": "unsupported"})
+	if err == nil || !strings.Contains(err.Error(), "unsupported visible controls state") {
+		t.Fatalf("expected unsupported state error, got %v", err)
+	}
+}
+
 func TestRunFeatureExecutesOriginalDemoCorpusFeature(t *testing.T) {
 	runFeatureFile(t, "features/025_original_demo_corpus.feature")
 }
