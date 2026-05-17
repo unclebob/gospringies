@@ -593,6 +593,31 @@ func TestClickVisibleControlsUseRectHitTesting(t *testing.T) {
 	}
 }
 
+func TestRenderedControlBoundsDriveControlClicks(t *testing.T) {
+	tests := map[string]string{
+		"Select": "select",
+		"Mass":   "add mass",
+		"Spring": "add spring",
+		"Drag":   "drag",
+	}
+	for label, mode := range tests {
+		game := NewGame()
+		rect, ok := game.VisibleControlBounds(label)
+		if !ok {
+			t.Fatalf("missing bounds for %q", label)
+		}
+		x := rect.Min.X + rect.Dx()/2
+		y := rect.Min.Y + rect.Dy()/2
+
+		if !game.ClickAt(x, y) {
+			t.Fatalf("click inside %q bounds was not handled", label)
+		}
+		if game.Mode() != mode {
+			t.Fatalf("mode after %q bounds click = %q, want %q", label, game.Mode(), mode)
+		}
+	}
+}
+
 func TestRunAndPauseControlsSetSimulationState(t *testing.T) {
 	game := NewGame()
 	game.SetPaused(false)
