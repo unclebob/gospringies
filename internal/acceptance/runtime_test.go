@@ -342,6 +342,153 @@ func TestRunFeatureExecutesSelectedObjectParameterEditingFeature(t *testing.T) {
 	runFeatureFile(t, "features/018_selected_object_parameter_editing.feature")
 }
 
+func TestRunFeatureExecutesWallCollisionStickinessFeature(t *testing.T) {
+	runFeatureFile(t, "features/019_wall_collision_and_stickiness.feature")
+}
+
+func TestWallCollisionHelpersValidateInputs(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{
+			name: "reversed velocity missing mass id",
+			err:  assertWallNormalVelocityReversed(&world{}, map[string]string{"wall": "left"}),
+			want: "mass_id",
+		},
+		{
+			name: "scaled velocity missing elasticity",
+			err:  assertWallNormalVelocityScaled(wallCollisionWorldWithMass(1, "left", sim.Vec2{X: 5}), map[string]string{"mass_id": "1", "wall": "left"}),
+			want: "elasticity",
+		},
+		{
+			name: "passed through missing wall",
+			err:  assertMassPassedThroughWall(wallCollisionWorldWithMass(1, "left", sim.Vec2{}), map[string]string{"mass_id": "1"}),
+			want: "wall",
+		},
+		{
+			name: "stuck assertion missing mass",
+			err:  assertMassStuckToWall(&world{}, map[string]string{"mass_id": "1", "wall": "left"}),
+			want: "mass 1 not found",
+		},
+		{
+			name: "release assertion missing result",
+			err:  assertMassReleaseResult(wallCollisionWorldWithMass(1, "left", sim.Vec2{}), map[string]string{"mass_id": "1", "wall": "left"}),
+			want: "release_result",
+		},
+		{
+			name: "disabled bounce assertion missing wall",
+			err:  assertMassDidNotBounce(wallCollisionWorldWithMass(1, "left", sim.Vec2{}), map[string]string{"mass_id": "1"}),
+			want: "wall",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if test.err == nil || !strings.Contains(test.err.Error(), test.want) {
+				t.Fatalf("error = %v, want containing %q", test.err, test.want)
+			}
+		})
+	}
+}
+
+func TestWallCollisionHelperContracts(t *testing.T) {
+	for wall, boundary := range map[string]sim.Vec2{
+		"left":   {X: 0, Y: 50},
+		"right":  {X: 100, Y: 50},
+		"top":    {X: 50, Y: 0},
+		"bottom": {X: 50, Y: 100},
+	} {
+		if insideWallBoundary(boundary, wall) {
+			t.Fatalf("%s boundary counted as passed through", wall)
+		}
+		if inwardVelocity(wall) == (sim.Vec2{}) {
+			t.Fatalf("%s inward velocity was zero", wall)
+		}
+	}
+	if !insideWallBoundary(sim.Vec2{X: 50, Y: 1}, "top") {
+		t.Fatal("top inside position was not counted as passed through")
+	}
+	if normalSignTowardInside("right") != -1 || normalSignTowardInside("bottom") != -1 {
+		t.Fatal("right and bottom normal signs should point inward with -1")
+	}
+
+	w := wallCollisionWorldWithMass(1, "left", sim.Vec2{X: 0.5})
+	if err := assertWallNormalVelocityReversed(w, map[string]string{"mass_id": "1", "wall": "left"}); err != nil {
+		t.Fatalf("small reversed velocity rejected: %v", err)
+	}
+	w.domainWorld.Masses[0].Velocity = sim.Vec2{}
+	if err := assertWallNormalVelocityReversed(w, map[string]string{"mass_id": "1", "wall": "left"}); err == nil {
+		t.Fatal("zero normal velocity accepted as reversed")
+	}
+
+	passed := wallCollisionWorldWithMass(1, "left", sim.Vec2{})
+	passed.domainWorld.Masses[0].Position = sim.Vec2{X: 1, Y: 50}
+	if err := assertMassPassedThroughWall(passed, map[string]string{"mass_id": "1", "wall": "left"}); err != nil {
+		t.Fatalf("passed-through position rejected: %v", err)
+	}
+
+	stuck := wallCollisionWorldWithMass(1, "left", sim.Vec2{})
+	stuck.domainWorld.Masses[0].StuckWall = "left"
+	if err := assertMassStuckToWall(stuck, map[string]string{"mass_id": "1", "wall": "left"}); err != nil {
+		t.Fatalf("stuck mass rejected: %v", err)
+	}
+	if err := assertMassReleaseResult(stuck, map[string]string{"mass_id": "1", "wall": "left", "release_result": "stuck"}); err != nil {
+		t.Fatalf("stuck release result rejected: %v", err)
+	}
+	if err := assertMassReleaseResult(&world{}, map[string]string{"mass_id": "1", "wall": "left", "release_result": "stuck"}); err == nil || !strings.Contains(err.Error(), "mass 1 not found") {
+		t.Fatalf("missing mass release result error = %v", err)
+	}
+	if released, err := expectedReleased(map[string]string{}); err == nil || released {
+		t.Fatalf("missing release result = %t, %v", released, err)
+	}
+
+	bounced := wallCollisionWorldWithMass(1, "left", sim.Vec2{X: 0.5})
+	if err := assertMassDidNotBounce(bounced, map[string]string{"mass_id": "1", "wall": "left"}); err == nil {
+		t.Fatal("small inward bounce accepted as no bounce")
+	}
+	zeroVelocity := wallCollisionWorldWithMass(1, "left", sim.Vec2{})
+	if err := assertMassDidNotBounce(zeroVelocity, map[string]string{"mass_id": "1", "wall": "left"}); err != nil {
+		t.Fatalf("zero normal velocity counted as bounce: %v", err)
+	}
+}
+
+func TestWallCollisionSetupHelpers(t *testing.T) {
+	w := &world{}
+	mass := ensureCollisionMass(w, 7)
+	if mass.Mass != 1 || mass.Elasticity != 1 {
+		t.Fatalf("collision mass defaults = %#v", mass)
+	}
+
+	stuck := wallCollisionWorldWithMass(1, "left", sim.Vec2{})
+	stuck.domainWorld.Masses[0].StuckWall = "left"
+	stuck.domainWorld.Parameters.Set("stickiness", "10")
+	if err := pullMassAwayFromWall(stuck, map[string]string{"release_force": "sufficient"}); err != nil {
+		t.Fatalf("pull mass away: %v", err)
+	}
+	if stuck.domainWorld.Time != 1 {
+		t.Fatalf("pull did not step world time: %f", stuck.domainWorld.Time)
+	}
+
+	id, wall, err := collisionMassAndWall(map[string]string{})
+	if err == nil || id != 0 || wall != "" {
+		t.Fatalf("missing mass id parsed as id=%d wall=%q err=%v", id, wall, err)
+	}
+	id, wall, err = collisionMassAndWall(map[string]string{"mass_id": "1"})
+	if err == nil || id != 0 || wall != "" {
+		t.Fatalf("missing wall parsed as id=%d wall=%q err=%v", id, wall, err)
+	}
+}
+
+func wallCollisionWorldWithMass(id int, wall string, velocity sim.Vec2) *world {
+	w := &world{}
+	mass := ensureCollisionMass(w, id)
+	mass.Position = insideCollisionPosition(wall)
+	mass.Velocity = velocity
+	return w
+}
+
 func TestStateSaveRestoreHelpersValidateInputs(t *testing.T) {
 	tests := []struct {
 		name string
