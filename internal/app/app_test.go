@@ -8,12 +8,13 @@ import (
 	"springs/internal/sim"
 )
 
-func TestNewGameStartsWithEmptyWorld(t *testing.T) {
+func TestNewGameStartsWithNonblankStarterWorld(t *testing.T) {
 	game := NewGame()
 
-	if len(game.World().Masses) != 0 || len(game.World().Springs) != 0 {
+	if len(game.World().Masses) < 2 || len(game.World().Springs) < 1 {
 		t.Fatalf("world = %#v", game.World())
 	}
+	assertStarterObjects(t, game.World())
 }
 
 func TestGameLayoutUsesWindowSize(t *testing.T) {
@@ -51,15 +52,24 @@ func TestGameUpdateStepsOnlyWhenUnpaused(t *testing.T) {
 
 func TestGameDraw(t *testing.T) {
 	game := NewGame()
-	left := game.World().AddMassAt(sim.Vec2{X: 10, Y: 10}, 1, true)
-	right := game.World().AddMassAt(sim.Vec2{X: 30, Y: 10}, 1, false)
-	game.World().AddSpringBetween(left, right, 20, 12)
 	screen := ebiten.NewImage(screenWidth, screenHeight)
 
 	game.Draw(screen)
 
 	if !game.RenderingActive() {
 		t.Fatal("expected rendering to be active")
+	}
+}
+
+func TestEditorChromeRectsCoverStartupRegions(t *testing.T) {
+	rects := editorChromeRects()
+	if len(rects) != 4 {
+		t.Fatalf("chrome rect count = %d", len(rects))
+	}
+	for _, rect := range rects {
+		if rect.width <= 0 || rect.height <= 0 {
+			t.Fatalf("invalid chrome rect = %#v", rect)
+		}
 	}
 }
 
@@ -193,7 +203,9 @@ func TestMassVisibilityAndFixedDistinctionRequireExpectedMassTypes(t *testing.T)
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			game := NewGame()
-			game.World().Masses = append(game.World().Masses, test.masses...)
+			world := sim.NewWorld()
+			world.Masses = append(world.Masses, test.masses...)
+			game.ReplaceWorld(world)
 
 			result := game.RenderWorld()
 
@@ -209,6 +221,7 @@ func TestMassVisibilityAndFixedDistinctionRequireExpectedMassTypes(t *testing.T)
 
 func TestRenderWorldOmitsAbsentSpringAndWallRepresentations(t *testing.T) {
 	game := NewGame()
+	game.ReplaceWorld(sim.NewWorld())
 
 	result := game.RenderWorld()
 
@@ -390,7 +403,6 @@ func TestKeyboardShortcutsRunVisibleCommands(t *testing.T) {
 
 func TestCommandsAffectApplicationState(t *testing.T) {
 	game := NewGame()
-	_ = game.World().AddMass(sim.Mass{ID: 1, Mass: 1})
 	game.World().Parameters.Set("current mass", "custom")
 
 	game.RunCommand("pause")
@@ -455,9 +467,7 @@ func TestRestoreStateWithoutSavedStateRestoresInitialWorld(t *testing.T) {
 
 	game.RestoreState()
 
-	if len(game.World().Masses) != 0 || len(game.World().Springs) != 0 {
-		t.Fatalf("world = %#v", game.World())
-	}
+	assertStarterObjects(t, game.World())
 	if game.World().Parameters.Value("current mass") != sim.DefaultParameters().Value("current mass") {
 		t.Fatalf("parameters = %#v", game.World().Parameters)
 	}
@@ -517,6 +527,21 @@ func replaceWithAppTestState(game *Game, label string) {
 		world.Parameters.Set("current mass", "changed")
 	}
 	game.ReplaceWorld(world)
+}
+
+func assertStarterObjects(t *testing.T, world *sim.Simulation) {
+	t.Helper()
+	var fixed, movable int
+	for _, mass := range world.Masses {
+		if mass.Fixed {
+			fixed++
+		} else {
+			movable++
+		}
+	}
+	if fixed < 1 || movable < 1 || len(world.Springs) < 1 {
+		t.Fatalf("starter world fixed=%d movable=%d springs=%d: %#v", fixed, movable, len(world.Springs), world)
+	}
 }
 
 func assertAppTestState(t *testing.T, game *Game, label string) {

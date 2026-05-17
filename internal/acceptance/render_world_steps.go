@@ -31,7 +31,7 @@ func createApplicationWorldState(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	game := app.NewGame()
+	game := emptyRenderGame()
 	if state == "a non-empty world" {
 		addRenderSpring(game.World())
 	} else if state != "an empty world" {
@@ -54,7 +54,7 @@ func createRenderableObject(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	game := app.NewGame()
+	game := emptyRenderGame()
 	if err := addRenderableObject(game, object); err != nil {
 		return err
 	}
@@ -112,10 +112,16 @@ func createFixedAndMovableMasses(w *world, _ map[string]string) error {
 }
 
 func createRenderWorld(w *world, addObjects func(*sim.Simulation)) error {
-	game := app.NewGame()
+	game := emptyRenderGame()
 	addObjects(game.World())
 	w.appGame = game
 	return nil
+}
+
+func emptyRenderGame() *app.Game {
+	game := app.NewGame()
+	game.World().Reset()
+	return game
 }
 
 func assertFixedMassDistinguishable(w *world, _ map[string]string) error {
