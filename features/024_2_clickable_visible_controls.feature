@@ -69,10 +69,12 @@ Examples:
 Scenario Outline: clicking drag control enables mass dragging
   Given mass <mass_id> fixed state is <fixed>
   And mass <mass_id> starts at <start_position>
+  And mass <mass_id> initial position should be <expected_start_position>
   When the coder clicks inside rendered bounds of visible control Drag
   And the coder drags mass <mass_id> to <target_position>
   Then mass <mass_id> position should be <expected_position>
+  And mass <mass_id> id should remain <expected_mass_id>
 
 Examples:
-  | mass_id | fixed | start_position | target_position | expected_position |
-  | 1       | false | 10,10          | 40,50           | 40,50             |
+  | mass_id | fixed | start_position | expected_start_position | target_position | expected_position | expected_mass_id |
+  | 1       | false | 10,10          | 10,10                   | 40,50           | 40,50             | 1                |
