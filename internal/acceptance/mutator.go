@@ -108,6 +108,7 @@ var equivalentMutationChecks = map[string]equivalentMutationCheck{
 	"Mouse editing":                     scenarioOnlyEquivalentCheck(isEquivalentMouseEditingMutation),
 	"Selection and editing":             scenarioOnlyEquivalentCheck(isEquivalentSelectionEditingMutation),
 	"Controls and hotkeys":              scenarioOnlyEquivalentCheck(isEquivalentControlsHotkeysMutation),
+	"Clickable visible controls":        scenarioOnlyEquivalentCheck(isEquivalentClickableVisibleControlsMutation),
 	"Edit mode details":                 isEquivalentEditModeDetailsMutation,
 	"Spring mode mouse semantics":       isEquivalentSpringModeMouseMutation,
 	"State save restore":                isEquivalentStateSaveRestoreMutation,
@@ -200,6 +201,10 @@ func editModeFixedReleaseVelocity(scenarioIndex, exampleIndex int, key string) b
 func isEquivalentControlsHotkeysMutation(scenarioIndex int, key string) bool {
 	return (scenarioIndex == 1 && key == "initial_state") ||
 		(scenarioIndex == 3 && controlsParameterSetupKey(key))
+}
+
+func isEquivalentClickableVisibleControlsMutation(scenarioIndex int, key string) bool {
+	return scenarioIndex == 6 && mutationKeyIn(key, "mass_id", "start_position")
 }
 
 func isEquivalentSpringModeMouseMutation(scenarioIndex, exampleIndex int, key string) bool {

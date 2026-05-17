@@ -1,6 +1,10 @@
 package app
 
-import "image"
+import (
+	"image"
+
+	"springs/internal/sim"
+)
 
 var modeControlModes = map[string]string{
 	"select mode": "select",
@@ -85,4 +89,20 @@ func (g *Game) PathEntryCommand() string {
 func (g *Game) VisibleControlActive(label string) bool {
 	control, ok := visibleControlWithLabel(label)
 	return ok && g.activeControl(control.Name)
+}
+
+func (g *Game) DragMass(id int, position sim.Vec2) bool {
+	if g.mode != "drag" {
+		return false
+	}
+	for i := range g.simulation.Masses {
+		if g.simulation.Masses[i].ID == id {
+			if !g.simulation.Masses[i].Fixed {
+				g.simulation.Masses[i].Position = position
+				g.dirty = true
+			}
+			return true
+		}
+	}
+	return false
 }
