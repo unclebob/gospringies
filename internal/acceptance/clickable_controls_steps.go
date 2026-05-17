@@ -39,10 +39,6 @@ func clickInsideRenderedVisibleControlBounds(w *world, example map[string]string
 	return clickInsideRenderedBoundsOfControl(w, control)
 }
 
-func clickInsideRenderedDragControlBounds(w *world, example map[string]string) error {
-	return clickInsideRenderedBoundsOfControl(w, "Drag")
-}
-
 func clickInsideRenderedBoundsOfControl(w *world, control string) error {
 	game, err := visibleControlsGame(w)
 	if err != nil {
