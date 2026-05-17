@@ -10,6 +10,12 @@ var (
 	ErrMissingSpringEndpoint = errors.New("missing spring endpoint")
 )
 
+const (
+	defaultStepDuration = 0.016
+	defaultPrecision    = 0.001
+	advanceEpsilon      = 0.000000000001
+)
+
 type Vec2 struct {
 	X float64
 	Y float64
@@ -201,7 +207,7 @@ func (s *Simulation) Advance(steps int, dt float64) {
 
 func (s *Simulation) AdvanceDuration(duration float64) {
 	s.LastAdvanceSteps = 0
-	for remaining := duration; remaining > 0.000000000001; {
+	for remaining := duration; remaining > advanceEpsilon; {
 		step := s.advanceStepDuration()
 		if remaining < step {
 			step = remaining
@@ -218,18 +224,31 @@ func (s *Simulation) Step(dt float64) {
 }
 
 func (s *Simulation) advanceStepDuration() float64 {
-	dt := parameterFloat(s.Parameters, "timestep")
-	if dt <= 0 {
-		dt = 0.016
-	}
+	dt := s.configuredTimeStep()
 	if s.Parameters.Value("adaptive timestep") != "true" {
 		return dt
 	}
+	return adaptiveStepDuration(dt, s.configuredPrecision())
+}
+
+func (s *Simulation) configuredTimeStep() float64 {
+	dt := parameterFloat(s.Parameters, "timestep")
+	if dt <= 0 {
+		return defaultStepDuration
+	}
+	return dt
+}
+
+func (s *Simulation) configuredPrecision() float64 {
 	precision := parameterFloat(s.Parameters, "precision")
 	if precision <= 0 {
-		precision = 0.001
+		return defaultPrecision
 	}
-	step := dt * sqrt(precision/0.001)
+	return precision
+}
+
+func adaptiveStepDuration(dt, precision float64) float64 {
+	step := dt * sqrt(precision/defaultPrecision)
 	if step <= 0 {
 		return dt
 	}
