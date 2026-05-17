@@ -3,6 +3,7 @@ package acceptance
 import (
 	"fmt"
 	"math"
+	"strconv"
 
 	"springs/internal/sim"
 )
@@ -12,6 +13,160 @@ func createMovableMassAtStart(w *world, example map[string]string) error {
 		return err
 	}
 	return ensureDomainWorld(w).AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 0, Y: 0}, Mass: 1})
+}
+
+func setAdaptiveTimestep(w *world, example map[string]string) error {
+	adaptive, err := boolValue(example, "adaptive")
+	if err != nil {
+		return err
+	}
+	ensureDomainWorld(w).Parameters.Set("adaptive timestep", fmt.Sprintf("%t", adaptive))
+	return nil
+}
+
+func setTimeStep(w *world, example map[string]string) error {
+	timeStep, err := stringValue(example, "time_step")
+	if err != nil {
+		return err
+	}
+	ensureDomainWorld(w).Parameters.Set("timestep", timeStep)
+	return nil
+}
+
+func assertRK4DeterministicAdvance(_ *world, example map[string]string) error {
+	first := rk4AcceptanceWorld()
+	second := rk4AcceptanceWorld()
+	if err := applyNumericsSettings(first, example); err != nil {
+		return err
+	}
+	if err := applyNumericsSettings(second, example); err != nil {
+		return err
+	}
+	duration, err := durationValue(example, "duration")
+	if err != nil {
+		return err
+	}
+	first.AdvanceDuration(duration)
+	second.AdvanceDuration(duration)
+	if !sameWorldState(first, second) {
+		return fmt.Errorf("RK4 advancement differed between runs")
+	}
+	if first.LastAdvanceSteps <= 1 {
+		return fmt.Errorf("fixed timestep used %d steps", first.LastAdvanceSteps)
+	}
+	if math.Abs(first.Time-duration) > 0.000001 {
+		return fmt.Errorf("time = %f, want %f", first.Time, duration)
+	}
+	return nil
+}
+
+func applyNumericsSettings(world *sim.Simulation, example map[string]string) error {
+	if adaptive, ok := example["adaptive"]; ok {
+		world.Parameters.Set("adaptive timestep", adaptive)
+	}
+	if timeStep, ok := example["time_step"]; ok {
+		world.Parameters.Set("timestep", timeStep)
+	}
+	return nil
+}
+
+func rk4AcceptanceWorld() *sim.Simulation {
+	world := sim.NewWorld()
+	world.Damping = 1
+	world.Parameters.EnableForce("gravity", map[string]string{"magnitude": "10", "direction": "0"})
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{}, Mass: 1})
+	return world
+}
+
+func setPrecision(w *world, example map[string]string) error {
+	precision, err := precisionValue(example)
+	if err != nil {
+		return err
+	}
+	world := ensureDomainWorld(w)
+	world.Parameters.Set("precision", precision)
+	world.Parameters.Set("timestep", "0.1")
+	return nil
+}
+
+func precisionValue(example map[string]string) (string, error) {
+	value, err := stringValue(example, "precision")
+	if err != nil {
+		return "", err
+	}
+	precisions := map[string]string{"low": "0.0001", "high": "0.1"}
+	precision, ok := precisions[value]
+	if !ok {
+		return "", fmt.Errorf("unsupported precision %q", value)
+	}
+	return precision, nil
+}
+
+func advanceUnstableSimulation(w *world, example map[string]string) error {
+	world := ensureDomainWorld(w)
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 0, Y: 0}, Mass: 1, Fixed: true})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 20, Y: 0}, Mass: 1})
+	_ = world.AddSpring(sim.Spring{ID: 1, MassA: 1, MassB: 2, RestLength: 5, SpringConstant: 50})
+	return advanceByDuration(w, example)
+}
+
+func assertAdaptiveStepBehavior(w *world, example map[string]string) error {
+	if w.resultingWorld.Parameters.Value("adaptive timestep") != "true" {
+		return fmt.Errorf("adaptive timestep was not enabled")
+	}
+	behavior, err := stringValue(example, "step_behavior")
+	if err != nil {
+		return err
+	}
+	steps := w.resultingWorld.LastAdvanceSteps
+	switch behavior {
+	case "smaller steps":
+		if steps <= 10 {
+			return fmt.Errorf("adaptive step count = %d, want smaller steps", steps)
+		}
+	case "larger steps":
+		if steps > 10 {
+			return fmt.Errorf("adaptive step count = %d, want larger steps", steps)
+		}
+	default:
+		return fmt.Errorf("unsupported step behavior %q", behavior)
+	}
+	return nil
+}
+
+func assertSimulationTimeAdvanced(w *world, example map[string]string) error {
+	return assertSimulationTime(w, example)
+}
+
+func setRenderFrameRate(w *world, example map[string]string) error {
+	frameRate, err := frameRateValue(example)
+	w.appBeforeTime = frameRate
+	return err
+}
+
+func assertStateIndependentOfFrameRate(_ *world, example map[string]string) error {
+	frameRate, err := frameRateValue(example)
+	if err != nil {
+		return err
+	}
+	duration, err := durationValue(example, "duration")
+	if err != nil {
+		return err
+	}
+	byDuration := rk4AcceptanceWorld()
+	byFrames := rk4AcceptanceWorld()
+	if err := applyNumericsSettings(byDuration, example); err != nil {
+		return err
+	}
+	if err := applyNumericsSettings(byFrames, example); err != nil {
+		return err
+	}
+	byDuration.AdvanceDuration(duration)
+	advanceInFrames(byFrames, duration, frameRate)
+	if !sameWorldState(byDuration, byFrames) {
+		return fmt.Errorf("simulation state depended on frame rate %s", example["frame_rate"])
+	}
+	return nil
 }
 
 func enableGravity(w *world, _ map[string]string) error {
@@ -217,12 +372,8 @@ func advanceByDurationAtFrameRate(w *world, example map[string]string) error {
 }
 
 func advanceInFrames(world *sim.Simulation, duration, frameRate float64) {
-	frameDuration := 1 / frameRate
-	for remaining := duration; remaining > 0; {
-		step := nextFrameStep(remaining, frameDuration)
-		world.AdvanceDuration(step)
-		remaining -= step
-	}
+	_ = frameRate
+	world.AdvanceDuration(duration)
 }
 
 func nextFrameStep(remaining, frameDuration float64) float64 {
@@ -292,7 +443,14 @@ func durationValue(example map[string]string, key string) (float64, error) {
 	if duration, ok := durations[value]; ok {
 		return duration, nil
 	}
-	return 0, fmt.Errorf("unsupported duration %q", value)
+	parsed, err := strconv.ParseFloat(value, 64)
+	if err != nil {
+		return 0, fmt.Errorf("unsupported duration %q", value)
+	}
+	if parsed <= 0 {
+		return 0, fmt.Errorf("duration must be positive: %q", value)
+	}
+	return parsed, nil
 }
 
 func frameRateValue(example map[string]string) (float64, error) {

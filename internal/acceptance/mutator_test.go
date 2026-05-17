@@ -375,6 +375,15 @@ func TestBuildMutationsSkipsEquivalentForceCenterCells(t *testing.T) {
 	}
 }
 
+func TestBuildMutationsSkipsEquivalentAdaptiveRK4Cells(t *testing.T) {
+	if !isEquivalentAdaptiveRK4Mutation(0, "duration") || !isEquivalentAdaptiveRK4Mutation(3, "adaptive") {
+		t.Fatal("expected adaptive RK4 setup/assertion cells to be equivalent")
+	}
+	if isEquivalentAdaptiveRK4Mutation(1, "precision") || isEquivalentAdaptiveRK4Mutation(0, "time_step") {
+		t.Fatal("precision and time step mutations should remain meaningful")
+	}
+}
+
 func TestEquivalentMutationPredicates(t *testing.T) {
 	for _, check := range []struct {
 		equivalent func(int, string) bool

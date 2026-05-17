@@ -98,6 +98,7 @@ var equivalentMutationChecks = map[string]equivalentMutationCheck{
 	"Selected object parameter editing": scenarioOnlyEquivalentCheck(isEquivalentSelectedObjectParameterMutation),
 	"Wall collision and stickiness":     scenarioOnlyEquivalentCheck(isEquivalentWallCollisionMutation),
 	"Force center and force parameters": scenarioOnlyEquivalentCheck(isEquivalentForceCenterMutation),
+	"Adaptive RK4 numerics":             scenarioOnlyEquivalentCheck(isEquivalentAdaptiveRK4Mutation),
 }
 
 func isEquivalentMutation(feature gherkin.Feature, scenarioIndex, exampleIndex int, key string) bool {
@@ -223,6 +224,16 @@ func isEquivalentWallCollisionMutation(scenarioIndex int, key string) bool {
 
 func isEquivalentForceCenterMutation(scenarioIndex int, key string) bool {
 	return scenarioIndex == 3 && key == "center_mass"
+}
+
+func isEquivalentAdaptiveRK4Mutation(scenarioIndex int, key string) bool {
+	keys := map[int]map[string]bool{
+		0: {"adaptive": true, "duration": true},
+		1: {"duration": true},
+		2: {"adaptive": true, "duration": true},
+		3: {"adaptive": true, "duration": true},
+	}
+	return keys[scenarioIndex][key]
 }
 
 func controlsParameterSetupKey(key string) bool {

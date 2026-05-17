@@ -219,6 +219,9 @@ func collisionWorld(w *world) *sim.Simulation {
 	world := ensureDomainWorld(w)
 	world.Bounds = sim.Bounds{Width: 100, Height: 100}
 	world.Damping = 1
+	force := world.Parameters.Forces["wall repulsion"]
+	force.Enabled = "false"
+	world.Parameters.Forces["wall repulsion"] = force
 	return world
 }
 

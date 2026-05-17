@@ -354,6 +354,10 @@ func TestRunFeatureExecutesForceCenterParametersFeature(t *testing.T) {
 	runFeatureFile(t, "features/021_force_center_and_force_parameters.feature")
 }
 
+func TestRunFeatureExecutesAdaptiveRK4NumericsFeature(t *testing.T) {
+	runFeatureFile(t, "features/022_adaptive_rk4_numerics.feature")
+}
+
 func TestRenderWorldHelpersValidateInputs(t *testing.T) {
 	if err := createApplicationWorldState(&world{}, map[string]string{}); err == nil {
 		t.Fatal("expected missing world state")
