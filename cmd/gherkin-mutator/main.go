@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 
 	"springs/internal/acceptance"
 	"springs/internal/gherkin"
@@ -20,7 +21,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		return 2
 	}
-	summary, results, err := runFeatureMutations(options.featurePath, options.workDir)
+	summary, results, err := runFeatureMutations(options, progressWriter(options, stdout, stderr))
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
@@ -33,6 +34,7 @@ type options struct {
 	featurePath string
 	workDir     string
 	jsonReport  bool
+	workers     int
 }
 
 func parseOptions(args []string, stderr io.Writer) (options, error) {
@@ -41,24 +43,47 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	featurePath := flags.String("feature", "features/a-feature.feature", "Gherkin feature file to parse and mutate")
 	workDir := flags.String("work-dir", "build/acceptance-mutation", "directory where mutation work files are written")
 	jsonReport := flags.Bool("json", false, "emit JSON report")
-	_ = flags.Int("workers", 1, "maximum mutation workers")
+	workers := flags.Int("workers", runtime.NumCPU(), "maximum mutation workers")
 	_ = flags.Duration("timeout", 0, "full mutation timeout")
 	if err := flags.Parse(args); err != nil {
 		return options{}, err
 	}
-	return options{featurePath: *featurePath, workDir: *workDir, jsonReport: *jsonReport}, nil
+	return options{featurePath: *featurePath, workDir: *workDir, jsonReport: *jsonReport, workers: *workers}, nil
 }
 
-func runFeatureMutations(featurePath, workDir string) (acceptance.MutationSummary, []acceptance.MutationResult, error) {
-	feature, err := gherkin.ReadFile(featurePath)
+func runFeatureMutations(options options, progress io.Writer) (acceptance.MutationSummary, []acceptance.MutationResult, error) {
+	feature, err := gherkin.ReadFile(options.featurePath)
 	if err != nil {
 		return acceptance.MutationSummary{}, nil, err
 	}
-	results, err := acceptance.RunMutations(feature, workDir)
+	results, err := acceptance.RunMutationsWithOptions(feature, options.workDir, acceptance.RunMutationOptions{
+		Workers:       options.workers,
+		ProgressEvery: 20,
+		Progress:      printProgress(progress),
+	})
 	if err != nil {
 		return acceptance.MutationSummary{}, nil, err
 	}
 	return acceptance.Summarize(results), results, nil
+}
+
+func progressWriter(options options, stdout, stderr io.Writer) io.Writer {
+	if options.jsonReport {
+		return stderr
+	}
+	return stdout
+}
+
+func printProgress(w io.Writer) func(acceptance.MutationProgress) {
+	return func(progress acceptance.MutationProgress) {
+		fmt.Fprintf(w, "progress completed=%d total=%d killed=%d survived=%d errors=%d\n",
+			progress.Completed,
+			progress.Total,
+			progress.Killed,
+			progress.Survived,
+			progress.Errors,
+		)
+	}
 }
 
 func printReport(stdout, stderr io.Writer, jsonReport bool, summary acceptance.MutationSummary, results []acceptance.MutationResult) {
