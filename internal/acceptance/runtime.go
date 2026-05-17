@@ -291,6 +291,7 @@ var stepHandlers = map[string]stepHandler{
 	"the spring should use the current spring defaults":                                    assertMouseSpringDefaults,
 	"the coder drags mass <mass_id> to <target_position>":                                  dragMouseMass,
 	"mass <mass_id> position should be <expected_position>":                                assertMouseMassPosition,
+	"mass <mass_id> initial position should be <expected_start_position>":                  assertMouseMassInitialPosition,
 	"mass <mass_id> id should remain <mass_id>":                                            assertMouseMassID,
 	"mass <mass_id> id should remain <expected_mass_id>":                                   assertMouseMassExpectedID,
 	"the selection and editing task is accepted":                                           acceptStep,
