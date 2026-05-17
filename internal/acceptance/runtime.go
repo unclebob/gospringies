@@ -183,7 +183,6 @@ var stepHandlers = map[string]stepHandler{
 	"the mass velocity should differ from <start_velocity>":                                assertMassVelocityDiffers,
 	"mass <mass_id> starts at position <start_position>":                                   createMassStartPosition,
 	"mass <mass_id> starts at <start_position>":                                            createMassStartPosition,
-	"mass <mass_id> initial position should be <expected_start_position>":                  assertMouseMassInitialPosition,
 	"mass <mass_id> position should remain <start_position>":                               assertMassPositionRemains,
 	"mass <mass_id> velocity should remain <start_velocity>":                               assertMassVelocityRemains,
 	"a world in state <initial_state>":                                                     createWorldInState,
