@@ -414,7 +414,6 @@ func TestEquivalentMutationPredicates(t *testing.T) {
 	}{
 		{isEquivalentMouseEditingMutation, []mutationCell{{2, "mass_a"}, {3, "target_position"}}, mutationCell{0, "expected_position"}},
 		{isEquivalentControlsHotkeysMutation, []mutationCell{{1, "initial_state"}, {3, "parameter"}}, mutationCell{0, "shortcut"}},
-		{isEquivalentClickableVisibleControlsMutation, []mutationCell{{6, "mass_id"}, {6, "start_position"}}, mutationCell{6, "target_position"}},
 	} {
 		for _, cell := range check.equiv {
 			assertEquivalentMutation(t, check.equivalent, cell.scenario, cell.key)

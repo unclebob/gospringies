@@ -61,15 +61,6 @@ func clickInsideRenderedBoundsOfControl(w *world, control string) error {
 	return nil
 }
 
-func clickInsideRenderedDragControlBounds(w *world, example map[string]string) error {
-	values := map[string]string{}
-	for key, value := range example {
-		values[key] = value
-	}
-	values["control"] = "Drag"
-	return clickInsideRenderedVisibleControlBounds(w, values)
-}
-
 func assertClickableEditorMode(w *world, example map[string]string) error {
 	return assertClickableGameValue(w, example, "new_mode", "editor mode", clickableEditorMode)
 }
