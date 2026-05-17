@@ -5,7 +5,7 @@ Background:
 
 Scenario Outline: clicking mode controls changes active mode
   Given the editor mode is <old_mode>
-  When the coder clicks visible control <control>
+  When the coder clicks inside rendered bounds of visible control <control>
   Then the editor mode should be <new_mode>
   And visible control <control> should show active state
 
@@ -17,7 +17,7 @@ Examples:
   | add mass | Select      | select     |
 
 Scenario Outline: clicking command controls runs commands
-  When the coder clicks visible control <control>
+  When the coder clicks inside rendered bounds of visible control <control>
   Then command <command> should run
 
 Examples:
@@ -28,7 +28,7 @@ Examples:
   | Quit    | quit    |
 
 Scenario Outline: clicking file controls opens keyboard path entry
-  When the coder clicks visible control <control>
+  When the coder clicks inside rendered bounds of visible control <control>
   Then keyboard path entry should open for <command>
 
 Examples:
@@ -39,7 +39,7 @@ Examples:
 
 Scenario Outline: clicked controls match keyboard shortcut behavior
   Given visible control <control> maps to shortcut <shortcut>
-  When the coder clicks visible control <control>
+  When the coder clicks inside rendered bounds of visible control <control>
   Then the result should match pressing shortcut <shortcut>
 
 Examples:
@@ -58,7 +58,7 @@ Scenario: clicking outside visible controls does nothing
 
 Scenario Outline: clicking run and pause controls changes simulation state
   Given simulation state is <old_state>
-  When the coder clicks visible control <control>
+  When the coder clicks inside rendered bounds of visible control <control>
   Then simulation state should be <new_state>
 
 Examples:
