@@ -8,7 +8,7 @@ Make the application visibly useful immediately when launched.
 
 - Show the working simulation editor chrome on first launch.
 - Draw the canvas, left toolbar, top command bar, right inspector, and status line as visible regions.
-- Start with visible world content, either by loading a default demo scene or by creating an equivalent built-in starter scene.
+- Start by loading `demos/pendulum.xsp` as the default scene.
 - Keep TPS/debug information from being the only visible content.
 - Keep startup behavior deterministic.
 
@@ -21,4 +21,5 @@ Make the application visibly useful immediately when launched.
 ## Done When
 
 - Launching the app shows editor controls and non-empty simulation content without user action.
+- The startup world matches `demos/pendulum.xsp`.
 - The startup state is covered by acceptance tests and focused app-level tests.

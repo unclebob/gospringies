@@ -127,8 +127,12 @@ func (g *Game) drawSprings(screen *ebiten.Image) {
 func (g *Game) drawMasses(screen *ebiten.Image) {
 	for _, mass := range g.simulation.Masses {
 		x, y, radius := massDrawCircle(mass)
-		vector.DrawFilledCircle(screen, x, y, radius, massDrawColor(mass), true)
+		vector.DrawFilledCircle(screen, x, y, radius, massDrawColor(mass), massDrawAntiAlias())
 	}
+}
+
+func massDrawAntiAlias() bool {
+	return true
 }
 
 func massDrawCircle(mass sim.Mass) (float32, float32, float32) {
