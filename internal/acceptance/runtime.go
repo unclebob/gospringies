@@ -459,6 +459,7 @@ var stepHandlers = map[string]stepHandler{
 	"the editor mode is <old_mode>":                                                        setClickableEditorMode,
 	"the coder clicks visible control <control>":                                           clickVisibleControl,
 	"the coder clicks inside rendered bounds of visible control <control>":                 clickInsideRenderedVisibleControlBounds,
+	"the coder clicks inside rendered bounds of visible control Drag":                      clickInsideRenderedDragControlBounds,
 	"the editor mode should be <new_mode>":                                                 assertClickableEditorMode,
 	"visible control <control> should show active state":                                   assertVisibleControlActive,
 	"keyboard path entry should open for <command>":                                        assertKeyboardPathEntryOpen,
