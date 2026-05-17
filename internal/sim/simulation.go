@@ -78,6 +78,14 @@ func NewWorld() *Simulation {
 	return NewSimulation()
 }
 
+func (s *Simulation) Clone() *Simulation {
+	clone := NewSimulation()
+	clone.LoadFrom(s)
+	clone.Damping = s.Damping
+	clone.Bounds = s.Bounds
+	return clone
+}
+
 func (s *Simulation) Reset() {
 	s.Masses = nil
 	s.Springs = nil
@@ -90,6 +98,8 @@ func (s *Simulation) LoadFrom(other *Simulation) {
 	s.Springs = append([]Spring{}, other.Springs...)
 	s.Parameters = other.Parameters.Clone()
 	s.Time = other.Time
+	s.Damping = other.Damping
+	s.Bounds = other.Bounds
 }
 
 func (s *Simulation) InsertFrom(other *Simulation) {

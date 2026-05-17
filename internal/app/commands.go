@@ -43,6 +43,18 @@ func (g *Game) InsertXSP(input string) error {
 	return nil
 }
 
+func (g *Game) SaveState() {
+	g.savedState = g.simulation.Clone()
+}
+
+func (g *Game) RestoreState() {
+	state := g.savedState
+	if state == nil {
+		state = g.initialState
+	}
+	g.simulation.LoadFrom(state)
+}
+
 func (g *Game) SetParameter(parameter string, value string) {
 	g.simulation.Parameters.Set(parameter, value)
 	g.dirty = true

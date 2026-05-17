@@ -334,6 +334,282 @@ func TestRunFeatureExecutesSpringModeMouseSemanticsFeature(t *testing.T) {
 	runFeatureFile(t, "features/016_spring_mode_mouse_semantics.feature")
 }
 
+func TestRunFeatureExecutesStateSaveRestoreFeature(t *testing.T) {
+	runFeatureFile(t, "features/017_state_save_restore.feature")
+}
+
+func TestRunFeatureExecutesSelectedObjectParameterEditingFeature(t *testing.T) {
+	runFeatureFile(t, "features/018_selected_object_parameter_editing.feature")
+}
+
+func TestStateSaveRestoreHelpersValidateInputs(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{
+			name: "change state missing example value",
+			err:  changeApplicationState(&world{}, nil),
+			want: "changed_state",
+		},
+		{
+			name: "assert state missing example value",
+			err:  assertApplicationStateWorld(&world{appGame: app.NewGame()}, nil),
+			want: "memory_state",
+		},
+		{
+			name: "assert state unsupported value",
+			err:  assertApplicationStateWorld(&world{appGame: app.NewGame()}, map[string]string{"memory_state": "unknown"}),
+			want: "unsupported state",
+		},
+		{
+			name: "file operation missing example value",
+			err:  runStateFileOperation(&world{appGame: app.NewGame()}, nil),
+			want: "file_operation",
+		},
+		{
+			name: "file operation unsupported value",
+			err:  runStateFileOperation(&world{appGame: app.NewGame()}, map[string]string{"file_operation": "delete file"}),
+			want: "unsupported file operation",
+		},
+		{
+			name: "replace unsupported state",
+			err:  replaceApplicationWorld(&world{appGame: app.NewGame()}, "unknown"),
+			want: "unsupported state",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if test.err == nil || !strings.Contains(test.err.Error(), test.want) {
+				t.Fatalf("error = %v, want containing %q", test.err, test.want)
+			}
+		})
+	}
+}
+
+func TestRestoreApplicationStateZeroCountLeavesWorldUnchanged(t *testing.T) {
+	w := &world{}
+	if err := setApplicationStateWorld(w, "A"); err != nil {
+		t.Fatalf("set state A: %v", err)
+	}
+	if err := saveApplicationState(w, nil); err != nil {
+		t.Fatalf("save state: %v", err)
+	}
+	if err := replaceApplicationWorld(w, "B"); err != nil {
+		t.Fatalf("replace state B: %v", err)
+	}
+	if err := restoreApplicationState(w, 0); err != nil {
+		t.Fatalf("restore zero times: %v", err)
+	}
+	if err := assertApplicationStateWorld(w, map[string]string{"memory_state": "B"}); err != nil {
+		t.Fatalf("zero restores changed world: %v", err)
+	}
+}
+
+func TestStateAWorldIncludesExpectedMassAndSpringDetails(t *testing.T) {
+	world := stateAWorld()
+	assertMasses(t, world.Masses, []sim.Mass{
+		{ID: 1, Position: sim.Vec2{X: 10, Y: 20}, Mass: 2, Elasticity: 0.6, Fixed: true},
+		{ID: 2, Position: sim.Vec2{X: 40, Y: 20}, Mass: 3, Elasticity: 0.7},
+	})
+	assertSprings(t, world.Springs, []sim.Spring{
+		{ID: 3, A: 0, B: 1, MassA: 1, MassB: 2, RestLength: 30, Stiffness: 8, SpringConstant: 8, Damping: 0.4},
+	})
+	if got := world.Parameters.Value("current mass"); got != "state-a" {
+		t.Fatalf("current mass = %q", got)
+	}
+	if !world.Parameters.Walls["left"] {
+		t.Fatal("left wall was not enabled")
+	}
+}
+
+func TestSimulationStateEqualDetectsEachComponent(t *testing.T) {
+	base := stateAWorld()
+	same := stateAWorld()
+	if !simulationStateEqual(base, same) {
+		t.Fatal("equal states reported different")
+	}
+
+	changedMasses := stateAWorld()
+	changedMasses.Masses[0].Mass = 99
+	if simulationStateEqual(base, changedMasses) {
+		t.Fatal("mass difference reported equal")
+	}
+
+	changedSprings := stateAWorld()
+	changedSprings.Springs[0].MassA = 2
+	if simulationStateEqual(base, changedSprings) {
+		t.Fatal("spring difference reported equal")
+	}
+
+	changedParameters := stateAWorld()
+	changedParameters.Parameters.Set("current mass", "other")
+	if simulationStateEqual(base, changedParameters) {
+		t.Fatal("parameter difference reported equal")
+	}
+}
+
+func TestSelectedObjectParameterHelpersValidateInputs(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{
+			name: "mass assertion missing mass id",
+			err:  assertMassControlValue(&world{}, map[string]string{"control": "mass", "value": "1"}),
+			want: "mass_id",
+		},
+		{
+			name: "mass assertion missing control value",
+			err:  assertMassControlValue(&world{domainWorld: worldWithParameterMass(1)}, map[string]string{"mass_id": "1"}),
+			want: "control",
+		},
+		{
+			name: "spring assertion missing spring id",
+			err:  assertSpringControlValue(&world{}, map[string]string{"control": "Kspring", "value": "1"}),
+			want: "spring_id",
+		},
+		{
+			name: "spring assertion missing control value",
+			err:  assertSpringControlValue(&world{domainWorld: worldWithParameterSpring(1)}, map[string]string{"spring_id": "1"}),
+			want: "control",
+		},
+		{
+			name: "rest length assertion missing value",
+			err:  assertSelectedSpringRestLength(&world{domainWorld: worldWithParameterSpring(1)}, map[string]string{"spring_id": "1"}),
+			want: "current_length",
+		},
+		{
+			name: "future object assertion missing object type",
+			err:  assertFutureObjectUsesControlValue(&world{}, map[string]string{"control": "mass", "value": "2"}),
+			want: "object_type",
+		},
+		{
+			name: "future mass assertion unsupported control",
+			err:  assertFutureMassControl(&world{}, "unsupported", "2"),
+			want: "unsupported mass control",
+		},
+		{
+			name: "future spring assertion unsupported control",
+			err:  assertFutureSpringControl(&world{domainWorld: worldWithParameterSpringEndpoints()}, "unsupported", "2"),
+			want: "unsupported spring control",
+		},
+		{
+			name: "int and float invalid integer",
+			err:  intAndFloatError(map[string]string{"spring_id": "bad", "current_length": "42"}),
+			want: "invalid integer",
+		},
+		{
+			name: "float assertion invalid value",
+			err:  assertStringFloat("mass", 1, "bad"),
+			want: "invalid float",
+		},
+		{
+			name: "bool assertion invalid value",
+			err:  assertStringBool("fixed", true, "bad"),
+			want: "invalid bool",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if test.err == nil || !strings.Contains(test.err.Error(), test.want) {
+				t.Fatalf("error = %v, want containing %q", test.err, test.want)
+			}
+		})
+	}
+
+	if err := assertMassControlValue(&world{domainWorld: worldWithParameterMass(1)}, map[string]string{"mass_id": "1"}); err == nil || err.Error() != "missing example value control" {
+		t.Fatalf("mass missing control error = %v", err)
+	}
+	if err := assertSpringControlValue(&world{domainWorld: worldWithParameterSpring(1)}, map[string]string{"spring_id": "1"}); err == nil || err.Error() != "missing example value control" {
+		t.Fatalf("spring missing control error = %v", err)
+	}
+
+	id, value, err := intAndFloat(map[string]string{"spring_id": "bad", "current_length": "42"}, "spring_id", "current_length")
+	if err == nil || id != 0 || value != 0 {
+		t.Fatalf("invalid integer intAndFloat = %d, %f, %v", id, value, err)
+	}
+}
+
+func TestSelectedObjectParameterHelpersCreateExpectedObjects(t *testing.T) {
+	w := &world{}
+	if err := createSelectedParameterMass(w, map[string]string{"mass_id": "5"}); err != nil {
+		t.Fatalf("create selected mass: %v", err)
+	}
+	mass, ok := ensureDomainWorld(w).MassByID(5)
+	if !ok {
+		t.Fatal("mass 5 was not created")
+	}
+	if mass.Mass != 1 || mass.Elasticity != 0.2 {
+		t.Fatalf("mass 5 defaults = %#v", mass)
+	}
+	if !ensureMouseEditor(w).SelectedMasses[5] {
+		t.Fatal("mass 5 was not selected")
+	}
+
+	springWorld := &world{}
+	if err := addParameterSpring(springWorld, 8, 42); err != nil {
+		t.Fatalf("add parameter spring: %v", err)
+	}
+	assertSimulationMassPosition(t, ensureDomainWorld(springWorld), 1, sim.Vec2{X: 0, Y: 20})
+	assertSimulationMassPosition(t, ensureDomainWorld(springWorld), 2, sim.Vec2{X: 42, Y: 20})
+	assertParameterMassDefaults(t, ensureDomainWorld(springWorld), 1)
+	assertParameterMassDefaults(t, ensureDomainWorld(springWorld), 2)
+	spring, ok := ensureDomainWorld(springWorld).SpringByID(8)
+	if !ok {
+		t.Fatal("spring 8 was not created")
+	}
+	assertSprings(t, []sim.Spring{spring}, []sim.Spring{
+		{ID: 8, A: 0, B: 1, MassA: 1, MassB: 2, RestLength: 1, Stiffness: 8, SpringConstant: 8, Damping: 0.2},
+	})
+
+	if isSpringControl("RestLength") {
+		t.Fatal("RestLength should not be a directly editable spring control")
+	}
+	if !isSpringControl("Kdamp") {
+		t.Fatal("Kdamp should be a spring control")
+	}
+}
+
+func assertParameterMassDefaults(t *testing.T, world *sim.Simulation, id int) {
+	t.Helper()
+	mass, ok := world.MassByID(id)
+	if !ok {
+		t.Fatalf("mass %d not found", id)
+	}
+	if mass.Mass != 1 {
+		t.Fatalf("mass %d default mass = %f", id, mass.Mass)
+	}
+}
+
+func intAndFloatError(example map[string]string) error {
+	_, _, err := intAndFloat(example, "spring_id", "current_length")
+	return err
+}
+
+func worldWithParameterMass(id int) *sim.Simulation {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: id, Mass: 1})
+	return world
+}
+
+func worldWithParameterSpring(id int) *sim.Simulation {
+	world := worldWithParameterSpringEndpoints()
+	_ = world.AddSpring(sim.Spring{ID: id, MassA: 1, MassB: 2, RestLength: 1, SpringConstant: 1})
+	return world
+}
+
+func worldWithParameterSpringEndpoints() *sim.Simulation {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 0, Y: 20}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 40, Y: 20}, Mass: 1})
+	return world
+}
+
 func TestRenderWorldHelpersValidateInputs(t *testing.T) {
 	if err := createApplicationWorldState(&world{}, map[string]string{}); err == nil {
 		t.Fatal("expected missing world state")

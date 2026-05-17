@@ -27,6 +27,8 @@ var (
 
 type Game struct {
 	simulation      *sim.Simulation
+	initialState    *sim.Simulation
+	savedState      *sim.Simulation
 	mode            string
 	selected        bool
 	dirty           bool
@@ -45,7 +47,8 @@ type WindowConfig struct {
 }
 
 func NewGame() *Game {
-	return &Game{simulation: sim.NewWorld(), mode: "select"}
+	world := sim.NewWorld()
+	return &Game{simulation: world, initialState: world.Clone(), mode: "select"}
 }
 
 func DefaultWindowConfig() WindowConfig {
@@ -98,8 +101,12 @@ func (g *Game) drawSprings(screen *ebiten.Image) {
 func (g *Game) drawMasses(screen *ebiten.Image) {
 	for _, mass := range g.simulation.Masses {
 		x, y, radius := massDrawCircle(mass)
-		vector.DrawFilledCircle(screen, x, y, radius, massDrawColor(mass), true)
+		vector.DrawFilledCircle(screen, x, y, radius, massDrawColor(mass), massDrawAntiAlias())
 	}
+}
+
+func massDrawAntiAlias() bool {
+	return true
 }
 
 func massDrawCircle(mass sim.Mass) (float32, float32, float32) {

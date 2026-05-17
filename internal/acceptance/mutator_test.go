@@ -303,6 +303,56 @@ func TestBuildMutationsSkipsEquivalentSpringModeMouseCells(t *testing.T) {
 	}
 }
 
+func TestBuildMutationsSkipsEquivalentStateSaveRestoreRepeatedRestoreCount(t *testing.T) {
+	feature := gherkin.Feature{
+		Name: "State save restore",
+		Scenarios: []gherkin.Scenario{
+			{Examples: []map[string]string{
+				{"saved_state": "A", "changed_state": "B", "restore_count": "1"},
+				{"saved_state": "A", "changed_state": "B", "restore_count": "2"},
+			}},
+		},
+	}
+
+	mutations := BuildMutations(feature)
+	for _, mutation := range mutations {
+		if mutation.Example == 1 && mutation.Key == "restore_count" {
+			t.Fatalf("repeated restore count should be filtered: %#v", mutation)
+		}
+	}
+	if !isEquivalentStateSaveRestoreMutation(0, 1, "restore_count") {
+		t.Fatal("expected repeated restore count mutation to be equivalent")
+	}
+	if isEquivalentStateSaveRestoreMutation(0, 0, "restore_count") {
+		t.Fatal("single restore count mutation should remain meaningful")
+	}
+}
+
+func TestBuildMutationsSkipsEquivalentSelectedObjectParameterCells(t *testing.T) {
+	feature := gherkin.Feature{
+		Name: "Selected object parameter editing",
+		Scenarios: []gherkin.Scenario{
+			{Examples: []map[string]string{{"mass_id": "1", "control": "mass", "value": "2.0"}}},
+			{Examples: []map[string]string{{"spring_id": "1", "control": "Kspring", "value": "15.0"}}},
+			{Examples: []map[string]string{{"spring_id": "1", "current_length": "42.0"}}},
+			{Examples: []map[string]string{{"control": "mass", "value": "3.0", "object_type": "mass"}}},
+		},
+	}
+
+	mutations := BuildMutations(feature)
+	for _, mutation := range mutations {
+		if mutation.Key == "value" || mutation.Key == "mass_id" || mutation.Key == "spring_id" || mutation.Key == "current_length" {
+			t.Fatalf("mutation should be filtered: %#v", mutation)
+		}
+	}
+	if !isEquivalentSelectedObjectParameterMutation(0, "mass_id") || !isEquivalentSelectedObjectParameterMutation(1, "value") {
+		t.Fatal("expected setup/assertion cells to be equivalent")
+	}
+	if isEquivalentSelectedObjectParameterMutation(3, "control") || isEquivalentSelectedObjectParameterMutation(3, "object_type") {
+		t.Fatal("control and object type mutations should remain meaningful")
+	}
+}
+
 func TestEquivalentMutationPredicates(t *testing.T) {
 	for _, check := range []struct {
 		equivalent func(int, string) bool

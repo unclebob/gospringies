@@ -39,6 +39,6 @@ Scenario Outline: controls become creation defaults without compatible selection
   Then future <object_type> objects should use <control> value <value>
 
 Examples:
-  | control    | value | object_type |
-  | mass       | 3.0   | mass        |
-  | Kspring    | 20.0  | spring      |
+  | control | value | object_type |
+  | mass    | 3.0   | mass        |
+  | Kspring | 20.0  | spring      |
