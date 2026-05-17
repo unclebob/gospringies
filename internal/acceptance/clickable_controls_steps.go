@@ -39,6 +39,12 @@ func clickInsideRenderedVisibleControlBounds(w *world, example map[string]string
 	return clickInsideRenderedBoundsOfControl(w, control)
 }
 
+func clickInsideRenderedControl(control string) stepHandler {
+	return func(w *world, _ map[string]string) error {
+		return clickInsideRenderedBoundsOfControl(w, control)
+	}
+}
+
 func clickInsideRenderedBoundsOfControl(w *world, control string) error {
 	game, err := visibleControlsGame(w)
 	if err != nil {
@@ -55,15 +61,6 @@ func clickInsideRenderedBoundsOfControl(w *world, control string) error {
 	}
 	w.appCommand = game.LastCommand()
 	return nil
-}
-
-func clickInsideRenderedDragControlBounds(w *world, example map[string]string) error {
-	values := map[string]string{}
-	for key, value := range example {
-		values[key] = value
-	}
-	values["control"] = "Drag"
-	return clickInsideRenderedVisibleControlBounds(w, values)
 }
 
 func assertClickableEditorMode(w *world, example map[string]string) error {

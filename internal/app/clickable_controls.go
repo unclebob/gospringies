@@ -1,8 +1,10 @@
 package app
 
-import "image"
+import (
+	"image"
 
-import "springs/internal/sim"
+	"springs/internal/sim"
+)
 
 var modeControlModes = map[string]string{
 	"select mode": "select",
