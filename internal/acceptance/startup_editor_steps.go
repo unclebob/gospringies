@@ -2,8 +2,12 @@ package acceptance
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"reflect"
 
 	"springs/internal/app"
+	xspfmt "springs/internal/format"
 	"springs/internal/sim"
 )
 
@@ -71,6 +75,68 @@ func assertStartupObjectCount(w *world, example map[string]string) error {
 		return fmt.Errorf("startup world has no %s", objectType)
 	}
 	return nil
+}
+
+func assertStartupWorldLoadedFromDemo(w *world, example map[string]string) error {
+	defaultDemo, err := stringValue(example, "default_demo")
+	if err != nil {
+		return err
+	}
+	if defaultDemo != app.DefaultStartupScenePath() {
+		return fmt.Errorf("startup demo = %q, want %q", app.DefaultStartupScenePath(), defaultDemo)
+	}
+	_, err = startupDemoWorld(defaultDemo)
+	return err
+}
+
+func assertStartupWorldMatchesDemo(w *world, example map[string]string) error {
+	defaultDemo, err := stringValue(example, "default_demo")
+	if err != nil {
+		return err
+	}
+	game, err := concreteStartupGame(w)
+	if err != nil {
+		return err
+	}
+	expected, err := startupDemoWorld(defaultDemo)
+	if err != nil {
+		return err
+	}
+	if !reflect.DeepEqual(game.World(), expected) {
+		return fmt.Errorf("startup world did not match %s", defaultDemo)
+	}
+	return nil
+}
+
+func startupDemoWorld(path string) (*sim.Simulation, error) {
+	content, err := readStartupDemo(path)
+	if err != nil {
+		return nil, err
+	}
+	world, err := xspfmt.LoadXSP(string(content))
+	if err != nil {
+		return nil, fmt.Errorf("load startup demo %s: %w", path, err)
+	}
+	return world, nil
+}
+
+func readStartupDemo(path string) ([]byte, error) {
+	var lastErr error
+	for _, candidate := range startupDemoCandidates(path) {
+		content, err := os.ReadFile(candidate)
+		if err == nil {
+			return content, nil
+		}
+		lastErr = err
+	}
+	return nil, fmt.Errorf("read startup demo %s: %w", path, lastErr)
+}
+
+func startupDemoCandidates(path string) []string {
+	return []string{
+		path,
+		filepath.Join("..", "..", path),
+	}
 }
 
 func startupObjectCount(world *sim.Simulation, objectType string) int {

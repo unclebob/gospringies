@@ -49,7 +49,7 @@ type WindowConfig struct {
 }
 
 func NewGame() *Game {
-	world := sim.NewDemoSimulation()
+	world := newDefaultStartupWorld()
 	return &Game{simulation: world, initialState: world.Clone(), mode: "select"}
 }
 

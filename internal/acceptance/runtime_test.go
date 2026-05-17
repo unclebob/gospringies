@@ -359,7 +359,7 @@ func TestRunFeatureExecutesAdaptiveRK4NumericsFeature(t *testing.T) {
 }
 
 func TestRunFeatureExecutesNonblankStartupEditorFeature(t *testing.T) {
-	runFeatureFile(t, "features/023_nonblank_startup_editor.feature")
+	runFeatureFile(t, "features/023_1_nonblank_startup_editor.feature")
 }
 
 func TestRenderWorldHelpersValidateInputs(t *testing.T) {

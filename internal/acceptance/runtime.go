@@ -431,11 +431,13 @@ var stepHandlers = map[string]stepHandler{
 	"the first screen should show visible editor chrome":                                   assertStartupEditorChrome,
 	"the first screen should show visible world content":                                   assertStartupWorldContent,
 	"debug text should not be the only visible content":                                    assertDebugTextNotOnlyContent,
+	"the startup world should be loaded from <default_demo>":                               assertStartupWorldLoadedFromDemo,
 	"startup screen region <region> should be visible":                                     assertStartupRegionVisible,
 	"the startup world should contain <object_count> <object_type>":                        assertStartupObjectCount,
 	"the coder starts the desktop application twice":                                       startDesktopApplicationTwice,
 	"both startup worlds should be equivalent":                                             assertStartupWorldsEquivalent,
 	"both startup screens should show the same editor chrome":                              assertStartupScreensEquivalent,
+	"the startup world should match demo file <default_demo>":                              assertStartupWorldMatchesDemo,
 }
 
 func acceptStep(*world, map[string]string) error {
