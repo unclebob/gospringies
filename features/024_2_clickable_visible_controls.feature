@@ -65,3 +65,14 @@ Examples:
   | old_state | control | new_state |
   | running   | Pause   | paused    |
   | paused    | Run     | running   |
+
+Scenario Outline: clicking drag control enables mass dragging
+  Given mass <mass_id> fixed state is <fixed>
+  And mass <mass_id> starts at <start_position>
+  When the coder clicks inside rendered bounds of visible control Drag
+  And the coder drags mass <mass_id> to <target_position>
+  Then mass <mass_id> position should be <expected_position>
+
+Examples:
+  | mass_id | fixed | start_position | target_position | expected_position |
+  | 1       | false | 10,10          | 40,50           | 40,50             |
