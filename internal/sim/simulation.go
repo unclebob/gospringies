@@ -3,6 +3,7 @@ package sim
 import (
 	"errors"
 	"fmt"
+	"math"
 )
 
 var (
@@ -42,6 +43,7 @@ type Mass struct {
 	Mass       float64
 	Elasticity float64
 	Fixed      bool
+	StuckWall  string
 }
 
 type Spring struct {
@@ -202,10 +204,7 @@ func (s *Simulation) AdvanceDuration(duration float64) {
 		dt = 0.016
 	}
 	for remaining := duration; remaining > 0; {
-		step := dt
-		if remaining < step {
-			step = remaining
-		}
+		step := math.Min(remaining, dt)
 		s.Step(step)
 		remaining -= step
 	}
@@ -219,8 +218,12 @@ func (s *Simulation) Step(dt float64) {
 			continue
 		}
 		acceleration := evaluation.ByMassID[mass.ID].Acceleration
+		if s.keepStuck(mass, acceleration) {
+			continue
+		}
 		mass.Velocity = mass.Velocity.Add(acceleration.Scale(dt)).Scale(s.Damping)
 		mass.Position = mass.Position.Add(mass.Velocity.Scale(dt))
+		s.applyWallCollision(mass)
 	}
 	s.Time += dt
 }
