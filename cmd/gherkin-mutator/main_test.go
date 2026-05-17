@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"springs/internal/acceptance"
+	"springs/internal/mutationstamp"
 )
 
 func TestPrintTextIncludesSurvivorDetails(t *testing.T) {
@@ -122,7 +123,7 @@ func TestRunStampsFeatureAfterSuccessfulMutation(t *testing.T) {
 		t.Fatalf("exit code = %d, stderr = %s", code, stderr.String())
 	}
 	content := readFile(t, featurePath)
-	if !strings.Contains(content, mutationStampPrefix) {
+	if !strings.Contains(content, mutationstamp.Prefix) {
 		t.Fatalf("feature was not stamped:\n%s", content)
 	}
 }
@@ -131,7 +132,7 @@ func TestRunSkipsStampedFeature(t *testing.T) {
 	dir := t.TempDir()
 	featurePath := filepath.Join(dir, "empty.feature")
 	writeFile(t, featurePath, "Feature: Empty\n\nScenario: no examples\n  Given nothing\n")
-	if err := stampMutationFeature(featurePath); err != nil {
+	if err := mutationstamp.Stamp(featurePath); err != nil {
 		t.Fatal(err)
 	}
 	before := readFile(t, featurePath)

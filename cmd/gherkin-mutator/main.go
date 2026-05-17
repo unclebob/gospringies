@@ -1,18 +1,16 @@
 package main
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"runtime"
-	"strings"
 
 	"springs/internal/acceptance"
 	"springs/internal/gherkin"
+	"springs/internal/mutationstamp"
 )
 
 func main() {
@@ -24,7 +22,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		return 2
 	}
-	if mutationStampValid(options.featurePath) {
+	if mutationstamp.Valid(options.featurePath) {
 		fmt.Fprintf(stdout, "mutation stamp valid; skipping %s\n", options.featurePath)
 		return 0
 	}
@@ -34,17 +32,20 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	printReport(stdout, stderr, options.jsonReport, summary, results)
-	code := exitCodeFromSummary(summary)
-	if code == 0 {
-		if err := stampMutationFeature(options.featurePath); err != nil {
-			fmt.Fprintln(stderr, err)
-			return 1
-		}
-	}
-	return code
+	return finishRun(options.featurePath, summary, stderr)
 }
 
-const mutationStampPrefix = "# mutation-stamp: "
+func finishRun(featurePath string, summary acceptance.MutationSummary, stderr io.Writer) int {
+	code := exitCodeFromSummary(summary)
+	if code != 0 {
+		return code
+	}
+	if err := mutationstamp.Stamp(featurePath); err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	return 0
+}
 
 type options struct {
 	featurePath string
@@ -81,56 +82,6 @@ func runFeatureMutations(options options, progress io.Writer) (acceptance.Mutati
 		return acceptance.MutationSummary{}, nil, err
 	}
 	return acceptance.Summarize(results), results, nil
-}
-
-func mutationStampValid(path string) bool {
-	content, err := os.ReadFile(path)
-	if err != nil {
-		return false
-	}
-	stamp, unstamped := splitMutationStamp(string(content))
-	return stamp != "" && stamp == mutationContentHash(unstamped)
-}
-
-func stampMutationFeature(path string) error {
-	content, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
-	_, unstamped := splitMutationStamp(string(content))
-	stamp := mutationContentHash(unstamped)
-	return os.WriteFile(path, []byte(mutationStampPrefix+stamp+"\n"+unstamped), 0o644)
-}
-
-func splitMutationStamp(content string) (string, string) {
-	lines := strings.SplitAfter(content, "\n")
-	var unstamped strings.Builder
-	for _, line := range lines {
-		trimmed := strings.TrimRight(line, "\r\n")
-		if stamp, ok := strings.CutPrefix(trimmed, mutationStampPrefix); ok {
-			return stamp, contentWithoutStampLine(lines, line)
-		}
-		unstamped.WriteString(line)
-	}
-	return "", unstamped.String()
-}
-
-func contentWithoutStampLine(lines []string, stampLine string) string {
-	var unstamped strings.Builder
-	removed := false
-	for _, line := range lines {
-		if !removed && line == stampLine {
-			removed = true
-			continue
-		}
-		unstamped.WriteString(line)
-	}
-	return unstamped.String()
-}
-
-func mutationContentHash(content string) string {
-	sum := sha256.Sum256([]byte(content))
-	return hex.EncodeToString(sum[:])
 }
 
 func progressWriter(options options, stdout, stderr io.Writer) io.Writer {

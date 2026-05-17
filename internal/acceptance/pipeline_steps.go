@@ -1,13 +1,13 @@
 package acceptance
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"springs/internal/mutationstamp"
 )
 
 func runAcceptanceCommand(w *world, _ map[string]string) error {
@@ -128,18 +128,11 @@ func setFeatureMutationStampState(_ *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	path := repoPath(feature)
-	switch state {
-	case "unstamped":
-		return writeFeatureWithoutMutationStamp(path)
-	case "stamped":
-		if err := writeFeatureWithoutMutationStamp(path); err != nil {
-			return err
-		}
-		return writeFeatureMutationStamp(path)
-	default:
+	setter, ok := mutationStampStateSetters[state]
+	if !ok {
 		return fmt.Errorf("unsupported mutation stamp state %q", state)
 	}
+	return setter(repoPath(feature))
 }
 
 func runAcceptanceMutationForFeature(w *world, example map[string]string) error {
@@ -147,18 +140,25 @@ func runAcceptanceMutationForFeature(w *world, example map[string]string) error 
 	if err != nil {
 		return err
 	}
+	output, err := runAcceptanceMutation(feature)
+	w.mutationOutput = output
+	return err
+}
+
+var runAcceptanceMutation = runAcceptanceMutationCommand
+
+func runAcceptanceMutationCommand(feature string) (string, error) {
 	root, err := repoRoot()
 	if err != nil {
-		return err
+		return "", err
 	}
 	cmd := exec.Command("go", "run", "./cmd/gherkin-mutator", "--feature", feature, "--work-dir", "build/_acceptance-pipeline/mutation-stamps")
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
-	w.mutationOutput = string(output)
 	if err != nil {
-		return fmt.Errorf("acceptance mutation failed: %w\n%s", err, output)
+		return string(output), fmt.Errorf("acceptance mutation failed: %w\n%s", err, output)
 	}
-	return nil
+	return string(output), nil
 }
 
 func assertAcceptanceMutationBehavior(w *world, example map[string]string) error {
@@ -166,22 +166,11 @@ func assertAcceptanceMutationBehavior(w *world, example map[string]string) error
 	if err != nil {
 		return err
 	}
-	switch behavior {
-	case "run and stamp":
-		if strings.Contains(w.mutationOutput, "mutation stamp valid; skipping") {
-			return fmt.Errorf("acceptance mutation skipped %s", feature)
-		}
-		if !strings.Contains(w.mutationOutput, "total=") {
-			return fmt.Errorf("acceptance mutation did not report run for %s:\n%s", feature, w.mutationOutput)
-		}
-	case "skip":
-		if !strings.Contains(w.mutationOutput, "mutation stamp valid; skipping "+feature) {
-			return fmt.Errorf("acceptance mutation did not skip %s:\n%s", feature, w.mutationOutput)
-		}
-	default:
+	assertion, ok := mutationBehaviorAssertions[behavior]
+	if !ok {
 		return fmt.Errorf("unsupported mutation behavior %q", behavior)
 	}
-	return nil
+	return assertion(w.mutationOutput, feature)
 }
 
 func assertFeatureMutationStampState(_ *world, example map[string]string) error {
@@ -189,83 +178,61 @@ func assertFeatureMutationStampState(_ *world, example map[string]string) error 
 	if err != nil {
 		return err
 	}
-	stamped := featureMutationStampValid(repoPath(feature))
-	switch state {
-	case "stamped":
-		return requirePrerequisite(stamped, "feature file is not stamped")
-	case "unstamped":
-		if stamped {
-			return fmt.Errorf("feature file is stamped")
-		}
-		return nil
-	default:
+	assertion, ok := mutationStampStateAssertions[state]
+	if !ok {
 		return fmt.Errorf("unsupported mutation stamp state %q", state)
 	}
+	return assertion(repoPath(feature))
 }
 
-const mutationStampPrefix = "# mutation-stamp: "
+var mutationStampStateSetters = map[string]func(string) error{
+	"unstamped": mutationstamp.Remove,
+	"stamped":   writeCurrentFeatureMutationStamp,
+}
 
-func writeFeatureWithoutMutationStamp(path string) error {
-	content, err := os.ReadFile(path)
-	if err != nil {
+func writeCurrentFeatureMutationStamp(path string) error {
+	if err := mutationstamp.Remove(path); err != nil {
 		return err
 	}
-	_, unstamped := splitFeatureMutationStamp(string(content))
-	return os.WriteFile(path, []byte(unstamped), 0o644)
+	return mutationstamp.Stamp(path)
 }
 
-func writeFeatureMutationStamp(path string) error {
-	content, err := os.ReadFile(path)
-	if err != nil {
-		return err
+var mutationBehaviorAssertions = map[string]func(string, string) error{
+	"run and stamp": assertMutationRanAndStamped,
+	"skip":          assertMutationSkipped,
+}
+
+func assertMutationRanAndStamped(output, feature string) error {
+	if strings.Contains(output, "mutation stamp valid; skipping") {
+		return fmt.Errorf("acceptance mutation skipped %s", feature)
 	}
-	_, unstamped := splitFeatureMutationStamp(string(content))
-	stamp := featureMutationHash(unstamped)
-	return os.WriteFile(path, []byte(mutationStampPrefix+stamp+"\n"+unstamped), 0o644)
-}
-
-func featureMutationStampValid(path string) bool {
-	content, err := os.ReadFile(path)
-	if err != nil {
-		return false
+	if !strings.Contains(output, "total=") {
+		return fmt.Errorf("acceptance mutation did not report run for %s:\n%s", feature, output)
 	}
-	stamp, unstamped := splitFeatureMutationStamp(string(content))
-	return stamp != "" && stamp == featureMutationHash(unstamped)
+	return nil
 }
 
-func splitFeatureMutationStamp(content string) (string, string) {
-	lines := strings.SplitAfter(content, "\n")
-	var unstamped strings.Builder
-	removed := false
-	for _, line := range lines {
-		trimmed := strings.TrimRight(line, "\r\n")
-		if !removed {
-			if stamp, ok := strings.CutPrefix(trimmed, mutationStampPrefix); ok {
-				removed = true
-				return stamp, strings.Join(linesWithoutFirstStamp(lines), "")
-			}
-		}
-		unstamped.WriteString(line)
+func assertMutationSkipped(output, feature string) error {
+	if !strings.Contains(output, "mutation stamp valid; skipping "+feature) {
+		return fmt.Errorf("acceptance mutation did not skip %s:\n%s", feature, output)
 	}
-	return "", unstamped.String()
+	return nil
 }
 
-func linesWithoutFirstStamp(lines []string) []string {
-	without := make([]string, 0, len(lines))
-	removed := false
-	for _, line := range lines {
-		if !removed && strings.HasPrefix(strings.TrimRight(line, "\r\n"), mutationStampPrefix) {
-			removed = true
-			continue
-		}
-		without = append(without, line)
+var mutationStampStateAssertions = map[string]func(string) error{
+	"stamped":   assertFeatureStamped,
+	"unstamped": assertFeatureUnstamped,
+}
+
+func assertFeatureStamped(path string) error {
+	return requirePrerequisite(mutationstamp.Valid(path), "feature file is not stamped")
+}
+
+func assertFeatureUnstamped(path string) error {
+	if mutationstamp.Valid(path) {
+		return fmt.Errorf("feature file is stamped")
 	}
-	return without
-}
-
-func featureMutationHash(content string) string {
-	sum := sha256.Sum256([]byte(content))
-	return hex.EncodeToString(sum[:])
+	return nil
 }
 
 func generatedArtifactExists(artifact, location string) error {
