@@ -36,6 +36,14 @@ func (g *Game) ClickVisibleControl(label string) bool {
 	return g.activateVisibleControl(control)
 }
 
+func (g *Game) VisibleControlBounds(label string) (image.Rectangle, bool) {
+	control, ok := visibleControlWithLabel(label)
+	if !ok {
+		return image.Rectangle{}, false
+	}
+	return control.Rect, true
+}
+
 func (g *Game) activateVisibleControl(control controlBox) bool {
 	if mode, ok := modeControlModes[control.Name]; ok {
 		g.SetMode(mode)
