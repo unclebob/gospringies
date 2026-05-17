@@ -388,8 +388,18 @@ func TestBuildMutationsSkipsEquivalentForceCenterCells(t *testing.T) {
 }
 
 func TestBuildMutationsSkipsEquivalentAdaptiveRK4Cells(t *testing.T) {
-	if !isEquivalentAdaptiveRK4Mutation(0, "duration") || !isEquivalentAdaptiveRK4Mutation(3, "adaptive") {
-		t.Fatal("expected adaptive RK4 setup/assertion cells to be equivalent")
+	for _, cell := range []mutationCell{
+		{0, "adaptive"},
+		{0, "duration"},
+		{1, "duration"},
+		{2, "adaptive"},
+		{2, "duration"},
+		{3, "adaptive"},
+		{3, "duration"},
+	} {
+		if !isEquivalentAdaptiveRK4Mutation(cell.scenario, cell.key) {
+			t.Fatalf("expected %s in scenario %d to be equivalent", cell.key, cell.scenario)
+		}
 	}
 	if isEquivalentAdaptiveRK4Mutation(1, "precision") || isEquivalentAdaptiveRK4Mutation(0, "time_step") {
 		t.Fatal("precision and time step mutations should remain meaningful")

@@ -9,6 +9,15 @@ import (
 	"springs/internal/sim"
 )
 
+var supportedForceNames = map[string]struct{}{
+	"gravity":                   {},
+	"center of mass attraction": {},
+	"center attraction":         {},
+	"wall repulsion":            {},
+}
+
+const forceDirectionTolerance = 0.000001
+
 func selectForce(w *world, example map[string]string) error {
 	force, err := stringValue(example, "force")
 	if err != nil {
@@ -50,7 +59,8 @@ func hasForceParameter(force, parameter string) bool {
 }
 
 func supportedForceName(force string) bool {
-	return len(sim.ForceParameterNames(force)) > 0
+	_, ok := supportedForceNames[force]
+	return ok
 }
 
 func setGravityDirection(w *world, example map[string]string) error {
@@ -88,7 +98,11 @@ func matchesExpectedDirection(force sim.Vec2, expected string) bool {
 		"left":  {X: -1},
 	}
 	want, ok := directions[expected]
-	return ok && math.Abs(force.X-want.X) < 0.000001 && math.Abs(force.Y-want.Y) < 0.000001
+	return ok && matchesForceDirectionComponent(force.X, want.X) && matchesForceDirectionComponent(force.Y, want.Y)
+}
+
+func matchesForceDirectionComponent(actual, expected float64) bool {
+	return math.Abs(actual-expected) < forceDirectionTolerance
 }
 
 func createSelectedMasses(w *world, example map[string]string) error {

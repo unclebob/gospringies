@@ -47,10 +47,14 @@ func assertApplicationWorldEmpty(w *world, _ map[string]string) error {
 	if err != nil {
 		return err
 	}
-	if len(game.World().Masses) == 0 && len(game.World().Springs) > 0 {
+	if springOnlyWorld(game.World()) {
 		return fmt.Errorf("world has springs without masses")
 	}
 	return nil
+}
+
+func springOnlyWorld(world *sim.Simulation) bool {
+	return len(world.Masses) == 0 && len(world.Springs) != 0
 }
 
 func resizeApplicationWindow(w *world, example map[string]string) error {

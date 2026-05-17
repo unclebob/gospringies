@@ -459,6 +459,9 @@ func TestWallCollisionHelperContracts(t *testing.T) {
 	if released, err := expectedReleased(map[string]string{}); err == nil || released {
 		t.Fatalf("missing release result = %t, %v", released, err)
 	}
+	if released, err := expectedReleased(map[string]string{"release_result": "stuck"}); err != nil || released {
+		t.Fatalf("stuck release result = %t, %v", released, err)
+	}
 
 	bounced := wallCollisionWorldWithMass(1, "left", sim.Vec2{X: 0.5})
 	if err := assertMassDidNotBounce(bounced, map[string]string{"mass_id": "1", "wall": "left"}); err == nil {
@@ -473,8 +476,11 @@ func TestWallCollisionHelperContracts(t *testing.T) {
 func TestWallCollisionSetupHelpers(t *testing.T) {
 	w := &world{}
 	mass := ensureCollisionMass(w, 7)
-	if mass.Mass != 1 || mass.Elasticity != 1 {
+	if mass.ID != 7 || mass.Position != (sim.Vec2{X: 50, Y: 50}) || mass.Mass != 1 || mass.Elasticity != 1 {
 		t.Fatalf("collision mass defaults = %#v", mass)
+	}
+	if w.domainWorld.Bounds.Width != 100 || w.domainWorld.Damping != 1 {
+		t.Fatalf("collision world defaults = %#v", w.domainWorld)
 	}
 
 	stuck := wallCollisionWorldWithMass(1, "left", sim.Vec2{})
@@ -494,6 +500,10 @@ func TestWallCollisionSetupHelpers(t *testing.T) {
 	id, wall, err = collisionMassAndWall(map[string]string{"mass_id": "1"})
 	if err == nil || id != 0 || wall != "" {
 		t.Fatalf("missing wall parsed as id=%d wall=%q err=%v", id, wall, err)
+	}
+	id, wall, err = collisionMassAndWall(map[string]string{"mass_id": "1", "wall": "left"})
+	if err != nil || id != 1 || wall != "left" {
+		t.Fatalf("valid mass wall parsed as id=%d wall=%q err=%v", id, wall, err)
 	}
 }
 
@@ -1699,6 +1709,92 @@ func TestXSPLoadedStateChecksSuccessfulLoadState(t *testing.T) {
 	}
 }
 
+func TestForceCenterHelpersValidateInputsAndBranches(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{name: "select force missing force", err: selectForce(&world{}, nil), want: "missing example value force"},
+		{name: "exposes parameter missing force", err: assertForceExposesParameter(&world{}, map[string]string{"parameter_one": "Magnitude", "parameter_two": "Direction"}), want: "missing example value force"},
+		{name: "exposes parameter missing second", err: assertForceExposesParameter(&world{}, map[string]string{"force": "gravity", "parameter_one": "Magnitude"}), want: "missing example value parameter_two"},
+		{name: "gravity direction missing expected", err: assertGravityDirection(&world{}, nil), want: "missing example value expected_direction"},
+		{name: "force center missing expected", err: assertForceCenter(&world{}, nil), want: "missing example value expected_center"},
+		{name: "visual marker missing center", err: assertCenterMassVisuallyMarked(&world{}, nil), want: "missing example value center_mass"},
+		{name: "reciprocal check missing center", err: assertNoReciprocalCenterForce(&world{}, nil), want: "missing example value center_mass"},
+		{name: "controls active missing force", err: assertForceControlsActive(&world{}, nil), want: "missing example value force"},
+	}
+	for _, test := range tests {
+		assertErrorContains(t, test.name, test.err, test.want)
+	}
+
+	if supportedForceName("missing force") {
+		t.Fatal("expected missing force to be unsupported")
+	}
+	if !hasForceParameter("gravity", "Magnitude") {
+		t.Fatal("expected gravity Magnitude parameter")
+	}
+	if hasForceParameter("gravity", "Exponent") {
+		t.Fatal("expected gravity Exponent parameter to be absent")
+	}
+	if matchesExpectedDirection(sim.Vec2{X: 0.000001, Y: 1}, "down") {
+		t.Fatal("expected tolerance boundary to be outside direction match")
+	}
+	if matchesExpectedDirection(sim.Vec2{X: 0, Y: 0.999999}, "down") {
+		t.Fatal("expected Y tolerance boundary to be outside direction match")
+	}
+	if matchesExpectedDirection(sim.Vec2{X: 0, Y: -1}, "down") {
+		t.Fatal("expected mismatched component to reject direction")
+	}
+
+	w := &world{}
+	if err := createSelectedMasses(w, map[string]string{"selected_masses": "1"}); err != nil {
+		t.Fatal(err)
+	}
+	assertSimulationMassPosition(t, w.domainWorld, 1, sim.Vec2{X: 10, Y: 20})
+	assertSimulationMassValue(t, w.domainWorld, 1, 1)
+	if len(w.originalMassIDs) != 1 || w.originalMassIDs[0] != 1 {
+		t.Fatalf("selected mass ids = %#v", w.originalMassIDs)
+	}
+	w.domainWorld.Parameters.Set("center mass", "0")
+	if err := assertForceCenter(w, map[string]string{"expected_center": "screen center"}); err != nil {
+		t.Fatal(err)
+	}
+
+	w = &world{}
+	if err := createForceCenterMass(w, map[string]string{"center_mass": "4"}); err != nil {
+		t.Fatal(err)
+	}
+	assertSimulationMassPosition(t, w.domainWorld, 4, sim.Vec2{X: 50, Y: 50})
+	assertSimulationMassPosition(t, w.domainWorld, 5, sim.Vec2{X: 0, Y: 50})
+	assertSimulationMassValue(t, w.domainWorld, 4, 1)
+	assertSimulationMassValue(t, w.domainWorld, 5, 1)
+	if !w.domainWorld.IsCenterMass(4) {
+		t.Fatalf("center mass = %d, want 4", w.domainWorld.CenterMassID())
+	}
+	if err := assertCenterMassVisuallyMarked(w, map[string]string{"center_mass": "5"}); err == nil {
+		t.Fatal("expected center marker mismatch")
+	}
+
+	w.forceEvaluation = sim.ForceEvaluation{ByMassID: map[int]sim.MassForces{4: {}}}
+	if err := assertNoReciprocalCenterForce(w, map[string]string{"center_mass": "4"}); err == nil {
+		t.Fatal("expected missing force name")
+	}
+	if err := assertForceControlsActive(w, map[string]string{"force": "unsupported"}); err == nil {
+		t.Fatal("expected unsupported force")
+	}
+}
+
+func assertErrorContains(t *testing.T, name string, err error, want string) {
+	t.Helper()
+	if err == nil {
+		t.Fatalf("%s: expected error", name)
+	}
+	if !strings.Contains(err.Error(), want) {
+		t.Fatalf("%s: error = %q, want substring %q", name, err.Error(), want)
+	}
+}
+
 func TestXSPHelpersRejectMissingAndMismatchedState(t *testing.T) {
 	if err := assertXSPLoadResult(&world{}, nil); err == nil {
 		t.Fatal("expected missing load result error")
@@ -1712,16 +1808,29 @@ func TestXSPHelpersRejectMissingAndMismatchedState(t *testing.T) {
 	if err := assertForceLoaded(loadedWorld); err == nil {
 		t.Fatal("expected force mismatch")
 	}
+	loadedWorld.Parameters.EnableForce("gravity", map[string]string{"magnitude": "10", "direction": "90"})
+	if err := assertForceLoaded(loadedWorld); err != nil {
+		t.Fatal(err)
+	}
 
 	_ = loadedWorld.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 9, Y: 20}, Mass: 1})
 	if err := assertMassLoaded(loadedWorld); err == nil {
 		t.Fatal("expected mass mismatch")
+	}
+	loadedWorld.Masses[0].Position = sim.Vec2{X: 10, Y: 20}
+	if err := assertMassLoaded(loadedWorld); err != nil {
+		t.Fatal(err)
 	}
 
 	_ = loadedWorld.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 10, Y: 20}, Mass: 1})
 	_ = loadedWorld.AddSpring(sim.Spring{ID: 1, MassA: 2, MassB: 1, RestLength: 1, SpringConstant: 1})
 	if err := assertSpringLoaded(loadedWorld); err == nil {
 		t.Fatal("expected spring mismatch")
+	}
+	loadedWorld.Springs[0].MassA = 1
+	loadedWorld.Springs[0].MassB = 2
+	if err := assertSpringLoaded(loadedWorld); err != nil {
+		t.Fatal(err)
 	}
 
 	worldWithBadSpringA := sim.NewWorld()
@@ -1803,6 +1912,17 @@ func assertSimulationMassPosition(t *testing.T, world *sim.Simulation, id int, p
 	}
 }
 
+func assertSimulationMassValue(t *testing.T, world *sim.Simulation, id int, value float64) {
+	t.Helper()
+	mass, ok := world.MassByID(id)
+	if !ok {
+		t.Fatalf("mass %d not found", id)
+	}
+	if mass.Mass != value {
+		t.Fatalf("mass %d value = %v, want %v", id, mass.Mass, value)
+	}
+}
+
 func TestSimulationStepHelpersReportFailures(t *testing.T) {
 	if err := createMassStartPosition(&world{}, map[string]string{"mass_id": "1", "start_position": "custom"}); err == nil {
 		t.Fatal("expected unsupported position marker")
@@ -1837,6 +1957,88 @@ func TestSameWorldStateDetectsDifferences(t *testing.T) {
 	second.Masses[0].Position = sim.Vec2{X: 1}
 	if sameWorldState(first, second) {
 		t.Fatal("expected position mismatch")
+	}
+	second.Masses[0].Position = sim.Vec2{}
+	second.Masses[0].Velocity = sim.Vec2{X: 1}
+	if sameWorldState(first, second) {
+		t.Fatal("expected velocity mismatch")
+	}
+	if sameFloat(1, 1.000002) {
+		t.Fatal("expected float outside tolerance")
+	}
+	if sameFloat(1, 0.999999) {
+		t.Fatal("expected float boundary to be outside tolerance")
+	}
+	if !sameFloat(1, 1.000001) {
+		t.Fatal("expected positive float boundary to be inside tolerance")
+	}
+	if !sameFloat(0, 0.000001) {
+		t.Fatal("expected literal float boundary to be inside tolerance")
+	}
+	if _, _, _, err := deterministicWorlds(map[string]string{"duration": "1 second"}); err == nil || !strings.Contains(err.Error(), "initial_state") {
+		t.Fatalf("expected missing initial state, got %v", err)
+	}
+	if firstWorld, secondWorld, badDuration, err := deterministicWorlds(map[string]string{"initial_state": "unknown", "duration": "1 second"}); err == nil || firstWorld != nil || secondWorld != nil || badDuration != 0 {
+		t.Fatal("expected unsupported deterministic world state")
+	}
+	if duration, err := durationValue(map[string]string{"duration": "10 steps"}, "duration"); err != nil || duration != sim.DefaultParameters().StepDuration()*10 {
+		t.Fatalf("10 steps duration = %v, %v", duration, err)
+	}
+	if duration, err := durationValue(map[string]string{"duration": "1 second"}, "duration"); err != nil || duration != 1 {
+		t.Fatalf("1 second duration = %v, %v", duration, err)
+	}
+	if duration, err := durationValue(map[string]string{}, "duration"); err == nil || duration != 0 || !strings.Contains(err.Error(), "duration") {
+		t.Fatalf("expected missing duration, got %v, %v", duration, err)
+	}
+	if rate, err := frameRateValue(map[string]string{"frame_rate": "30 fps"}); err != nil || rate != 30 {
+		t.Fatalf("30 fps = %v, %v", rate, err)
+	}
+	if rate, err := frameRateValue(map[string]string{"frame_rate": "bogus"}); err == nil || rate != 0 {
+		t.Fatalf("expected unsupported frame rate, got %v, %v", rate, err)
+	}
+	if err := requireMarker(map[string]string{}, "state", "ready"); err == nil || !strings.Contains(err.Error(), "state") {
+		t.Fatalf("expected missing marker, got %v", err)
+	}
+	if err := requireMarker(map[string]string{"state": "waiting"}, "state", "ready"); err == nil {
+		t.Fatal("expected marker mismatch")
+	}
+}
+
+func TestStartupEditorPureHelpers(t *testing.T) {
+	simWorld := sim.NewWorld()
+	_ = simWorld.AddMass(sim.Mass{ID: 1, Fixed: true})
+	_ = simWorld.AddMass(sim.Mass{ID: 2})
+	_ = simWorld.AddMass(sim.Mass{ID: 3})
+	_ = simWorld.AddSpring(sim.Spring{ID: 1, MassA: 1, MassB: 2})
+	if count := startupObjectCount(simWorld, "fixed mass"); count != 1 {
+		t.Fatalf("fixed mass count = %d", count)
+	}
+	if count := startupObjectCount(simWorld, "movable mass"); count != 2 {
+		t.Fatalf("movable mass count = %d", count)
+	}
+	if count := startupObjectCount(simWorld, "spring"); count != 1 {
+		t.Fatalf("spring count = %d", count)
+	}
+	if count := startupObjectCount(simWorld, "unknown"); count != 0 {
+		t.Fatalf("unknown count = %d", count)
+	}
+	if sameStringSlices([]string{"a"}, []string{"a", "b"}) {
+		t.Fatal("expected length mismatch")
+	}
+	if sameStringSlices([]string{"a"}, []string{"b"}) {
+		t.Fatal("expected value mismatch")
+	}
+	if !sameStringSlices([]string{"a", "b"}, []string{"a", "b"}) {
+		t.Fatal("expected matching slices")
+	}
+	if len(startupRegions()) != 5 {
+		t.Fatalf("startup regions = %#v", startupRegions())
+	}
+	if _, err := concreteStartupGame(&world{}); err == nil {
+		t.Fatal("expected missing startup game")
+	}
+	if err := assertStartupObjectCount(&world{}, map[string]string{"object_count": "none", "object_type": "spring"}); err == nil || !strings.Contains(err.Error(), "unsupported object count") {
+		t.Fatalf("expected unsupported object count, got %v", err)
 	}
 }
 

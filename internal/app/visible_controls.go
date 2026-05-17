@@ -133,7 +133,7 @@ func analyzeDrawnFrame(game *Game) DrawFrameReport {
 		Controls:            visibleControlLabels(),
 		InspectorSections:   visibleInspectorSections(),
 		StatusFields:        game.visibleStatusFields(),
-		RegionControlCounts: visibleRegionControlCounts(),
+		RegionControlCounts: game.visibleRegionControlCounts(),
 		ControlLabelsFit:    visibleLabelsFit(game),
 	}
 	for name := range visibleRegionRects() {
@@ -167,7 +167,7 @@ func (g *Game) visibleStatusFields() map[string]string {
 	return fields
 }
 
-func visibleRegionControlCounts() map[string]int {
+func (g *Game) visibleRegionControlCounts() map[string]int {
 	counts := map[string]int{}
 	for _, control := range visibleControls() {
 		counts[control.Region]++
@@ -175,7 +175,7 @@ func visibleRegionControlCounts() map[string]int {
 	for _, section := range inspectorSections() {
 		counts[section.Region]++
 	}
-	counts["status line"] = 4
+	counts["status line"] = len(g.statusFields())
 	return counts
 }
 

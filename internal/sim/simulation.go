@@ -3,6 +3,7 @@ package sim
 import (
 	"errors"
 	"fmt"
+	"math"
 )
 
 var (
@@ -208,10 +209,7 @@ func (s *Simulation) Advance(steps int, dt float64) {
 func (s *Simulation) AdvanceDuration(duration float64) {
 	s.LastAdvanceSteps = 0
 	for remaining := duration; remaining > advanceEpsilon; {
-		step := s.advanceStepDuration()
-		if remaining < step {
-			step = remaining
-		}
+		step := math.Min(remaining, s.advanceStepDuration())
 		s.Step(step)
 		s.LastAdvanceSteps++
 		remaining -= step
@@ -232,19 +230,19 @@ func (s *Simulation) advanceStepDuration() float64 {
 }
 
 func (s *Simulation) configuredTimeStep() float64 {
-	dt := parameterFloat(s.Parameters, "timestep")
-	if dt <= 0 {
-		return defaultStepDuration
-	}
-	return dt
+	return positiveParameterOrDefault(s.Parameters, "timestep", defaultStepDuration)
 }
 
 func (s *Simulation) configuredPrecision() float64 {
-	precision := parameterFloat(s.Parameters, "precision")
-	if precision <= 0 {
-		return defaultPrecision
+	return positiveParameterOrDefault(s.Parameters, "precision", defaultPrecision)
+}
+
+func positiveParameterOrDefault(parameters Parameters, name string, defaultValue float64) float64 {
+	value := parameterFloat(parameters, name)
+	if value <= 0 {
+		return defaultValue
 	}
-	return precision
+	return value
 }
 
 func adaptiveStepDuration(dt, precision float64) float64 {
@@ -252,10 +250,7 @@ func adaptiveStepDuration(dt, precision float64) float64 {
 	if step <= 0 {
 		return dt
 	}
-	if step > dt {
-		return dt
-	}
-	return step
+	return math.Min(step, dt)
 }
 
 func (s *Simulation) stepRK4(dt float64) {

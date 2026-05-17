@@ -32,6 +32,25 @@ func TestSpringDampingActsAlongSpringDirection(t *testing.T) {
 	}
 }
 
+func TestSpringForceHandlesCoincidentAndCompressedMasses(t *testing.T) {
+	coincident := NewWorld()
+	_ = coincident.AddMass(Mass{ID: 1, Position: Vec2{X: 5, Y: 5}, Mass: 1})
+	_ = coincident.AddMass(Mass{ID: 2, Position: Vec2{X: 5, Y: 5}, Mass: 1})
+	_ = coincident.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, RestLength: 10, SpringConstant: 12})
+	forces := coincident.EvaluateForces()
+	if forces.ByMassID[1].Force != (Vec2{}) || forces.ByMassID[2].Force != (Vec2{}) {
+		t.Fatalf("coincident spring forces = %#v", forces.ByMassID)
+	}
+
+	compressed := NewWorld()
+	_ = compressed.AddMass(Mass{ID: 1, Position: Vec2{X: 0, Y: 0}, Mass: 1})
+	_ = compressed.AddMass(Mass{ID: 2, Position: Vec2{X: 5, Y: 0}, Mass: 1})
+	_ = compressed.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, RestLength: 10, SpringConstant: 2})
+	forces = compressed.EvaluateForces()
+	assertVecEqual(t, forces.ByMassID[1].Force, Vec2{X: -10})
+	assertVecEqual(t, forces.ByMassID[2].Force, Vec2{X: 10})
+}
+
 func TestEnvironmentalForcesCanBeEvaluatedIndependently(t *testing.T) {
 	for _, forceName := range []string{"gravity", "viscosity", "wall repulsion", "center attraction", "center of mass attraction"} {
 		world := worldWithEnvironmentalForce(forceName)
@@ -105,6 +124,16 @@ func TestGravityDirectionUsesXSpringiesDegrees(t *testing.T) {
 	}
 }
 
+func TestGravityScalesByMagnitudeAndMass(t *testing.T) {
+	world := NewWorld()
+	world.Parameters.EnableForce("gravity", map[string]string{"magnitude": "2", "direction": "45"})
+	_ = world.AddMass(Mass{ID: 1, Position: Vec2{}, Mass: 3})
+
+	force := world.EvaluateForces().ByMassID[1].Force
+
+	assertVecEqual(t, roundedVec(force), Vec2{X: 4, Y: 4})
+}
+
 func TestCenterMassDoesNotReceiveCenterForceResponse(t *testing.T) {
 	world := NewWorld()
 	world.Parameters.EnableForce("center attraction", map[string]string{"magnitude": "10", "exponent": "0"})
@@ -119,6 +148,143 @@ func TestCenterMassDoesNotReceiveCenterForceResponse(t *testing.T) {
 	}
 	if forces.ByMassID[2].Force == (Vec2{}) {
 		t.Fatal("non-center mass did not receive center force")
+	}
+}
+
+func TestCenterForceBoundaryAndDamping(t *testing.T) {
+	disabled := NewWorld()
+	_ = disabled.AddMass(Mass{ID: 1, Position: Vec2{X: 10, Y: 0}, Mass: 1})
+	if force := disabled.EvaluateForces().ByMassID[1].Force; force != (Vec2{}) {
+		t.Fatalf("disabled center force = %#v", force)
+	}
+
+	atCenter := NewWorld()
+	atCenter.Bounds = Bounds{Width: 100, Height: 100}
+	atCenter.Parameters.EnableForce("center attraction", map[string]string{"magnitude": "10", "exponent": "1"})
+	_ = atCenter.AddMass(Mass{ID: 1, Position: Vec2{X: 50, Y: 50}, Mass: 1})
+	if force := atCenter.EvaluateForces().ByMassID[1].Force; force != (Vec2{}) {
+		t.Fatalf("mass at center force = %#v", force)
+	}
+
+	damped := NewWorld()
+	damped.Parameters.EnableForce("center of mass attraction", map[string]string{"magnitude": "10", "damping": "2"})
+	_ = damped.AddMass(Mass{ID: 1, Position: Vec2{X: 0, Y: 0}, Velocity: Vec2{X: 2}, Mass: 1})
+	_ = damped.AddMass(Mass{ID: 2, Position: Vec2{X: 10, Y: 0}, Mass: 1})
+	force := damped.EvaluateForces().ByMassID[1].Force
+	assertVecEqual(t, force, Vec2{X: -2})
+
+	centerMass := NewWorld()
+	centerMass.Parameters.EnableForce("center of mass attraction", map[string]string{"magnitude": "10", "damping": "0"})
+	_ = centerMass.AddMass(Mass{ID: 1, Position: Vec2{X: 0, Y: 0}, Mass: 1})
+	_ = centerMass.AddMass(Mass{ID: 2, Position: Vec2{X: 10, Y: 0}, Mass: 1})
+	centerMass.SetForceCenter([]int{1})
+	if force := centerMass.EvaluateForces().ByMassID[1].Force; force != (Vec2{}) {
+		t.Fatalf("center mass center-of-mass force = %#v", force)
+	}
+}
+
+func TestForceCenterAndCenterOfMassFallbacks(t *testing.T) {
+	world := NewWorld()
+	world.Bounds = Bounds{Width: 80, Height: 60}
+	world.Parameters.Set("center mass", "0")
+	if got := world.forceCenter(); got != (Vec2{X: 40, Y: 30}) {
+		t.Fatalf("zero center id force center = %#v", got)
+	}
+	world.Masses = []Mass{{ID: 0, Position: Vec2{X: 1, Y: 2}}}
+	if got := world.forceCenter(); got != (Vec2{X: 40, Y: 30}) {
+		t.Fatalf("zero center id with invalid mass = %#v", got)
+	}
+	world.Parameters.Set("center mass", "1")
+	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: 10, Y: 20}, Mass: 1})
+	if got := world.forceCenter(); got != (Vec2{X: 10, Y: 20}) {
+		t.Fatalf("selected force center = %#v", got)
+	}
+	world.Masses = nil
+	if got := world.centerOfMass(); got != (Vec2{X: 40, Y: 30}) {
+		t.Fatalf("empty center of mass = %#v", got)
+	}
+
+	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: 10, Y: 20}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 2, Position: Vec2{X: 30, Y: 40}, Mass: 1})
+	if got := world.centerOfMass(); got != (Vec2{X: 20, Y: 30}) {
+		t.Fatalf("center of mass = %#v", got)
+	}
+}
+
+func TestWallForceBoundariesAndHelpers(t *testing.T) {
+	world := NewWorld()
+	world.Bounds = Bounds{Width: 100, Height: 100}
+	world.Parameters.EnableForce("wall repulsion", map[string]string{"magnitude": "8", "exponent": "1"})
+	for _, wall := range []string{"top", "left", "right", "bottom"} {
+		world.Parameters.EnableWall(wall)
+	}
+	for _, mass := range []Mass{
+		{ID: 1, Position: Vec2{X: 10, Y: 0}, Mass: 1},
+		{ID: 2, Position: Vec2{X: 0, Y: 10}, Mass: 1},
+		{ID: 3, Position: Vec2{X: 100, Y: 10}, Mass: 1},
+		{ID: 4, Position: Vec2{X: 10, Y: 100}, Mass: 1},
+	} {
+		_ = world.AddMass(mass)
+	}
+
+	forces := world.EvaluateForces()
+	for id := 1; id <= 4; id++ {
+		if force := forces.ByMassID[id].Force; force != (Vec2{}) {
+			t.Fatalf("boundary mass %d force = %#v", id, force)
+		}
+	}
+	if got := wallMagnitude(8, 0, 2); got != 8 {
+		t.Fatalf("zero-distance wall magnitude = %v", got)
+	}
+	if got := wallMagnitude(8, 1, 2); got != 8 {
+		t.Fatalf("unit-distance wall magnitude = %v", got)
+	}
+	if got := wallMagnitude(8, 0.5, 1); got != 16 {
+		t.Fatalf("fractional-distance wall magnitude = %v", got)
+	}
+	if got := wallMagnitude(8, 2, 1); got != 4 {
+		t.Fatalf("positive-distance wall magnitude = %v", got)
+	}
+	if got := dot(Vec2{X: 2, Y: 3}, Vec2{X: 5, Y: 7}); got != 31 {
+		t.Fatalf("dot = %v", got)
+	}
+
+	disabled := NewWorld()
+	disabled.Parameters.EnableForce("wall repulsion", map[string]string{"magnitude": "8", "exponent": "1"})
+	_ = disabled.AddMass(Mass{ID: 1, Position: Vec2{X: -1, Y: 50}, Mass: 1})
+	if force := disabled.EvaluateForces().ByMassID[1].Force; force != (Vec2{}) {
+		t.Fatalf("disabled wall force = %#v", force)
+	}
+
+	outside := NewWorld()
+	outside.Bounds = Bounds{Width: 100, Height: 100}
+	outside.Parameters.EnableForce("wall repulsion", map[string]string{"magnitude": "8", "exponent": "1"})
+	outside.Parameters.EnableWall("right")
+	outside.Parameters.EnableWall("bottom")
+	_ = outside.AddMass(Mass{ID: 1, Position: Vec2{X: 101, Y: 50}, Mass: 1})
+	_ = outside.AddMass(Mass{ID: 2, Position: Vec2{X: 50, Y: 101}, Mass: 1})
+	forces = outside.EvaluateForces()
+	assertVecEqual(t, forces.ByMassID[1].Force, Vec2{X: -8})
+	assertVecEqual(t, forces.ByMassID[2].Force, Vec2{Y: -8})
+}
+
+func TestCenterMassAndEnabledForceHelpers(t *testing.T) {
+	world := NewWorld()
+	world.Parameters.Set("center mass", "not-an-id")
+	if world.CenterMassID() != -1 {
+		t.Fatalf("invalid center id = %d", world.CenterMassID())
+	}
+	if world.IsCenterMass(0) {
+		t.Fatal("zero id reported as center mass")
+	}
+	world.Parameters.Set("center mass", "0")
+	if world.IsCenterMass(0) {
+		t.Fatal("zero center id reported as center mass")
+	}
+	world.Parameters.EnableForce("gravity", map[string]string{"magnitude": "1"})
+	world.Parameters.Forces["gravity"] = ForceConfig{Enabled: "false", Values: map[string]string{"magnitude": "1"}}
+	if _, ok := world.enabledForce("gravity"); ok {
+		t.Fatal("disabled configured force reported enabled")
 	}
 }
 

@@ -338,11 +338,7 @@ func deterministicWorlds(example map[string]string) (*sim.Simulation, *sim.Simul
 	if err != nil {
 		return nil, nil, 0, err
 	}
-	second, err := worldFromExampleState(example)
-	if err != nil {
-		return nil, nil, 0, err
-	}
-	return first, second, duration, nil
+	return first, first.Clone(), duration, nil
 }
 
 func worldFromExampleState(example map[string]string) (*sim.Simulation, error) {

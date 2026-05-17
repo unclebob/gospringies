@@ -31,15 +31,36 @@ func TestNewWorldStartsWithEditableForceAndWallConfiguration(t *testing.T) {
 		if !ok {
 			t.Fatalf("missing force %q", name)
 		}
+		if force.Enabled != "false" {
+			t.Fatalf("force %q enabled by default: %#v", name, force)
+		}
 		if len(force.Values) == 0 {
 			t.Fatalf("force %q has no editable values", name)
 		}
 	}
 
 	for _, name := range []string{"top", "left", "right", "bottom"} {
-		if _, ok := world.Parameters.WallEnabled(name); !ok {
+		enabled, ok := world.Parameters.WallEnabled(name)
+		if !ok {
 			t.Fatalf("missing wall %q", name)
 		}
+		if enabled {
+			t.Fatalf("wall %q enabled by default", name)
+		}
+	}
+}
+
+func TestEnableForcePreservesExistingValues(t *testing.T) {
+	parameters := DefaultParameters()
+
+	parameters.EnableForce("gravity", nil)
+
+	force, _ := parameters.Force("gravity")
+	if force.Enabled != "true" || force.Values["magnitude"] != "0" || force.Values["direction"] != "90" {
+		t.Fatalf("gravity after enable = %#v", force)
+	}
+	if parameters.ActiveForce != "gravity" {
+		t.Fatalf("active force = %q", parameters.ActiveForce)
 	}
 }
 
