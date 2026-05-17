@@ -359,7 +359,7 @@ func TestRunFeatureExecutesAdaptiveRK4NumericsFeature(t *testing.T) {
 }
 
 func TestRunFeatureExecutesNonblankStartupEditorFeature(t *testing.T) {
-	runFeatureFile(t, "features/023_nonblank_startup_editor.feature")
+	runFeatureFile(t, "features/023_1_nonblank_startup_editor.feature")
 }
 
 func TestWallCollisionHelpersValidateInputs(t *testing.T) {
@@ -781,6 +781,10 @@ func worldWithParameterSpringEndpoints() *sim.Simulation {
 	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 0, Y: 20}, Mass: 1})
 	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 40, Y: 20}, Mass: 1})
 	return world
+}
+
+func TestRunFeatureExecutesOriginalDemoCorpusFeature(t *testing.T) {
+	runFeatureFile(t, "features/025_original_demo_corpus.feature")
 }
 
 func TestRenderWorldHelpersValidateInputs(t *testing.T) {

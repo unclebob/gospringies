@@ -31,4 +31,6 @@ Suggested order:
 21. `020-xsp-complete-file-format.md`
 22. `021-force-center-and-force-parameters.md`
 23. `022-adaptive-rk4-numerics.md`
-24. `023-nonblank-startup-editor.md`
+24. `023.1-nonblank-startup-editor.md`
+25. `024-original-style-human-interface.md`
+26. `025-original-demo-corpus.md`

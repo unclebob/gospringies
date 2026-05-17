@@ -265,17 +265,17 @@ func TestForceValueSuffix(t *testing.T) {
 }
 
 func TestXSPParseHelperErrorValues(t *testing.T) {
-	if x, y, mass, elasticity, err := massNumericFields([]string{"mass", "1", "bad", "2", "3", "4"}); err == nil || x != 0 || y != 0 || mass != 0 || elasticity != 0 {
-		t.Fatalf("mass x parse = %v, %v, %v, %v, %v", x, y, mass, elasticity, err)
+	if position, velocity, mass, elasticity, err := massNumericFields([]string{"mass", "1", "bad", "2", "3", "4"}); err == nil || position != (sim.Vec2{}) || velocity != (sim.Vec2{}) || mass != 0 || elasticity != 0 {
+		t.Fatalf("mass x parse = %v, %v, %v, %v, %v", position, velocity, mass, elasticity, err)
 	}
-	if x, y, mass, elasticity, err := massNumericFields([]string{"mass", "1", "1", "bad", "3", "4"}); err == nil || x != 0 || y != 0 || mass != 0 || elasticity != 0 {
-		t.Fatalf("mass y parse = %v, %v, %v, %v, %v", x, y, mass, elasticity, err)
+	if position, velocity, mass, elasticity, err := massNumericFields([]string{"mass", "1", "1", "bad", "3", "4"}); err == nil || position != (sim.Vec2{}) || velocity != (sim.Vec2{}) || mass != 0 || elasticity != 0 {
+		t.Fatalf("mass y parse = %v, %v, %v, %v, %v", position, velocity, mass, elasticity, err)
 	}
-	if x, y, mass, elasticity, err := massNumericFields([]string{"mass", "1", "1", "2", "bad", "4"}); err == nil || x != 0 || y != 0 || mass != 0 || elasticity != 0 {
-		t.Fatalf("mass value parse = %v, %v, %v, %v, %v", x, y, mass, elasticity, err)
+	if position, velocity, mass, elasticity, err := massNumericFields([]string{"mass", "1", "1", "2", "bad", "4"}); err == nil || position != (sim.Vec2{}) || velocity != (sim.Vec2{}) || mass != 0 || elasticity != 0 {
+		t.Fatalf("mass value parse = %v, %v, %v, %v, %v", position, velocity, mass, elasticity, err)
 	}
-	if x, y, mass, elasticity, err := massNumericFields([]string{"mass", "1", "1", "2", "3", "bad"}); err == nil || x != 0 || y != 0 || mass != 0 || elasticity != 0 {
-		t.Fatalf("mass elasticity parse = %v, %v, %v, %v, %v", x, y, mass, elasticity, err)
+	if position, velocity, mass, elasticity, err := massNumericFields([]string{"mass", "1", "1", "2", "3", "bad"}); err == nil || position != (sim.Vec2{}) || velocity != (sim.Vec2{}) || mass != 0 || elasticity != 0 {
+		t.Fatalf("mass elasticity parse = %v, %v, %v, %v, %v", position, velocity, mass, elasticity, err)
 	}
 	if value, err := intField("bad", "id"); err == nil || value != 0 {
 		t.Fatalf("int parse = %v, %v", value, err)

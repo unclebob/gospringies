@@ -1,13 +1,18 @@
-Feature: Nonblank startup editor
+Feature: Nonblank startup editor 23.1
 
 Background:
-  Given the nonblank startup editor task is accepted
+  Given the nonblank startup editor 23.1 task is accepted
 
-Scenario: startup screen shows more than debug text
+Scenario Outline: startup screen shows more than debug text
   When the coder starts the desktop application
   Then the first screen should show visible editor chrome
   And the first screen should show visible world content
   And debug text should not be the only visible content
+  And the startup world should be loaded from <default_demo>
+
+Examples:
+  | default_demo       |
+  | demos/pendulum.xsp |
 
 Scenario Outline: editor chrome is visible on startup
   When the coder starts the desktop application
@@ -35,3 +40,11 @@ Scenario: startup state is deterministic
   When the coder starts the desktop application twice
   Then both startup worlds should be equivalent
   And both startup screens should show the same editor chrome
+
+Scenario Outline: startup uses the default demo scene
+  When the coder starts the desktop application
+  Then the startup world should match demo file <default_demo>
+
+Examples:
+  | default_demo       |
+  | demos/pendulum.xsp |
