@@ -28,17 +28,19 @@ var (
 )
 
 type Game struct {
-	simulation      *sim.Simulation
-	initialState    *sim.Simulation
-	savedState      *sim.Simulation
-	mode            string
-	selected        bool
-	dirty           bool
-	lastCommand     string
-	paused          bool
-	inputActive     bool
-	renderingActive bool
-	closed          bool
+	simulation       *sim.Simulation
+	initialState     *sim.Simulation
+	savedState       *sim.Simulation
+	mode             string
+	selected         bool
+	dirty            bool
+	lastCommand      string
+	pathEntryCommand string
+	paused           bool
+	mousePressed     bool
+	inputActive      bool
+	renderingActive  bool
+	closed           bool
 }
 
 type WindowConfig struct {
@@ -69,10 +71,20 @@ func Run() error {
 
 func (g *Game) Update() error {
 	g.inputActive = true
+	g.pollMouseControls()
 	if !g.paused {
 		g.simulation.Step(1.0 / 60.0)
 	}
 	return nil
+}
+
+func (g *Game) pollMouseControls() {
+	pressed := ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)
+	if pressed && !g.mousePressed {
+		x, y := ebiten.CursorPosition()
+		g.ClickAt(x, y)
+	}
+	g.mousePressed = pressed
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {

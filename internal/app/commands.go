@@ -7,14 +7,32 @@ import (
 
 func (g *Game) RunCommand(command string) {
 	g.lastCommand = command
+	g.pathEntryCommand = ""
 	switch command {
+	case "run":
+		g.paused = false
 	case "pause", "pause toggle":
 		g.paused = !g.paused
 	case "reset":
 		g.simulation.Reset()
 		g.dirty = false
+	case "load", "insert", "save":
+		g.pathEntryCommand = pathEntryLabel(command)
 	case "quit":
 		_ = g.Close()
+	}
+}
+
+func pathEntryLabel(command string) string {
+	switch command {
+	case "load":
+		return "Load"
+	case "insert":
+		return "Insert"
+	case "save":
+		return "Save"
+	default:
+		return ""
 	}
 }
 
