@@ -358,6 +358,10 @@ func TestRunFeatureExecutesAdaptiveRK4NumericsFeature(t *testing.T) {
 	runFeatureFile(t, "features/022_adaptive_rk4_numerics.feature")
 }
 
+func TestRunFeatureExecutesNonblankStartupEditorFeature(t *testing.T) {
+	runFeatureFile(t, "features/023_nonblank_startup_editor.feature")
+}
+
 func TestRenderWorldHelpersValidateInputs(t *testing.T) {
 	if err := createApplicationWorldState(&world{}, map[string]string{}); err == nil {
 		t.Fatal("expected missing world state")
@@ -419,7 +423,7 @@ func TestRenderableObjectSetupsCreateExpectedWorlds(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			game := app.NewGame()
+			game := emptyRenderGame()
 			if err := addRenderableObject(game, test.name); err != nil {
 				t.Fatal(err)
 			}
@@ -434,7 +438,7 @@ func TestRenderableObjectSetupsCreateExpectedWorlds(t *testing.T) {
 		})
 	}
 
-	if err := addRenderableObject(app.NewGame(), "unsupported"); err == nil {
+	if err := addRenderableObject(emptyRenderGame(), "unsupported"); err == nil {
 		t.Fatal("expected unsupported renderable object")
 	}
 }
@@ -1083,13 +1087,9 @@ func TestApplicationWindowHelpersReportFailures(t *testing.T) {
 		t.Fatal("expected missing application")
 	}
 
-	worldWithMass := appWorldWithMassAndSpring(true, false)
-	if err := assertApplicationWorldEmpty(worldWithMass, nil); err == nil {
-		t.Fatal("expected nonempty mass error")
-	}
 	worldWithSpring := appWorldWithMassAndSpring(false, true)
 	if err := assertApplicationWorldEmpty(worldWithSpring, nil); err == nil {
-		t.Fatal("expected nonempty spring error")
+		t.Fatal("expected invalid spring-only world error")
 	}
 
 	if err := resizeApplicationWindow(&world{}, map[string]string{"window_size": "small"}); err != nil {
@@ -1246,6 +1246,7 @@ func TestScreenCommandAndStateHelpersReportFailures(t *testing.T) {
 
 func appWorldWithMassAndSpring(includeMass, includeSpring bool) *world {
 	game := app.NewGame()
+	game.World().Reset()
 	if includeMass || includeSpring {
 		_ = game.World().AddMass(sim.Mass{ID: 1, Mass: 1})
 	}

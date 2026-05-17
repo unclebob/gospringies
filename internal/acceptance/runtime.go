@@ -38,6 +38,7 @@ type world struct {
 	appBeforeTime        float64
 	appWindowSize        string
 	editorScreen         editorScreen
+	startupSecondScreen  editorScreen
 	renderResult         renderResult
 	mouseEditor          *edit.Editor
 	createdMassID        int
@@ -427,6 +428,15 @@ var stepHandlers = map[string]stepHandler{
 	"wall <wall> is disabled":                                                              disableWall,
 	"mass <mass_id> moves toward wall <wall>":                                              moveMassTowardWall,
 	"mass <mass_id> should not bounce from wall <wall>":                                    assertMassDidNotBounce,
+	"the nonblank startup editor task is accepted":                                         acceptStep,
+	"the first screen should show visible editor chrome":                                   assertStartupEditorChrome,
+	"the first screen should show visible world content":                                   assertStartupWorldContent,
+	"debug text should not be the only visible content":                                    assertDebugTextNotOnlyContent,
+	"startup screen region <region> should be visible":                                     assertStartupRegionVisible,
+	"the startup world should contain <object_count> <object_type>":                        assertStartupObjectCount,
+	"the coder starts the desktop application twice":                                       startDesktopApplicationTwice,
+	"both startup worlds should be equivalent":                                             assertStartupWorldsEquivalent,
+	"both startup screens should show the same editor chrome":                              assertStartupScreensEquivalent,
 }
 
 func acceptStep(*world, map[string]string) error {

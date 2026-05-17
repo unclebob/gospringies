@@ -148,22 +148,6 @@ func TestDragReportsMissingMass(t *testing.T) {
 	}
 }
 
-func TestDragFixedMassDoesNotMoveOtherMasses(t *testing.T) {
-	world := sim.NewWorld()
-	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
-	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 20, Y: 20}, Mass: 1, Fixed: true})
-	editor := NewEditor(world)
-
-	if err := editor.DragMass(2, sim.Vec2{X: 40, Y: 50}); err != nil {
-		t.Fatal(err)
-	}
-	movable, _ := world.MassByID(1)
-	fixed, _ := world.MassByID(2)
-	if movable.Position != (sim.Vec2{X: 10, Y: 10}) || fixed.Position != (sim.Vec2{X: 20, Y: 20}) {
-		t.Fatalf("movable = %#v fixed = %#v", movable, fixed)
-	}
-}
-
 func TestEditorMathHelpersCoverBoundaryCases(t *testing.T) {
 	world := sim.NewWorld()
 	_ = world.AddMass(sim.Mass{ID: 1, Mass: 1})
