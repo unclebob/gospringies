@@ -79,6 +79,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	result := g.RenderWorld()
 	screen.Fill(backgroundColor)
 	g.drawEditorChrome(screen)
+	g.drawVisibleControls(screen)
 	if result.SpringLinesVisible {
 		g.drawSprings(screen)
 	}

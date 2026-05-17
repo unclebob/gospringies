@@ -362,6 +362,10 @@ func TestRunFeatureExecutesNonblankStartupEditorFeature(t *testing.T) {
 	runFeatureFile(t, "features/023_1_nonblank_startup_editor.feature")
 }
 
+func TestRunFeatureExecutesRenderVisibleControlsFeature(t *testing.T) {
+	runFeatureFile(t, "features/024_1_render_visible_controls.feature")
+}
+
 func TestRunFeatureExecutesOriginalDemoCorpusFeature(t *testing.T) {
 	runFeatureFile(t, "features/025_original_demo_corpus.feature")
 }

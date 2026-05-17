@@ -19,6 +19,7 @@ type appGame interface {
 	SetDirty(bool)
 	HandleShortcut(string) bool
 	LastCommand() string
+	DrawFrameReport() app.DrawFrameReport
 	InputActive() bool
 	RenderingActive() bool
 	Close() error

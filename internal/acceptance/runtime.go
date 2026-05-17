@@ -38,6 +38,7 @@ type world struct {
 	appWindowSize        string
 	editorScreen         editorScreen
 	startupSecondScreen  editorScreen
+	visibleControlsFrame drawFrameReport
 	renderResult         renderResult
 	mouseEditor          *edit.Editor
 	createdMassID        int
@@ -439,6 +440,18 @@ var stepHandlers = map[string]stepHandler{
 	"both startup worlds should be equivalent":                                             assertStartupWorldsEquivalent,
 	"both startup screens should show the same editor chrome":                              assertStartupScreensEquivalent,
 	"the startup world should match demo file <default_demo>":                              assertStartupWorldMatchesDemo,
+	"the render visible controls task is accepted":                                         acceptStep,
+	"the coder draws the application frame":                                                drawApplicationFrame,
+	"screen region <region> should contain non-background pixels":                          assertFrameRegionHasPixels,
+	"screen region <region> should not contain only debug text":                            assertFrameRegionNotOnlyDebugText,
+	"visible control <control> should have readable label <label>":                         assertVisibleControlReadableLabel,
+	"inspector section <section> should be visible":                                        assertInspectorSectionVisible,
+	"status field <field> should be visible":                                               assertStatusFieldVisible,
+	"status field <field> should show <state>":                                             assertStatusFieldShows,
+	"the canvas should contain visible world content":                                      assertCanvasWorldContentVisible,
+	"editor chrome should not cover all world content":                                     assertChromeDoesNotCoverAllWorldContent,
+	"the coder draws the application frame at the default window size":                     drawApplicationFrameDefaultSize,
+	"visible control labels should fit inside their regions":                               assertVisibleControlLabelsFit,
 	"the original demo corpus task is accepted":                                            acceptStep,
 	"the coder imports the original XSpringies demo corpus":                                importOriginalDemoCorpus,
 	"imported demo file <demo_file> should exist under <demo_directory>":                   assertImportedDemoExists,

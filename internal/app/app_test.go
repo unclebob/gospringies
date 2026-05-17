@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -81,6 +82,71 @@ func TestGameDraw(t *testing.T) {
 
 	if !game.RenderingActive() {
 		t.Fatal("expected rendering to be active")
+	}
+}
+
+func TestDrawFrameRendersVisibleControlRegions(t *testing.T) {
+	report := NewGame().DrawFrameReport()
+
+	for _, region := range []string{"left toolbar", "top command bar", "right inspector", "status line"} {
+		if report.RegionPixels[region] == 0 {
+			t.Fatalf("region %q had no visible pixels: %#v", region, report.RegionPixels)
+		}
+		if report.RegionControlCounts[region] == 0 {
+			t.Fatalf("region %q had no controls: %#v", region, report.RegionControlCounts)
+		}
+	}
+}
+
+func TestDrawFrameRendersReadableControlLabels(t *testing.T) {
+	report := NewGame().DrawFrameReport()
+	expected := map[string]string{
+		"select mode":    "Select",
+		"mass mode":      "Mass",
+		"spring mode":    "Spring",
+		"drag mode":      "Drag",
+		"run command":    "Run",
+		"pause command":  "Pause",
+		"reset command":  "Reset",
+		"load command":   "Load",
+		"insert command": "Insert",
+		"save command":   "Save",
+		"quit command":   "Quit",
+	}
+	for control, label := range expected {
+		if report.Controls[control] != label {
+			t.Fatalf("control %q label = %q, want %q", control, report.Controls[control], label)
+		}
+	}
+	if !report.ControlLabelsFit {
+		t.Fatal("expected visible control labels to fit")
+	}
+}
+
+func TestDrawFrameRendersInspectorAndStatusFields(t *testing.T) {
+	report := NewGame().DrawFrameReport()
+	for _, section := range []string{"Mass", "Spring", "Forces", "Walls", "Simulation"} {
+		if !report.InspectorSections[section] {
+			t.Fatalf("missing inspector section %q: %#v", section, report.InspectorSections)
+		}
+	}
+	for field, expected := range map[string]string{
+		"mode":          "Select mode",
+		"run state":     "running",
+		"object counts": "object counts",
+		"file state":    "saved",
+	} {
+		if !strings.Contains(report.StatusFields[field], expected) {
+			t.Fatalf("status field %q = %q, want it to contain %q", field, report.StatusFields[field], expected)
+		}
+	}
+}
+
+func TestDrawFrameKeepsWorldContentVisible(t *testing.T) {
+	report := NewGame().DrawFrameReport()
+
+	if report.CanvasWorldPixels == 0 {
+		t.Fatalf("expected visible world pixels in canvas: %#v", report)
 	}
 }
 
