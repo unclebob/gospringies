@@ -289,6 +289,18 @@ func TestBuildMutationsSkipsEquivalentSpringModeMouseCells(t *testing.T) {
 	if isEquivalentSpringModeMouseMutation(0, 0, "release_target") {
 		t.Fatal("release target mutation should remain meaningful")
 	}
+	if !springModeDiscardStartMass(0, 1, "start_mass") {
+		t.Fatal("discard scenario second example start mass should be equivalent")
+	}
+	if springModeDiscardStartMass(1, 1, "start_mass") {
+		t.Fatal("non-discard scenario start mass should remain meaningful")
+	}
+	if springModeDiscardStartMass(0, 0, "start_mass") {
+		t.Fatal("first creation example start mass should remain meaningful")
+	}
+	if springModeDiscardStartMass(0, 1, "release_target") {
+		t.Fatal("discard release target should remain meaningful")
+	}
 }
 
 func TestBuildMutationsSkipsEquivalentStateSaveRestoreRepeatedRestoreCount(t *testing.T) {

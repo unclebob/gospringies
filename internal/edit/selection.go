@@ -2,6 +2,7 @@ package edit
 
 import (
 	"fmt"
+	"math"
 
 	"springs/internal/sim"
 )
@@ -33,6 +34,25 @@ func (e *Editor) SelectNearest(position sim.Vec2, toggle bool) error {
 	return nil
 }
 
+func (e *Editor) selectExisting(id int, objectType string, exists func(int) bool, selectObject func()) error {
+	if !exists(id) {
+		return fmt.Errorf("%s %d not found", objectType, id)
+	}
+	e.clearSelection()
+	selectObject()
+	return nil
+}
+
+func (e *Editor) SelectAll() {
+	e.clearSelection()
+	for _, mass := range e.World.Masses {
+		e.SelectedMasses[mass.ID] = true
+	}
+	for _, spring := range e.World.Springs {
+		e.SelectedSprings[spring.ID] = true
+	}
+}
+
 func (e *Editor) BoxSelect(min sim.Vec2, max sim.Vec2, add bool) {
 	if !add {
 		e.clearSelection()
@@ -57,25 +77,6 @@ func (e *Editor) ThrowSelected(velocity sim.Vec2) {
 		if e.SelectedMasses[e.World.Masses[i].ID] && !e.World.Masses[i].Fixed {
 			e.World.Masses[i].Velocity = velocity
 		}
-	}
-}
-
-func (e *Editor) selectExisting(id int, objectType string, exists func(int) bool, selectObject func()) error {
-	if !exists(id) {
-		return fmt.Errorf("%s %d not found", objectType, id)
-	}
-	e.clearSelection()
-	selectObject()
-	return nil
-}
-
-func (e *Editor) SelectAll() {
-	e.clearSelection()
-	for _, mass := range e.World.Masses {
-		e.SelectedMasses[mass.ID] = true
-	}
-	for _, spring := range e.World.Springs {
-		e.SelectedSprings[spring.ID] = true
 	}
 }
 
@@ -220,14 +221,21 @@ func (e *Editor) nearestMassID(position sim.Vec2) (int, bool) {
 		return 0, false
 	}
 	nearestID := e.World.Masses[0].ID
-	nearestDistance := distance(e.World.Masses[0].Position, position)
-	for _, mass := range e.World.Masses[1:] {
+	nearestDistance := math.MaxFloat64
+	for _, mass := range e.World.Masses {
 		if d := distance(mass.Position, position); d < nearestDistance {
 			nearestID = mass.ID
 			nearestDistance = d
 		}
 	}
 	return nearestID, true
+}
+
+func replacementID(ids map[int]int, id int) int {
+	if replacement, ok := ids[id]; ok {
+		return replacement
+	}
+	return id
 }
 
 func withinBox(position sim.Vec2, min sim.Vec2, max sim.Vec2) bool {
@@ -237,15 +245,5 @@ func withinBox(position sim.Vec2, min sim.Vec2, max sim.Vec2) bool {
 }
 
 func ordered(a float64, b float64) (float64, float64) {
-	if a > b {
-		return b, a
-	}
-	return a, b
-}
-
-func replacementID(ids map[int]int, id int) int {
-	if replacement, ok := ids[id]; ok {
-		return replacement
-	}
-	return id
+	return math.Min(a, b), math.Max(a, b)
 }
