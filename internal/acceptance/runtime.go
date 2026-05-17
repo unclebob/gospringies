@@ -428,6 +428,7 @@ var stepHandlers = map[string]stepHandler{
 	"mass <mass_id> moves toward wall <wall>":                                              moveMassTowardWall,
 	"mass <mass_id> should not bounce from wall <wall>":                                    assertMassDidNotBounce,
 	"the nonblank startup editor task is accepted":                                         acceptStep,
+	"the nonblank startup editor 23.1 task is accepted":                                    acceptStep,
 	"the first screen should show visible editor chrome":                                   assertStartupEditorChrome,
 	"the first screen should show visible world content":                                   assertStartupWorldContent,
 	"debug text should not be the only visible content":                                    assertDebugTextNotOnlyContent,
@@ -438,6 +439,17 @@ var stepHandlers = map[string]stepHandler{
 	"both startup worlds should be equivalent":                                             assertStartupWorldsEquivalent,
 	"both startup screens should show the same editor chrome":                              assertStartupScreensEquivalent,
 	"the startup world should match demo file <default_demo>":                              assertStartupWorldMatchesDemo,
+	"the original demo corpus task is accepted":                                            acceptStep,
+	"the coder imports the original XSpringies demo corpus":                                importOriginalDemoCorpus,
+	"imported demo file <demo_file> should exist under <demo_directory>":                   assertImportedDemoExists,
+	"imported demo file <demo_file> should preserve its original filename":                 assertImportedDemoPreservesFilename,
+	"imported original demo file <demo_file> exists":                                       assertImportedOriginalDemoExists,
+	"the coder loads imported original demo file <demo_file>":                              loadImportedOriginalDemo,
+	"loading should pass":                                                                  assertLoadingPassed,
+	"starter demo file <starter_demo> exists":                                              assertStarterDemoExists,
+	"starter demo file <starter_demo> should remain under <starter_directory>":             assertStarterDemoRemainsUnder,
+	"original demos should remain under <original_directory>":                              assertOriginalDemosRemainUnder,
+	"provenance field <field> should be documented":                                        assertProvenanceFieldDocumented,
 }
 
 func acceptStep(*world, map[string]string) error {
