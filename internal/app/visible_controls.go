@@ -148,7 +148,9 @@ func analyzeDrawnFrame(game *Game) DrawFrameReport {
 func (g *Game) visibleActiveControls() map[string]bool {
 	active := map[string]bool{}
 	for _, control := range visibleControls() {
-		active[control.Label] = g.activeControl(control.Name)
+		isActive := g.activeControl(control.Name)
+		active[control.Name] = isActive
+		active[control.Label] = isActive
 	}
 	return active
 }

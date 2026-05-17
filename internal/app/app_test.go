@@ -539,6 +539,10 @@ func TestClickVisibleModeControlsChangeMode(t *testing.T) {
 		if !game.VisibleControlActive(label) {
 			t.Fatalf("control %q was not active", label)
 		}
+		report := game.DrawFrameReport()
+		if !report.ActiveControls[label] || !report.ActiveControls[labelControlName(label)] {
+			t.Fatalf("active controls after %q = %#v", label, report.ActiveControls)
+		}
 	}
 }
 
@@ -729,6 +733,21 @@ func assertStarterObjects(t *testing.T, world *sim.Simulation) {
 	}
 	if fixed < 1 || movable < 1 || len(world.Springs) < 1 {
 		t.Fatalf("starter world fixed=%d movable=%d springs=%d: %#v", fixed, movable, len(world.Springs), world)
+	}
+}
+
+func labelControlName(label string) string {
+	switch label {
+	case "Select":
+		return "select mode"
+	case "Mass":
+		return "mass mode"
+	case "Spring":
+		return "spring mode"
+	case "Drag":
+		return "drag mode"
+	default:
+		return ""
 	}
 }
 
