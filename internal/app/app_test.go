@@ -109,6 +109,12 @@ func TestMassDrawCircleCentersOnMassPosition(t *testing.T) {
 	}
 }
 
+func TestMassDrawingUsesAntialiasing(t *testing.T) {
+	if !massDrawAntiAlias() {
+		t.Fatal("expected mass circles to be antialiased")
+	}
+}
+
 func TestSelectionOutlineSurroundsMassPosition(t *testing.T) {
 	lines := selectionOutline(sim.Mass{Position: sim.Vec2{X: 30, Y: 40}})
 	expected := []selectionLine{
@@ -414,6 +420,9 @@ func TestCommandsAffectApplicationState(t *testing.T) {
 	if len(game.World().Masses) != 0 || game.World().Parameters.Value("current mass") == "custom" {
 		t.Fatalf("reset world = %#v", game.World())
 	}
+	if game.EditorScreen().Indicators["file state"] != "saved" {
+		t.Fatalf("reset indicators = %#v", game.EditorScreen().Indicators)
+	}
 
 	game.RunCommand("quit")
 	if !game.Closed() {
@@ -437,6 +446,9 @@ func TestFileCommandsSaveLoadAndInsertXSP(t *testing.T) {
 	if _, ok := game.World().MassByID(9); !ok || game.World().Parameters.Value("current mass") != "7" {
 		t.Fatalf("loaded world = %#v", game.World())
 	}
+	if game.EditorScreen().Indicators["file state"] != "saved" {
+		t.Fatalf("load indicators = %#v", game.EditorScreen().Indicators)
+	}
 
 	game.World().Parameters.Set("current mass", "kept")
 	if err := game.InsertXSP("#1.0\ncmas inserted\nmass 10 30 40 1 0\n"); err != nil {
@@ -444,6 +456,9 @@ func TestFileCommandsSaveLoadAndInsertXSP(t *testing.T) {
 	}
 	if _, ok := game.World().MassByID(10); !ok || game.World().Parameters.Value("current mass") != "kept" {
 		t.Fatalf("inserted world = %#v", game.World())
+	}
+	if game.EditorScreen().Indicators["file state"] != "unsaved changes" {
+		t.Fatalf("insert indicators = %#v", game.EditorScreen().Indicators)
 	}
 }
 
