@@ -32,3 +32,4 @@ Suggested order:
 22. `021-force-center-and-force-parameters.md`
 23. `022-adaptive-rk4-numerics.md`
 24. `023-nonblank-startup-editor.md`
+25. `024-original-style-human-interface.md`
