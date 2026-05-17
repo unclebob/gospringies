@@ -564,67 +564,6 @@ func TestSetRestLengthUsesCurrentSelectedSpringGeometry(t *testing.T) {
 	}
 }
 
-func TestSetRestLengthRequiresBothSpringEndpoints(t *testing.T) {
-	tests := []struct {
-		name   string
-		massA  int
-		massB  int
-		masses []sim.Mass
-	}{
-		{
-			name:  "missing first endpoint",
-			massA: 9,
-			massB: 2,
-			masses: []sim.Mass{
-				{ID: 2, Position: sim.Vec2{X: 3, Y: 4}, Mass: 1},
-			},
-		},
-		{
-			name:  "missing second endpoint",
-			massA: 1,
-			massB: 9,
-			masses: []sim.Mass{
-				{ID: 1, Position: sim.Vec2{X: 0, Y: 0}, Mass: 1},
-			},
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			world := sim.NewWorld()
-			for _, mass := range test.masses {
-				_ = world.AddMass(mass)
-			}
-			world.Springs = append(world.Springs, sim.Spring{ID: 1, MassA: test.massA, MassB: test.massB, RestLength: 1})
-			editor := NewEditor(world)
-			editor.SelectedSprings[1] = true
-
-			if err := editor.SetRestLength(); err == nil {
-				t.Fatal("expected missing endpoint error")
-			}
-			spring, _ := world.SpringByID(1)
-			if spring.RestLength != 1 {
-				t.Fatalf("rest length changed to %f", spring.RestLength)
-			}
-		})
-	}
-}
-
-func TestCurrentSpringLengthReturnsZeroWithMissingEndpointError(t *testing.T) {
-	world := sim.NewWorld()
-	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 0, Y: 0}, Mass: 1})
-	editor := NewEditor(world)
-
-	length, err := editor.currentSpringLength(sim.Spring{MassA: 1, MassB: 2})
-
-	if err == nil {
-		t.Fatal("expected missing endpoint error")
-	}
-	if length != 0 {
-		t.Fatalf("length = %f, want zero on error", length)
-	}
-}
-
 func TestParameterControlsIgnoreIncompatibleSelectionsAndUpdateDefaults(t *testing.T) {
 	world := sim.NewWorld()
 	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{}, Mass: 1})

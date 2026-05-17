@@ -1,20 +1,43 @@
 package app
 
 import (
+	"os"
+	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
+	xspfmt "springs/internal/format"
 	"springs/internal/sim"
 )
+
+func TestNewGameLoadsPendulumDemoAsStartupWorld(t *testing.T) {
+	game := NewGame()
+	expected := loadAppTestXSP(t, filepath.Join("..", "..", DefaultStartupScenePath()))
+
+	if !reflect.DeepEqual(game.World(), expected) {
+		t.Fatalf("startup world = %#v, want %#v", game.World(), expected)
+	}
+}
 
 func TestNewGameStartsWithNonblankStarterWorld(t *testing.T) {
 	game := NewGame()
 
-	if len(game.World().Masses) < 2 || len(game.World().Springs) < 1 {
-		t.Fatalf("world = %#v", game.World())
-	}
 	assertStarterObjects(t, game.World())
+}
+
+func loadAppTestXSP(t *testing.T, path string) *sim.Simulation {
+	t.Helper()
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	world, err := xspfmt.LoadXSP(string(content))
+	if err != nil {
+		t.Fatalf("load %s: %v", path, err)
+	}
+	return world
 }
 
 func TestGameLayoutUsesWindowSize(t *testing.T) {
@@ -492,13 +515,13 @@ func TestSaveStateRestoresObjectsAndParametersRepeatedly(t *testing.T) {
 
 func TestRestoreStateWithoutSavedStateRestoresInitialWorld(t *testing.T) {
 	game := NewGame()
+	expected := game.World().Clone()
 	replaceWithAppTestState(game, "changed")
 
 	game.RestoreState()
 
-	assertStarterObjects(t, game.World())
-	if game.World().Parameters.Value("current mass") != sim.DefaultParameters().Value("current mass") {
-		t.Fatalf("parameters = %#v", game.World().Parameters)
+	if !reflect.DeepEqual(game.World(), expected) {
+		t.Fatalf("restored world = %#v, want %#v", game.World(), expected)
 	}
 }
 
