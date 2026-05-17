@@ -9,9 +9,12 @@ import (
 type editorScreen = app.EditorScreen
 
 var applicationStateChanges = map[string]func(appGame){
+	"Select mode":     func(game appGame) { game.SetMode("select") },
 	"select mode":     func(game appGame) { game.SetMode("select") },
 	"paused":          func(game appGame) { game.SetPaused(true) },
 	"running":         func(game appGame) { game.SetPaused(false) },
+	"object counts":   func(appGame) {},
+	"saved":           func(game appGame) { game.SetDirty(false) },
 	"object selected": func(game appGame) { game.SetSelected(true) },
 	"unsaved changes": func(game appGame) { game.SetDirty(true) },
 }

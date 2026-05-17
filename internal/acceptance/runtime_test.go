@@ -783,6 +783,10 @@ func worldWithParameterSpringEndpoints() *sim.Simulation {
 	return world
 }
 
+func TestRunFeatureExecutesRenderVisibleControlsFeature(t *testing.T) {
+	runFeatureFile(t, "features/024_1_render_visible_controls.feature")
+}
+
 func TestRunFeatureExecutesOriginalDemoCorpusFeature(t *testing.T) {
 	runFeatureFile(t, "features/025_original_demo_corpus.feature")
 }
