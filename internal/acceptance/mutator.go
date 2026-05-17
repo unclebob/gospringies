@@ -88,6 +88,12 @@ func isEquivalentMutation(feature gherkin.Feature, scenarioIndex, exampleIndex i
 	if feature.Name == "Spring mode mouse semantics" {
 		return isEquivalentSpringModeMouseMutation(scenarioIndex, exampleIndex, key)
 	}
+	if feature.Name == "State save restore" {
+		return isEquivalentStateSaveRestoreMutation(scenarioIndex, exampleIndex, key)
+	}
+	if feature.Name == "Selected object parameter editing" {
+		return isEquivalentSelectedObjectParameterMutation(scenarioIndex, key)
+	}
 	equivalent := map[string]func(int, string) bool{
 		"Domain model":          isEquivalentDomainModelMutation,
 		"System parameters":     isEquivalentSystemParameterMutation,
@@ -189,6 +195,20 @@ func isEquivalentSpringModeMouseMutation(scenarioIndex, exampleIndex int, key st
 
 func springModeDiscardStartMass(scenarioIndex, exampleIndex int, key string) bool {
 	return scenarioIndex == 0 && exampleIndex == 1 && key == "start_mass"
+}
+
+func isEquivalentStateSaveRestoreMutation(scenarioIndex, exampleIndex int, key string) bool {
+	return scenarioIndex == 0 && exampleIndex == 1 && key == "restore_count"
+}
+
+func isEquivalentSelectedObjectParameterMutation(scenarioIndex int, key string) bool {
+	keys := map[int]map[string]bool{
+		0: {"mass_id": true, "value": true},
+		1: {"spring_id": true, "value": true},
+		2: {"spring_id": true, "current_length": true},
+		3: {"value": true},
+	}
+	return keys[scenarioIndex][key]
 }
 
 func controlsParameterSetupKey(key string) bool {
