@@ -1,5 +1,7 @@
 package app
 
+import "springs/internal/sim"
+
 var editorRegions = []ScreenRegion{
 	{"canvas", "edit and view the simulation world"},
 	{"left toolbar", "choose editing modes"},
@@ -16,6 +18,7 @@ var shortcutCommands = map[string]string{
 	"Space":  "pause",
 	"Delete": "delete",
 	"Ctrl+A": "select all",
+	"Ctrl+D": "duplicate",
 	"R":      "reset",
 	"Ctrl+S": "save",
 	"Ctrl+O": "load",
@@ -76,6 +79,9 @@ func (s EditorScreen) HasCommandControl(command string) bool {
 
 func (g *Game) SetMode(mode string) {
 	g.mode = mode
+	g.draggingMassID = 0
+	g.pendingSpringID = 0
+	g.pendingSpringEnd = sim.Vec2{}
 }
 
 func (g *Game) SetSelected(selected bool) {

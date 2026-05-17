@@ -90,6 +90,17 @@ func assertKeyboardPathEntryOpen(w *world, example map[string]string) error {
 
 func clickablePathEntryCommand(game *app.Game) string { return game.PathEntryCommand() }
 
+func assertDemoPickerOpen(w *world, _ map[string]string) error {
+	game, err := visibleControlsGame(w)
+	if err != nil {
+		return err
+	}
+	if !game.DemoPickerOpen() {
+		return fmt.Errorf("demo picker was not open")
+	}
+	return nil
+}
+
 func assertClickableGameValue(w *world, example map[string]string, key string, name string, actual func(*app.Game) string) error {
 	expected, err := stringValue(example, key)
 	if err != nil {

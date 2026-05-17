@@ -61,7 +61,6 @@ func TestAdvanceDurationTracksRequestedTime(t *testing.T) {
 
 func TestStepUsesRK4ForConstantAcceleration(t *testing.T) {
 	world := NewWorld()
-	world.Damping = 1
 	world.Parameters.EnableForce("gravity", map[string]string{"magnitude": "10", "direction": "0"})
 	_ = world.AddMass(Mass{ID: 1, Position: Vec2{}, Mass: 1})
 

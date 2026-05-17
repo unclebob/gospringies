@@ -72,7 +72,6 @@ func applyNumericsSettings(world *sim.Simulation, example map[string]string) err
 
 func rk4AcceptanceWorld() *sim.Simulation {
 	world := sim.NewWorld()
-	world.Damping = 1
 	world.Parameters.EnableForce("gravity", map[string]string{"magnitude": "10", "direction": "0"})
 	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{}, Mass: 1})
 	return world

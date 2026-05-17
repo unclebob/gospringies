@@ -67,7 +67,6 @@ type Spring struct {
 type Simulation struct {
 	Masses           []Mass
 	Springs          []Spring
-	Damping          float64
 	Parameters       Parameters
 	Bounds           Bounds
 	Time             float64
@@ -80,7 +79,7 @@ type Bounds struct {
 }
 
 func NewSimulation() *Simulation {
-	return &Simulation{Damping: 0.98, Parameters: DefaultParameters(), Bounds: Bounds{Width: 640, Height: 480}}
+	return &Simulation{Parameters: DefaultParameters(), Bounds: Bounds{Width: 640, Height: 480}}
 }
 
 func NewWorld() *Simulation {
@@ -90,7 +89,6 @@ func NewWorld() *Simulation {
 func (s *Simulation) Clone() *Simulation {
 	clone := NewSimulation()
 	clone.LoadFrom(s)
-	clone.Damping = s.Damping
 	clone.Bounds = s.Bounds
 	return clone
 }
@@ -107,7 +105,6 @@ func (s *Simulation) LoadFrom(other *Simulation) {
 	s.Springs = append([]Spring{}, other.Springs...)
 	s.Parameters = other.Parameters.Clone()
 	s.Time = other.Time
-	s.Damping = other.Damping
 	s.Bounds = other.Bounds
 	s.LastAdvanceSteps = other.LastAdvanceSteps
 }
@@ -265,7 +262,7 @@ func (s *Simulation) stepRK4(dt float64) {
 			continue
 		}
 		s.Masses[i].Position = start[i].Position.Add(weightedDerivative(k1[i].Velocity, k2[i].Velocity, k3[i].Velocity, k4[i].Velocity, dt))
-		s.Masses[i].Velocity = start[i].Velocity.Add(weightedDerivative(k1[i].Acceleration, k2[i].Acceleration, k3[i].Acceleration, k4[i].Acceleration, dt)).Scale(s.Damping)
+		s.Masses[i].Velocity = start[i].Velocity.Add(weightedDerivative(k1[i].Acceleration, k2[i].Acceleration, k3[i].Acceleration, k4[i].Acceleration, dt))
 		s.applyWallCollision(&s.Masses[i])
 	}
 }

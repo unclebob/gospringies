@@ -16,11 +16,36 @@ func (g *Game) RunCommand(command string) {
 	case "reset":
 		g.simulation.Reset()
 		g.dirty = false
-	case "load", "insert", "save":
+	case "save state":
+		g.SaveState()
+	case "restore state":
+		g.RestoreState()
+		g.dirty = true
+	case "load":
+		g.openDemoPicker()
+	case "insert", "save":
 		g.pathEntryCommand = pathEntryLabel(command)
+	case "select all":
+		g.editing().SelectAll()
+		g.selected = len(g.simulation.Masses) > 0 || len(g.simulation.Springs) > 0
+	case "delete":
+		g.editing().DeleteSelected()
+		g.selected = false
+		g.dirty = true
+	case "duplicate":
+		if _, err := g.editing().DuplicateSelected(); err == nil {
+			g.selected = true
+			g.dirty = true
+		}
 	case "quit":
 		_ = g.Close()
 	}
+}
+
+func (g *Game) openDemoPicker() {
+	g.demoPickerOpen = true
+	g.demoPickerScroll = 0
+	g.demoList()
 }
 
 func pathEntryLabel(command string) string {
@@ -46,7 +71,12 @@ func (g *Game) LoadXSP(input string) error {
 	if err != nil {
 		return err
 	}
+	g.simulation.Reset()
 	g.simulation.LoadFrom(loaded)
+	if g.editor != nil {
+		g.editor.World = g.simulation
+	}
+	g.selected = false
 	g.dirty = false
 	return nil
 }
@@ -80,4 +110,7 @@ func (g *Game) SetParameter(parameter string, value string) {
 
 func (g *Game) ReplaceWorld(world *sim.Simulation) {
 	g.simulation.LoadFrom(world)
+	if g.editor != nil {
+		g.editor.World = g.simulation
+	}
 }

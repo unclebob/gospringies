@@ -4,7 +4,6 @@ import "testing"
 
 func TestEnabledWallsBounceWithElasticity(t *testing.T) {
 	world := NewWorld()
-	world.Damping = 1
 	world.Parameters.EnableWall("left")
 	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: 1, Y: 20}, Velocity: Vec2{X: -4}, Mass: 1, Elasticity: 0.5})
 
@@ -18,7 +17,6 @@ func TestEnabledWallsBounceWithElasticity(t *testing.T) {
 
 func TestOneWayWallsAllowOutsideMassesToEnter(t *testing.T) {
 	world := NewWorld()
-	world.Damping = 1
 	world.Parameters.EnableWall("left")
 	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: -2, Y: 20}, Velocity: Vec2{X: 4}, Mass: 1, Elasticity: 1})
 
@@ -32,7 +30,6 @@ func TestOneWayWallsAllowOutsideMassesToEnter(t *testing.T) {
 
 func TestDisabledWallsDoNotBounce(t *testing.T) {
 	world := NewWorld()
-	world.Damping = 1
 	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: 1, Y: 20}, Velocity: Vec2{X: -4}, Mass: 1, Elasticity: 1})
 
 	world.Step(1)
@@ -45,7 +42,6 @@ func TestDisabledWallsDoNotBounce(t *testing.T) {
 
 func TestStickinessCanHoldAndReleaseMass(t *testing.T) {
 	world := NewWorld()
-	world.Damping = 1
 	world.Parameters.EnableWall("left")
 	world.Parameters.Set("stickiness", "10")
 	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: 1, Y: 20}, Velocity: Vec2{X: -4}, Mass: 1, Elasticity: 1})
@@ -68,7 +64,6 @@ func TestStickinessCanHoldAndReleaseMass(t *testing.T) {
 
 func TestFixedMassesIgnoreWallCollision(t *testing.T) {
 	world := NewWorld()
-	world.Damping = 1
 	world.Parameters.EnableWall("left")
 	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: 1, Y: 20}, Velocity: Vec2{X: -4}, Mass: 1, Elasticity: 1, Fixed: true})
 

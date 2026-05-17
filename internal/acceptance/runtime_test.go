@@ -479,7 +479,7 @@ func TestWallCollisionSetupHelpers(t *testing.T) {
 	if mass.ID != 7 || mass.Position != (sim.Vec2{X: 50, Y: 50}) || mass.Mass != 1 || mass.Elasticity != 1 {
 		t.Fatalf("collision mass defaults = %#v", mass)
 	}
-	if w.domainWorld.Bounds.Width != 100 || w.domainWorld.Damping != 1 {
+	if w.domainWorld.Bounds.Width != 100 {
 		t.Fatalf("collision world defaults = %#v", w.domainWorld)
 	}
 

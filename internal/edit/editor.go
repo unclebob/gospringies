@@ -37,6 +37,7 @@ func (e *Editor) Click(position sim.Vec2) (int, error) {
 		Position:   e.snap(position),
 		Mass:       parameterFloat(e.World.Parameters, "current mass"),
 		Elasticity: parameterFloat(e.World.Parameters, "elasticity"),
+		Fixed:      parameterBool(e.World.Parameters, "fixed mass"),
 	}
 	return mass.ID, e.World.AddMass(mass)
 }
@@ -108,5 +109,10 @@ func distance(a sim.Vec2, b sim.Vec2) float64 {
 
 func parameterFloat(parameters sim.Parameters, name string) float64 {
 	value, _ := strconv.ParseFloat(parameters.Value(name), 64)
+	return value
+}
+
+func parameterBool(parameters sim.Parameters, name string) bool {
+	value, _ := strconv.ParseBool(parameters.Value(name))
 	return value
 }

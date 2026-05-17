@@ -59,6 +59,10 @@ func (g *Game) drawVisibleControls(screen *ebiten.Image) {
 }
 
 func (g *Game) drawControl(screen *ebiten.Image, control controlBox) {
+	if isSliderControl(control.Name) {
+		g.drawSlider(screen, control)
+		return
+	}
 	fill := controlColor
 	if g.activeControl(control.Name) {
 		fill = activeControlColor
@@ -66,9 +70,54 @@ func (g *Game) drawControl(screen *ebiten.Image, control controlBox) {
 	drawLabeledRect(screen, control.Rect, fill, control.Label)
 }
 
+func (g *Game) drawSlider(screen *ebiten.Image, control controlBox) {
+	drawLabeledRect(screen, control.Rect, controlColor, g.sliderLabel(control))
+	track := sliderTrack(control)
+	vector.DrawFilledRect(screen, float32(track.Min.X), float32(track.Min.Y), float32(track.Dx()), float32(track.Dy()), sectionColor, false)
+	fill := track
+	fill.Max.X = track.Min.X + int(g.sliderFraction(control.Name)*float64(track.Dx()))
+	vector.DrawFilledRect(screen, float32(fill.Min.X), float32(fill.Min.Y), float32(fill.Dx()), float32(fill.Dy()), activeControlColor, false)
+}
+
 func drawLabeledRect(screen *ebiten.Image, rect image.Rectangle, fill color.RGBA, label string) {
 	vector.DrawFilledRect(screen, float32(rect.Min.X), float32(rect.Min.Y), float32(rect.Dx()), float32(rect.Dy()), fill, false)
 	ebitenutil.DebugPrintAt(screen, label, rect.Min.X+4, rect.Min.Y+4)
+}
+
+func isSliderControl(name string) bool {
+	return name == "gravity slider" || name == "speed slider" || name == "viscosity slider"
+}
+
+func sliderTrack(control controlBox) image.Rectangle {
+	return image.Rect(control.Rect.Min.X+80, control.Rect.Min.Y+13, control.Rect.Max.X-10, control.Rect.Min.Y+17)
+}
+
+func (g *Game) sliderFraction(name string) float64 {
+	switch name {
+	case "gravity slider":
+		force, _ := g.simulation.Parameters.Force("gravity")
+		return clampFloat(forceValueFloat(force, "magnitude")/50, 0, 1)
+	case "speed slider":
+		return clampFloat(g.simulationSpeed/maxSpeed, 0, 1)
+	case "viscosity slider":
+		return clampFloat(g.parameterFloat("viscosity")/2, 0, 1)
+	default:
+		return 0
+	}
+}
+
+func (g *Game) sliderLabel(control controlBox) string {
+	switch control.Name {
+	case "gravity slider":
+		force, _ := g.simulation.Parameters.Force("gravity")
+		return fmt.Sprintf("%s %s", control.Label, formatControlFloat(forceValueFloat(force, "magnitude")))
+	case "speed slider":
+		return fmt.Sprintf("%s %sx", control.Label, formatControlFloat(g.simulationSpeed))
+	case "viscosity slider":
+		return fmt.Sprintf("%s %s", control.Label, formatControlFloat(g.parameterFloat("viscosity")))
+	default:
+		return control.Label
+	}
 }
 
 func (g *Game) activeControl(name string) bool {
@@ -77,11 +126,24 @@ func (g *Game) activeControl(name string) bool {
 		(name == "spring mode" && g.mode == "add spring") ||
 		(name == "drag mode" && g.mode == "drag") ||
 		(name == "pause command" && g.paused) ||
-		(name == "run command" && !g.paused)
+		(name == "run command" && !g.paused) ||
+		(name == "gravity force" && g.forceEnabled("gravity")) ||
+		(name == "center attraction force" && g.forceEnabled("center attraction")) ||
+		(name == "center mass force" && g.forceEnabled("center of mass attraction")) ||
+		(name == "wall repulsion force" && g.forceEnabled("wall repulsion")) ||
+		(name == "fixed mass toggle" && g.parameterEnabled("fixed mass")) ||
+		(name == "show springs toggle" && g.parameterEnabled("show springs")) ||
+		(name == "adaptive timestep toggle" && g.parameterEnabled("adaptive timestep")) ||
+		(name == "grid snap toggle" && g.gridSnapEnabled()) ||
+		(name == "top wall toggle" && g.wallEnabled("top")) ||
+		(name == "left wall toggle" && g.wallEnabled("left")) ||
+		(name == "right wall toggle" && g.wallEnabled("right")) ||
+		(name == "bottom wall toggle" && g.wallEnabled("bottom"))
 }
 
 func visibleControls() []controlBox {
-	return append(toolbarControls(), commandControls()...)
+	controls := append(toolbarControls(), commandControls()...)
+	return append(controls, inspectorControls()...)
 }
 
 func toolbarControls() []controlBox {
@@ -90,38 +152,118 @@ func toolbarControls() []controlBox {
 		{Name: "mass mode", Label: "Mass", Region: "left toolbar", Rect: image.Rect(8, 78, 64, 98)},
 		{Name: "spring mode", Label: "Spring", Region: "left toolbar", Rect: image.Rect(8, 108, 64, 128)},
 		{Name: "drag mode", Label: "Drag", Region: "left toolbar", Rect: image.Rect(8, 138, 64, 158)},
+		{Name: "select all command", Label: "All", Region: "left toolbar", Rect: image.Rect(8, 180, 64, 200)},
+		{Name: "duplicate command", Label: "Dup", Region: "left toolbar", Rect: image.Rect(8, 210, 64, 230)},
+		{Name: "delete command", Label: "Del", Region: "left toolbar", Rect: image.Rect(8, 240, 64, 260)},
 	}
 }
 
 func commandControls() []controlBox {
 	return []controlBox{
-		{Name: "run command", Label: "Run", Region: "top command bar", Rect: image.Rect(82, 8, 122, 28)},
-		{Name: "pause command", Label: "Pause", Region: "top command bar", Rect: image.Rect(128, 8, 180, 28)},
-		{Name: "reset command", Label: "Reset", Region: "top command bar", Rect: image.Rect(186, 8, 238, 28)},
-		{Name: "load command", Label: "Load", Region: "top command bar", Rect: image.Rect(244, 8, 292, 28)},
-		{Name: "insert command", Label: "Insert", Region: "top command bar", Rect: image.Rect(298, 8, 362, 28)},
-		{Name: "save command", Label: "Save", Region: "top command bar", Rect: image.Rect(368, 8, 416, 28)},
-		{Name: "quit command", Label: "Quit", Region: "top command bar", Rect: image.Rect(422, 8, 470, 28)},
+		{Name: "run command", Label: "Run", Region: "top command bar", Rect: image.Rect(76, 8, 110, 28)},
+		{Name: "pause command", Label: "Pause", Region: "top command bar", Rect: image.Rect(112, 8, 158, 28)},
+		{Name: "reset command", Label: "Reset", Region: "top command bar", Rect: image.Rect(160, 8, 206, 28)},
+		{Name: "save state command", Label: "State+", Region: "top command bar", Rect: image.Rect(208, 8, 260, 28)},
+		{Name: "restore state command", Label: "State", Region: "top command bar", Rect: image.Rect(262, 8, 310, 28)},
+		{Name: "load command", Label: "Load", Region: "top command bar", Rect: image.Rect(312, 8, 354, 28)},
+		{Name: "insert command", Label: "Insert", Region: "top command bar", Rect: image.Rect(356, 8, 408, 28)},
+		{Name: "save command", Label: "Save", Region: "top command bar", Rect: image.Rect(410, 8, 452, 28)},
+		{Name: "quit command", Label: "Quit", Region: "top command bar", Rect: image.Rect(454, 8, 496, 28)},
+	}
+}
+
+func inspectorControls() []controlBox {
+	x := inspectorLeft() + 16
+	right := screenWidth - 16
+	half := (right - x - 8) / 2
+	return []controlBox{
+		{Name: "mass parameter", Label: "Mass", Region: "right inspector", Rect: image.Rect(x, 68, x+half, 88)},
+		{Name: "elasticity parameter", Label: "Elas", Region: "right inspector", Rect: image.Rect(x+half+8, 68, right, 88)},
+		{Name: "fixed mass toggle", Label: "Fixed", Region: "right inspector", Rect: image.Rect(x, 94, right, 114)},
+		{Name: "kspring parameter", Label: "Kspr", Region: "right inspector", Rect: image.Rect(x, 148, x+half, 168)},
+		{Name: "kdamp parameter", Label: "Kdmp", Region: "right inspector", Rect: image.Rect(x+half+8, 148, right, 168)},
+		{Name: "set rest length command", Label: "RestLen", Region: "right inspector", Rect: image.Rect(x, 174, right, 194)},
+		{Name: "gravity force", Label: "Gravity", Region: "right inspector", Rect: image.Rect(x, 230, right, 250)},
+		{Name: "gravity slider", Label: "Gravity", Region: "right inspector", Rect: image.Rect(x, 256, right, 286)},
+		{Name: "center attraction force", Label: "Center", Region: "right inspector", Rect: image.Rect(x, 292, x+half, 312)},
+		{Name: "center mass force", Label: "CMass", Region: "right inspector", Rect: image.Rect(x+half+8, 292, right, 312)},
+		{Name: "wall repulsion force", Label: "WallRep", Region: "right inspector", Rect: image.Rect(x, 318, right, 338)},
+		{Name: "set center command", Label: "SetCtr", Region: "right inspector", Rect: image.Rect(x, 344, right, 364)},
+		{Name: "top wall toggle", Label: "Top", Region: "right inspector", Rect: image.Rect(x, 414, x+half, 434)},
+		{Name: "bottom wall toggle", Label: "Bot", Region: "right inspector", Rect: image.Rect(x+half+8, 414, right, 434)},
+		{Name: "left wall toggle", Label: "Left", Region: "right inspector", Rect: image.Rect(x, 440, x+half, 460)},
+		{Name: "right wall toggle", Label: "Right", Region: "right inspector", Rect: image.Rect(x+half+8, 440, right, 460)},
+		{Name: "grid snap toggle", Label: "Grid", Region: "right inspector", Rect: image.Rect(x, 514, x+half, 534)},
+		{Name: "show springs toggle", Label: "Springs", Region: "right inspector", Rect: image.Rect(x+half+8, 514, right, 534)},
+		{Name: "viscosity slider", Label: "Viscosity", Region: "right inspector", Rect: image.Rect(x, 540, right, 570)},
+		{Name: "stickiness parameter", Label: "Stick", Region: "right inspector", Rect: image.Rect(x, 576, right, 596)},
+		{Name: "speed slider", Label: "Speed", Region: "right inspector", Rect: image.Rect(x, 602, right, 632)},
+		{Name: "timestep parameter", Label: "Step", Region: "right inspector", Rect: image.Rect(x, 638, x+half, 658)},
+		{Name: "precision parameter", Label: "Prec", Region: "right inspector", Rect: image.Rect(x+half+8, 638, right, 658)},
+		{Name: "adaptive timestep toggle", Label: "Adapt", Region: "right inspector", Rect: image.Rect(x, 664, right, 684)},
 	}
 }
 
 func inspectorSections() []controlBox {
+	x := inspectorLeft() + 16
+	right := screenWidth - 16
 	return []controlBox{
-		{Label: "Mass", Region: "right inspector", Rect: image.Rect(522, 48, 632, 68)},
-		{Label: "Spring", Region: "right inspector", Rect: image.Rect(522, 82, 632, 102)},
-		{Label: "Forces", Region: "right inspector", Rect: image.Rect(522, 116, 632, 136)},
-		{Label: "Walls", Region: "right inspector", Rect: image.Rect(522, 150, 632, 170)},
-		{Label: "Simulation", Region: "right inspector", Rect: image.Rect(522, 184, 632, 204)},
+		{Label: "Mass", Region: "right inspector", Rect: image.Rect(x, 44, right, 64)},
+		{Label: "Spring", Region: "right inspector", Rect: image.Rect(x, 122, right, 142)},
+		{Label: "Forces", Region: "right inspector", Rect: image.Rect(x, 204, right, 224)},
+		{Label: "Walls", Region: "right inspector", Rect: image.Rect(x, 386, right, 408)},
+		{Label: "Simulation", Region: "right inspector", Rect: image.Rect(x, 486, right, 508)},
 	}
+}
+
+func inspectorLeft() int {
+	return screenWidth - inspectorWidth
+}
+
+func (g *Game) forceEnabled(name string) bool {
+	force, ok := g.simulation.Parameters.Force(name)
+	return ok && force.Enabled == "true"
+}
+
+func (g *Game) parameterEnabled(name string) bool {
+	return g.simulation.Parameters.Value(name) == "true"
+}
+
+func (g *Game) wallEnabled(name string) bool {
+	enabled, _ := g.simulation.Parameters.WallEnabled(name)
+	return enabled
+}
+
+func (g *Game) gridSnapEnabled() bool {
+	return g.gridSnapSize() > 0
 }
 
 func (g *Game) statusFields() []statusField {
 	return []statusField{
-		{Name: "mode", Label: strings.Title(g.mode) + " mode", Rect: image.Rect(8, 458, 100, 478)},
-		{Name: "run state", Label: g.simulationState(), Rect: image.Rect(108, 458, 196, 478)},
-		{Name: "object counts", Label: fmt.Sprintf("object counts: %dM %dS", len(g.simulation.Masses), len(g.simulation.Springs)), Rect: image.Rect(204, 458, 360, 478)},
-		{Name: "file state", Label: g.fileState(), Rect: image.Rect(368, 458, 462, 478)},
+		{Name: "mode", Label: strings.Title(g.mode) + " mode", Rect: image.Rect(8, screenHeight-22, 148, screenHeight-2)},
+		{Name: "run state", Label: g.simulationState(), Rect: image.Rect(156, screenHeight-22, 252, screenHeight-2)},
+		{Name: "object counts", Label: "object counts", Rect: image.Rect(260, screenHeight-22, 360, screenHeight-2)},
+		{Name: "selected object count", Label: fmt.Sprintf("%d sel", g.selectedObjectCount()), Rect: image.Rect(368, screenHeight-22, 438, screenHeight-2)},
+		{Name: "current file", Label: g.pathEntryCommand, Rect: image.Rect(446, screenHeight-22, 560, screenHeight-2)},
+		{Name: "dirty state", Label: g.fileState(), Rect: image.Rect(568, screenHeight-22, 660, screenHeight-2)},
+		{Name: "file state", Label: g.fileState(), Rect: image.Rect(668, screenHeight-22, 760, screenHeight-2)},
+		{Name: "last error", Label: "", Rect: image.Rect(768, screenHeight-22, 1020, screenHeight-2)},
 	}
+}
+
+func (g *Game) selectedObjectCount() int {
+	count := 0
+	for _, selected := range g.editing().SelectedMasses {
+		if selected {
+			count++
+		}
+	}
+	for _, selected := range g.editing().SelectedSprings {
+		if selected {
+			count++
+		}
+	}
+	return count
 }
 
 func (g *Game) DrawFrameReport() DrawFrameReport {
@@ -150,7 +292,7 @@ func (g *Game) visibleActiveControls() map[string]bool {
 	for _, control := range visibleControls() {
 		isActive := g.activeControl(control.Name)
 		active[control.Name] = isActive
-		active[control.Label] = isActive
+		active[control.Label] = active[control.Label] || isActive
 	}
 	return active
 }
@@ -221,11 +363,11 @@ func labelFits(label string, rect image.Rectangle) bool {
 
 func visibleRegionRects() map[string]image.Rectangle {
 	return map[string]image.Rectangle{
-		"canvas":          image.Rect(72, 36, screenWidth-128, screenHeight-24),
-		"left toolbar":    image.Rect(0, 36, 72, screenHeight-24),
-		"top command bar": image.Rect(72, 0, screenWidth-128, 36),
-		"right inspector": image.Rect(screenWidth-128, 36, screenWidth, screenHeight-24),
-		"status line":     image.Rect(0, screenHeight-24, screenWidth, screenHeight),
+		"canvas":          image.Rect(toolbarWidth, topBarHeight, screenWidth-inspectorWidth, screenHeight-statusHeight),
+		"left toolbar":    image.Rect(0, topBarHeight, toolbarWidth, screenHeight-statusHeight),
+		"top command bar": image.Rect(toolbarWidth, 0, screenWidth-inspectorWidth, topBarHeight),
+		"right inspector": image.Rect(screenWidth-inspectorWidth, topBarHeight, screenWidth, screenHeight-statusHeight),
+		"status line":     image.Rect(0, screenHeight-statusHeight, screenWidth, screenHeight),
 	}
 }
 

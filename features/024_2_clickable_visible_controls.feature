@@ -27,13 +27,16 @@ Examples:
   | Reset   | reset   |
   | Quit    | quit    |
 
-Scenario Outline: clicking file controls opens keyboard path entry
+Scenario: clicking Load opens the demo picker
+  When the coder clicks inside rendered bounds of visible control Load
+  Then the demo picker should open
+
+Scenario Outline: clicking path-based file controls opens keyboard path entry
   When the coder clicks inside rendered bounds of visible control <control>
   Then keyboard path entry should open for <command>
 
 Examples:
   | control | command |
-  | Load    | Load    |
   | Insert  | Insert  |
   | Save    | Save    |
 

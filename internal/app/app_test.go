@@ -1,6 +1,8 @@
 package app
 
 import (
+	"errors"
+	"math"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -26,6 +28,17 @@ func TestNewGameStartsWithNonblankStarterWorld(t *testing.T) {
 	game := NewGame()
 
 	assertStarterObjects(t, game.World())
+}
+
+func TestStartupPendulumEnablesGravity(t *testing.T) {
+	game := NewGame()
+	force, ok := game.World().Parameters.Force("gravity")
+	if !ok {
+		t.Fatal("missing gravity force")
+	}
+	if force.Enabled != "true" || force.Values["magnitude"] != "10" || force.Values["direction"] != "0" {
+		t.Fatalf("gravity force = %#v", force)
+	}
 }
 
 func loadAppTestXSP(t *testing.T, path string) *sim.Simulation {
@@ -101,17 +114,28 @@ func TestDrawFrameRendersVisibleControlRegions(t *testing.T) {
 func TestDrawFrameRendersReadableControlLabels(t *testing.T) {
 	report := NewGame().DrawFrameReport()
 	expected := map[string]string{
-		"select mode":    "Select",
-		"mass mode":      "Mass",
-		"spring mode":    "Spring",
-		"drag mode":      "Drag",
-		"run command":    "Run",
-		"pause command":  "Pause",
-		"reset command":  "Reset",
-		"load command":   "Load",
-		"insert command": "Insert",
-		"save command":   "Save",
-		"quit command":   "Quit",
+		"select mode":             "Select",
+		"mass mode":               "Mass",
+		"spring mode":             "Spring",
+		"drag mode":               "Drag",
+		"run command":             "Run",
+		"pause command":           "Pause",
+		"reset command":           "Reset",
+		"save state command":      "State+",
+		"restore state command":   "State",
+		"load command":            "Load",
+		"insert command":          "Insert",
+		"save command":            "Save",
+		"quit command":            "Quit",
+		"gravity force":           "Gravity",
+		"gravity slider":          "Gravity",
+		"center attraction force": "Center",
+		"center mass force":       "CMass",
+		"wall repulsion force":    "WallRep",
+		"grid snap toggle":        "Grid",
+		"show springs toggle":     "Springs",
+		"viscosity slider":        "Viscosity",
+		"speed slider":            "Speed",
 	}
 	for control, label := range expected {
 		if report.Controls[control] != label {
@@ -548,10 +572,12 @@ func TestClickVisibleModeControlsChangeMode(t *testing.T) {
 
 func TestClickVisibleCommandControlsRunCommands(t *testing.T) {
 	tests := map[string]string{
-		"Run":   "run",
-		"Pause": "pause",
-		"Reset": "reset",
-		"Quit":  "quit",
+		"Run":    "run",
+		"Pause":  "pause",
+		"Reset":  "reset",
+		"State+": "save state",
+		"State":  "restore state",
+		"Quit":   "quit",
 	}
 	for label, command := range tests {
 		game := NewGame()
@@ -566,7 +592,7 @@ func TestClickVisibleCommandControlsRunCommands(t *testing.T) {
 }
 
 func TestClickVisibleFileControlsOpenPathEntry(t *testing.T) {
-	tests := map[string]string{"Load": "Load", "Insert": "Insert", "Save": "Save"}
+	tests := map[string]string{"Insert": "Insert", "Save": "Save"}
 	for label, command := range tests {
 		game := NewGame()
 
@@ -576,6 +602,321 @@ func TestClickVisibleFileControlsOpenPathEntry(t *testing.T) {
 		if game.PathEntryCommand() != command {
 			t.Fatalf("path entry after %q = %q, want %q", label, game.PathEntryCommand(), command)
 		}
+	}
+}
+
+func TestLoadControlOpensDemoPicker(t *testing.T) {
+	game := NewGame()
+
+	if !game.ClickVisibleControl("Load") {
+		t.Fatal("Load control click was not handled")
+	}
+
+	if !game.demoPickerOpen {
+		t.Fatal("demo picker was not opened")
+	}
+	if len(game.demoList()) == 0 {
+		t.Fatal("expected demo files")
+	}
+}
+
+func TestDemoPickerScrolls(t *testing.T) {
+	game := NewGame()
+	game.demoFiles = []string{"a.xsp", "b.xsp", "c.xsp", "d.xsp", "e.xsp", "f.xsp", "g.xsp", "h.xsp", "i.xsp", "j.xsp", "k.xsp", "l.xsp", "m.xsp", "n.xsp", "o.xsp", "p.xsp", "q.xsp", "r.xsp", "s.xsp", "t.xsp", "u.xsp", "v.xsp", "w.xsp", "x.xsp", "y.xsp", "z.xsp", "aa.xsp", "ab.xsp", "ac.xsp", "ad.xsp", "ae.xsp", "af.xsp", "ag.xsp", "ah.xsp", "ai.xsp", "aj.xsp", "ak.xsp", "al.xsp", "am.xsp", "an.xsp", "ao.xsp", "ap.xsp"}
+	game.demoPickerOpen = true
+
+	game.scrollDemoPicker(3)
+
+	if game.demoPickerScroll != 3 {
+		t.Fatalf("demo picker scroll = %d, want 3", game.demoPickerScroll)
+	}
+}
+
+func TestDemoPickerClickLoadsSelectedDemo(t *testing.T) {
+	game := NewGame()
+	game.demoFiles = []string{filepath.Join("..", "..", "demos", "pendulum.xsp")}
+	game.demoPickerOpen = true
+	oldCount := len(game.World().Masses)
+	game.World().Masses = append(game.World().Masses, sim.Mass{ID: 1234, Position: sim.Vec2{X: 1, Y: 1}, Mass: 1})
+
+	row := game.demoRowRect(0)
+	game.clickDemoPicker(row.Min.X+2, row.Min.Y+2)
+
+	if game.demoPickerOpen {
+		t.Fatal("demo picker stayed open")
+	}
+	if _, ok := game.World().MassByID(1234); ok {
+		t.Fatal("old world data was not cleared")
+	}
+	if len(game.World().Masses) != oldCount {
+		t.Fatal("selected demo was not loaded")
+	}
+}
+
+func TestClickVisibleGravityControlEnablesGravity(t *testing.T) {
+	game := NewGame()
+	game.World().Parameters.Forces["gravity"] = sim.ForceConfig{Enabled: "false", Values: map[string]string{"magnitude": "0", "direction": "90"}}
+
+	if !game.ClickVisibleControl("Gravity") {
+		t.Fatal("Gravity control click was not handled")
+	}
+
+	force, _ := game.World().Parameters.Force("gravity")
+	if force.Enabled != "true" || force.Values["magnitude"] != "10" || force.Values["direction"] != "0" {
+		t.Fatalf("gravity force = %#v", force)
+	}
+	if !game.VisibleControlActive("Gravity") {
+		t.Fatal("expected Gravity control to show active state")
+	}
+}
+
+func TestGravitySliderSetsGravity(t *testing.T) {
+	game := NewGame()
+	game.World().Parameters.EnableForce("gravity", map[string]string{"magnitude": "10", "direction": "0"})
+	control, ok := visibleControlWithName("gravity slider")
+	if !ok {
+		t.Fatal("missing gravity slider")
+	}
+	track := sliderTrack(control)
+
+	if !game.ClickAt(track.Min.X+track.Dx()/2, track.Min.Y) {
+		t.Fatal("gravity slider click was not handled")
+	}
+
+	force, _ := game.World().Parameters.Force("gravity")
+	if force.Enabled != "true" || force.Values["magnitude"] != "25" {
+		t.Fatalf("gravity force = %#v", force)
+	}
+}
+
+func TestSpeedSliderSetsSimulationSpeed(t *testing.T) {
+	game := NewGame()
+	game.World().Parameters.Set("timestep", "0.016")
+	control, ok := visibleControlWithName("speed slider")
+	if !ok {
+		t.Fatal("missing speed slider")
+	}
+	track := sliderTrack(control)
+
+	if !game.ClickAt(track.Max.X, track.Min.Y) {
+		t.Fatal("speed slider click was not handled")
+	}
+
+	if got := game.simulationSpeed; got != maxSpeed {
+		t.Fatalf("simulation speed = %f, want %f", got, maxSpeed)
+	}
+	if got := game.World().Parameters.Value("timestep"); got != "0.016" {
+		t.Fatalf("timestep = %q, want unchanged 0.016", got)
+	}
+}
+
+func TestSpeedSliderMinimumIsZero(t *testing.T) {
+	game := NewGame()
+	game.World().Parameters.Set("timestep", "0.016")
+	control, ok := visibleControlWithName("speed slider")
+	if !ok {
+		t.Fatal("missing speed slider")
+	}
+	track := sliderTrack(control)
+
+	if !game.ClickAt(track.Min.X, track.Min.Y) {
+		t.Fatal("speed slider click was not handled")
+	}
+
+	if got := game.simulationSpeed; got != 0 {
+		t.Fatalf("simulation speed = %f, want 0", got)
+	}
+	if got := game.World().Parameters.Value("timestep"); got != "0.016" {
+		t.Fatalf("timestep = %q, want unchanged 0.016", got)
+	}
+}
+
+func TestViscositySliderSetsViscosity(t *testing.T) {
+	game := NewGame()
+	control, ok := visibleControlWithName("viscosity slider")
+	if !ok {
+		t.Fatal("missing viscosity slider")
+	}
+	track := sliderTrack(control)
+
+	if !game.ClickAt(track.Min.X+track.Dx()/2, track.Min.Y) {
+		t.Fatal("viscosity slider click was not handled")
+	}
+
+	if got := game.World().Parameters.Value("viscosity"); got != "1" {
+		t.Fatalf("viscosity = %q, want 1", got)
+	}
+}
+
+func TestSliderLabelsIncludeCurrentValues(t *testing.T) {
+	game := NewGame()
+	game.World().Parameters.EnableForce("gravity", map[string]string{"magnitude": "12", "direction": "0"})
+	game.World().Parameters.Set("viscosity", "0.5")
+	game.World().Parameters.Set("timestep", "0.025")
+	game.simulationSpeed = 2
+
+	tests := map[string]string{
+		"gravity slider":   "Gravity 12",
+		"viscosity slider": "Viscosity 0.5",
+		"speed slider":     "Speed 2x",
+	}
+	for name, expected := range tests {
+		control, ok := visibleControlWithName(name)
+		if !ok {
+			t.Fatalf("missing %s", name)
+		}
+		if got := game.sliderLabel(control); got != expected {
+			t.Fatalf("%s label = %q, want %q", name, got, expected)
+		}
+	}
+}
+
+func TestSlidersDragWhileMouseHeld(t *testing.T) {
+	game := NewGame()
+	control, ok := visibleControlWithName("speed slider")
+	if !ok {
+		t.Fatal("missing speed slider")
+	}
+	track := sliderTrack(control)
+
+	game.handlePointer(true, track.Min.X, track.Min.Y)
+	game.handlePointer(true, track.Max.X, track.Min.Y)
+	game.handlePointer(false, track.Max.X, track.Min.Y)
+
+	if got := game.simulationSpeed; got != maxSpeed {
+		t.Fatalf("simulation speed after drag = %f, want %f", got, maxSpeed)
+	}
+}
+
+func TestUpdateAdvancesBySpeedWithoutChangingTimestep(t *testing.T) {
+	game := NewGame()
+	game.World().Parameters.Set("timestep", "0.001")
+	game.simulationSpeed = 2
+
+	if err := game.Update(); err != nil {
+		t.Fatalf("Update() error = %v", err)
+	}
+
+	if got := game.World().Parameters.Value("timestep"); got != "0.001" {
+		t.Fatalf("timestep = %q, want unchanged 0.001", got)
+	}
+	if got := game.World().Time; math.Abs(got-baseFrameTime*2) > 1e-12 {
+		t.Fatalf("world time = %f, want %f", got, baseFrameTime*2)
+	}
+	if game.World().LastAdvanceSteps <= 1 {
+		t.Fatalf("last advance steps = %d, want subdivided integration", game.World().LastAdvanceSteps)
+	}
+}
+
+func TestZeroSpeedPausesSimulationAdvance(t *testing.T) {
+	game := NewGame()
+	game.simulationSpeed = 0
+
+	if err := game.Update(); err != nil {
+		t.Fatalf("Update() error = %v", err)
+	}
+
+	if got := game.World().Time; got != 0 {
+		t.Fatalf("world time = %f, want 0", got)
+	}
+}
+
+func TestQuitControlTerminatesUpdateLoop(t *testing.T) {
+	game := NewGame()
+
+	if !game.ClickVisibleControl("Quit") {
+		t.Fatal("Quit control click was not handled")
+	}
+
+	if err := game.Update(); !errors.Is(err, ebiten.Termination) {
+		t.Fatalf("Update after Quit = %v, want ebiten.Termination", err)
+	}
+}
+
+func TestInspectorTogglesMapToSimulationParameters(t *testing.T) {
+	tests := []struct {
+		label  string
+		assert func(*testing.T, *Game)
+	}{
+		{"Springs", func(t *testing.T, game *Game) {
+			if game.World().Parameters.Value("show springs") != "false" {
+				t.Fatalf("show springs = %q", game.World().Parameters.Value("show springs"))
+			}
+		}},
+		{"Grid", func(t *testing.T, game *Game) {
+			if game.World().Parameters.Value("grid snap") != "0" {
+				t.Fatalf("grid snap = %q", game.World().Parameters.Value("grid snap"))
+			}
+		}},
+		{"Top", func(t *testing.T, game *Game) {
+			if enabled, _ := game.World().Parameters.WallEnabled("top"); !enabled {
+				t.Fatal("top wall was not enabled")
+			}
+		}},
+		{"Adapt", func(t *testing.T, game *Game) {
+			if game.World().Parameters.Value("adaptive timestep") != "true" {
+				t.Fatalf("adaptive timestep = %q", game.World().Parameters.Value("adaptive timestep"))
+			}
+		}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.label, func(t *testing.T) {
+			game := NewGame()
+			if !game.ClickVisibleControl(test.label) {
+				t.Fatalf("click %q was not handled", test.label)
+			}
+			test.assert(t, game)
+		})
+	}
+}
+
+func TestWorldPointerCreatesMassAndSpring(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	game.ReplaceWorld(world)
+
+	game.SetMode("add mass")
+	game.handlePointer(true, 100, 100)
+	game.handlePointer(false, 100, 100)
+	game.handlePointer(true, 140, 100)
+	game.handlePointer(false, 140, 100)
+
+	if len(game.World().Masses) != 2 {
+		t.Fatalf("masses = %#v", game.World().Masses)
+	}
+
+	game.SetMode("add spring")
+	game.handlePointer(true, 100, 100)
+	game.handlePointer(false, 140, 100)
+
+	if len(game.World().Springs) != 1 {
+		t.Fatalf("springs = %#v", game.World().Springs)
+	}
+}
+
+func TestSpringModeRubberBandsPendingSpring(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 100, Y: 100}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 200, Y: 100}, Mass: 1})
+	game.ReplaceWorld(world)
+	game.SetMode("add spring")
+
+	game.handlePointer(true, 100, 100)
+	game.handlePointer(true, 150, 140)
+
+	line, ok := game.pendingSpringLine()
+	if !ok {
+		t.Fatal("expected pending spring line")
+	}
+	if line != (selectionLine{x1: 100, y1: 100, x2: 150, y2: 140}) {
+		t.Fatalf("pending spring line = %#v", line)
+	}
+
+	game.handlePointer(false, 200, 100)
+	if _, ok := game.pendingSpringLine(); ok {
+		t.Fatal("pending spring line remained after release")
 	}
 }
 
@@ -649,6 +990,56 @@ func TestMassDraggingRequiresDragMode(t *testing.T) {
 
 	if game.DragMass(1, sim.Vec2{X: 40, Y: 50}) {
 		t.Fatal("drag was handled outside drag mode")
+	}
+}
+
+func TestPointerGestureDragsMassInDragMode(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
+	game.ReplaceWorld(world)
+	game.SetMode("drag")
+
+	game.handlePointer(true, 10, 10)
+	game.handlePointer(true, 40, 50)
+	game.handlePointer(false, 40, 50)
+	game.handlePointer(true, 80, 90)
+
+	mass, _ := game.World().MassByID(1)
+	if mass.Position != (sim.Vec2{X: 40, Y: 50}) {
+		t.Fatalf("mass position = %#v, want 40,50", mass.Position)
+	}
+}
+
+func TestPointerGestureRequiresMouseDownOnMass(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
+	game.ReplaceWorld(world)
+	game.SetMode("drag")
+
+	game.handlePointer(true, 80, 90)
+	game.handlePointer(true, 40, 50)
+
+	mass, _ := game.World().MassByID(1)
+	if mass.Position != (sim.Vec2{X: 10, Y: 10}) {
+		t.Fatalf("mass position = %#v, want 10,10", mass.Position)
+	}
+}
+
+func TestPointerGestureDoesNotDragFixedMass(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1, Fixed: true})
+	game.ReplaceWorld(world)
+	game.SetMode("drag")
+
+	game.handlePointer(true, 10, 10)
+	game.handlePointer(true, 40, 50)
+
+	mass, _ := game.World().MassByID(1)
+	if mass.Position != (sim.Vec2{X: 10, Y: 10}) {
+		t.Fatalf("mass position = %#v, want 10,10", mass.Position)
 	}
 }
 
