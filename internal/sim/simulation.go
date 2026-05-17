@@ -11,6 +11,12 @@ var (
 	ErrMissingSpringEndpoint = errors.New("missing spring endpoint")
 )
 
+const (
+	defaultStepDuration = 0.016
+	defaultPrecision    = 0.001
+	advanceEpsilon      = 0.000000000001
+)
+
 type Vec2 struct {
 	X float64
 	Y float64
@@ -59,12 +65,13 @@ type Spring struct {
 }
 
 type Simulation struct {
-	Masses     []Mass
-	Springs    []Spring
-	Damping    float64
-	Parameters Parameters
-	Bounds     Bounds
-	Time       float64
+	Masses           []Mass
+	Springs          []Spring
+	Damping          float64
+	Parameters       Parameters
+	Bounds           Bounds
+	Time             float64
+	LastAdvanceSteps int
 }
 
 type Bounds struct {
@@ -102,6 +109,7 @@ func (s *Simulation) LoadFrom(other *Simulation) {
 	s.Time = other.Time
 	s.Damping = other.Damping
 	s.Bounds = other.Bounds
+	s.LastAdvanceSteps = other.LastAdvanceSteps
 }
 
 func (s *Simulation) InsertFrom(other *Simulation) {
@@ -199,19 +207,72 @@ func (s *Simulation) Advance(steps int, dt float64) {
 }
 
 func (s *Simulation) AdvanceDuration(duration float64) {
-	dt := parameterFloat(s.Parameters, "timestep")
-	if dt <= 0 {
-		dt = 0.016
-	}
-	for remaining := duration; remaining > 0; {
-		step := math.Min(remaining, dt)
+	s.LastAdvanceSteps = 0
+	for remaining := duration; remaining > advanceEpsilon; {
+		step := math.Min(remaining, s.advanceStepDuration())
 		s.Step(step)
+		s.LastAdvanceSteps++
 		remaining -= step
 	}
 }
 
 func (s *Simulation) Step(dt float64) {
+	s.stepRK4(dt)
+	s.Time += dt
+}
+
+func (s *Simulation) advanceStepDuration() float64 {
+	dt := s.configuredTimeStep()
+	if s.Parameters.Value("adaptive timestep") != "true" {
+		return dt
+	}
+	return adaptiveStepDuration(dt, s.configuredPrecision())
+}
+
+func (s *Simulation) configuredTimeStep() float64 {
+	return positiveParameterOrDefault(s.Parameters, "timestep", defaultStepDuration)
+}
+
+func (s *Simulation) configuredPrecision() float64 {
+	return positiveParameterOrDefault(s.Parameters, "precision", defaultPrecision)
+}
+
+func positiveParameterOrDefault(parameters Parameters, name string, defaultValue float64) float64 {
+	value := parameterFloat(parameters, name)
+	if value <= 0 {
+		return defaultValue
+	}
+	return value
+}
+
+func adaptiveStepDuration(dt, precision float64) float64 {
+	step := dt * sqrt(precision/defaultPrecision)
+	if step <= 0 {
+		return dt
+	}
+	return math.Min(step, dt)
+}
+
+func (s *Simulation) stepRK4(dt float64) {
+	active := s.activeMasses()
+	start := append([]Mass{}, s.Masses...)
+	k1 := s.derivatives(start, active)
+	k2 := s.derivatives(offsetMasses(start, k1, dt/2), active)
+	k3 := s.derivatives(offsetMasses(start, k2, dt/2), active)
+	k4 := s.derivatives(offsetMasses(start, k3, dt), active)
+	for i := range s.Masses {
+		if !active[i] {
+			continue
+		}
+		s.Masses[i].Position = start[i].Position.Add(weightedDerivative(k1[i].Velocity, k2[i].Velocity, k3[i].Velocity, k4[i].Velocity, dt))
+		s.Masses[i].Velocity = start[i].Velocity.Add(weightedDerivative(k1[i].Acceleration, k2[i].Acceleration, k3[i].Acceleration, k4[i].Acceleration, dt)).Scale(s.Damping)
+		s.applyWallCollision(&s.Masses[i])
+	}
+}
+
+func (s *Simulation) activeMasses() []bool {
 	evaluation := s.EvaluateForces()
+	active := make([]bool, len(s.Masses))
 	for i := range s.Masses {
 		mass := &s.Masses[i]
 		if mass.Fixed {
@@ -221,11 +282,41 @@ func (s *Simulation) Step(dt float64) {
 		if s.keepStuck(mass, acceleration) {
 			continue
 		}
-		mass.Velocity = mass.Velocity.Add(acceleration.Scale(dt)).Scale(s.Damping)
-		mass.Position = mass.Position.Add(mass.Velocity.Scale(dt))
-		s.applyWallCollision(mass)
+		active[i] = true
 	}
-	s.Time += dt
+	return active
+}
+
+type massDerivative struct {
+	Velocity     Vec2
+	Acceleration Vec2
+}
+
+func (s *Simulation) derivatives(masses []Mass, active []bool) []massDerivative {
+	original := s.Masses
+	s.Masses = masses
+	evaluation := s.EvaluateForces()
+	s.Masses = original
+	derivatives := make([]massDerivative, len(masses))
+	for i, mass := range masses {
+		if active[i] {
+			derivatives[i] = massDerivative{Velocity: mass.Velocity, Acceleration: evaluation.ByMassID[mass.ID].Acceleration}
+		}
+	}
+	return derivatives
+}
+
+func offsetMasses(masses []Mass, derivatives []massDerivative, dt float64) []Mass {
+	offset := append([]Mass{}, masses...)
+	for i := range offset {
+		offset[i].Position = offset[i].Position.Add(derivatives[i].Velocity.Scale(dt))
+		offset[i].Velocity = offset[i].Velocity.Add(derivatives[i].Acceleration.Scale(dt))
+	}
+	return offset
+}
+
+func weightedDerivative(k1, k2, k3, k4 Vec2, dt float64) Vec2 {
+	return k1.Add(k2.Scale(2)).Add(k3.Scale(2)).Add(k4).Scale(dt / 6)
 }
 
 func length(v Vec2) float64 {

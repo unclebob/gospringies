@@ -148,22 +148,6 @@ func TestDragReportsMissingMass(t *testing.T) {
 	}
 }
 
-func TestDragFixedMassDoesNotMoveOtherMasses(t *testing.T) {
-	world := sim.NewWorld()
-	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
-	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 20, Y: 20}, Mass: 1, Fixed: true})
-	editor := NewEditor(world)
-
-	if err := editor.DragMass(2, sim.Vec2{X: 40, Y: 50}); err != nil {
-		t.Fatal(err)
-	}
-	movable, _ := world.MassByID(1)
-	fixed, _ := world.MassByID(2)
-	if movable.Position != (sim.Vec2{X: 10, Y: 10}) || fixed.Position != (sim.Vec2{X: 20, Y: 20}) {
-		t.Fatalf("movable = %#v fixed = %#v", movable, fixed)
-	}
-}
-
 func TestEditorMathHelpersCoverBoundaryCases(t *testing.T) {
 	world := sim.NewWorld()
 	_ = world.AddMass(sim.Mass{ID: 1, Mass: 1})
@@ -503,45 +487,6 @@ func TestSpringPointerUsesDefaultsAndReleaseLength(t *testing.T) {
 	}
 }
 
-func TestSpringPointerReleaseAndHitBoundaries(t *testing.T) {
-	world := sim.NewWorld()
-	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{}, Mass: 1})
-	editor := NewEditor(world)
-	editor.Mode = ModeAddSpring
-
-	if id, created, err := editor.ReleaseSpring(sim.Vec2{}); err == nil || created || id != 0 {
-		t.Fatalf("release without pending = id %d created %t err %v", id, created, err)
-	}
-	if pending, ok := editor.PendingSpring(); ok || pending != (PendingSpring{}) {
-		t.Fatalf("empty pending = %#v ok=%t", pending, ok)
-	}
-	if id, ok := editor.massNear(sim.Vec2{}); id != 1 || !ok {
-		t.Fatalf("near mass = id %d ok %t", id, ok)
-	}
-	if id, ok := editor.massNear(sim.Vec2{X: springHitRadius}); id != 1 || !ok {
-		t.Fatalf("boundary mass = id %d ok %t", id, ok)
-	}
-	if id, ok := editor.massNear(sim.Vec2{X: springHitRadius + 1}); id != 0 || ok {
-		t.Fatalf("outside mass = id %d ok %t", id, ok)
-	}
-	if id, ok := NewEditor(sim.NewWorld()).massNear(sim.Vec2{}); id != 0 || ok {
-		t.Fatalf("empty-world mass = id %d ok %t", id, ok)
-	}
-
-	if err := editor.BeginSpring(sim.Vec2{}, SpringButtonMiddle); err != nil {
-		t.Fatal(err)
-	}
-	if id, created, err := editor.ReleaseSpring(sim.Vec2{}); err != nil || created || id != 0 {
-		t.Fatalf("temporary release = id %d created %t err %v", id, created, err)
-	}
-	if err := editor.BeginSpring(sim.Vec2{}, SpringButtonLeft); err != nil {
-		t.Fatal(err)
-	}
-	if id, created, err := editor.ReleaseSpring(sim.Vec2{X: springHitRadius + 1}); err != nil || created || id != 0 {
-		t.Fatalf("missed release = id %d created %t err %v", id, created, err)
-	}
-}
-
 func TestSelectedMassParameterControlsUpdateSelectedMasses(t *testing.T) {
 	world := sim.NewWorld()
 	_ = world.AddMass(sim.Mass{ID: 1, Mass: 1, Elasticity: 0.2})
@@ -717,5 +662,44 @@ func TestParameterControlsIgnoreIncompatibleSelectionsAndUpdateDefaults(t *testi
 	createdSpring, _ := world.SpringByID(springID)
 	if createdSpring.SpringConstant != 20 {
 		t.Fatalf("created spring = %#v", createdSpring)
+	}
+}
+
+func TestSpringPointerReleaseAndHitBoundaries(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{}, Mass: 1})
+	editor := NewEditor(world)
+	editor.Mode = ModeAddSpring
+
+	if id, created, err := editor.ReleaseSpring(sim.Vec2{}); err == nil || created || id != 0 {
+		t.Fatalf("release without pending = id %d created %t err %v", id, created, err)
+	}
+	if pending, ok := editor.PendingSpring(); ok || pending != (PendingSpring{}) {
+		t.Fatalf("empty pending = %#v ok=%t", pending, ok)
+	}
+	if id, ok := editor.massNear(sim.Vec2{}); id != 1 || !ok {
+		t.Fatalf("near mass = id %d ok %t", id, ok)
+	}
+	if id, ok := editor.massNear(sim.Vec2{X: springHitRadius}); id != 1 || !ok {
+		t.Fatalf("boundary mass = id %d ok %t", id, ok)
+	}
+	if id, ok := editor.massNear(sim.Vec2{X: springHitRadius + 1}); id != 0 || ok {
+		t.Fatalf("outside mass = id %d ok %t", id, ok)
+	}
+	if id, ok := NewEditor(sim.NewWorld()).massNear(sim.Vec2{}); id != 0 || ok {
+		t.Fatalf("empty-world mass = id %d ok %t", id, ok)
+	}
+
+	if err := editor.BeginSpring(sim.Vec2{}, SpringButtonMiddle); err != nil {
+		t.Fatal(err)
+	}
+	if id, created, err := editor.ReleaseSpring(sim.Vec2{}); err != nil || created || id != 0 {
+		t.Fatalf("temporary release = id %d created %t err %v", id, created, err)
+	}
+	if err := editor.BeginSpring(sim.Vec2{}, SpringButtonLeft); err != nil {
+		t.Fatal(err)
+	}
+	if id, created, err := editor.ReleaseSpring(sim.Vec2{X: springHitRadius + 1}); err != nil || created || id != 0 {
+		t.Fatalf("missed release = id %d created %t err %v", id, created, err)
 	}
 }

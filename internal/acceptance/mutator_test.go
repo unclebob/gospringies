@@ -378,6 +378,34 @@ func TestBuildMutationsSkipsEquivalentWallCollisionCells(t *testing.T) {
 	}
 }
 
+func TestBuildMutationsSkipsEquivalentForceCenterCells(t *testing.T) {
+	if !isEquivalentForceCenterMutation(3, "center_mass") {
+		t.Fatal("center mass setup/assertion cell should be equivalent")
+	}
+	if isEquivalentForceCenterMutation(3, "force") || isEquivalentForceCenterMutation(2, "center_mass") {
+		t.Fatal("force and unrelated center mass mutations should remain meaningful")
+	}
+}
+
+func TestBuildMutationsSkipsEquivalentAdaptiveRK4Cells(t *testing.T) {
+	for _, cell := range []mutationCell{
+		{0, "adaptive"},
+		{0, "duration"},
+		{1, "duration"},
+		{2, "adaptive"},
+		{2, "duration"},
+		{3, "adaptive"},
+		{3, "duration"},
+	} {
+		if !isEquivalentAdaptiveRK4Mutation(cell.scenario, cell.key) {
+			t.Fatalf("expected %s in scenario %d to be equivalent", cell.key, cell.scenario)
+		}
+	}
+	if isEquivalentAdaptiveRK4Mutation(1, "precision") || isEquivalentAdaptiveRK4Mutation(0, "time_step") {
+		t.Fatal("precision and time step mutations should remain meaningful")
+	}
+}
+
 func TestEquivalentMutationPredicates(t *testing.T) {
 	for _, check := range []struct {
 		equivalent func(int, string) bool

@@ -23,6 +23,8 @@ var (
 	fixedMassColor  = color.RGBA{R: 238, G: 116, B: 96, A: 255}
 	wallColor       = color.RGBA{R: 180, G: 186, B: 196, A: 255}
 	selectionColor  = color.RGBA{R: 255, G: 255, B: 255, A: 255}
+	chromeColor     = color.RGBA{R: 48, G: 56, B: 68, A: 255}
+	panelColor      = color.RGBA{R: 34, G: 40, B: 50, A: 255}
 )
 
 type Game struct {
@@ -47,7 +49,7 @@ type WindowConfig struct {
 }
 
 func NewGame() *Game {
-	world := sim.NewWorld()
+	world := sim.NewDemoSimulation()
 	return &Game{simulation: world, initialState: world.Clone(), mode: "select"}
 }
 
@@ -76,6 +78,7 @@ func (g *Game) Update() error {
 func (g *Game) Draw(screen *ebiten.Image) {
 	result := g.RenderWorld()
 	screen.Fill(backgroundColor)
+	g.drawEditorChrome(screen)
 	if result.SpringLinesVisible {
 		g.drawSprings(screen)
 	}
@@ -85,6 +88,29 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.drawSelection(screen)
 	}
 	ebitenutil.DebugPrint(screen, fmt.Sprintf("TPS %.0f", ebiten.ActualTPS()))
+}
+
+func (g *Game) drawEditorChrome(screen *ebiten.Image) {
+	for _, rect := range editorChromeRects() {
+		vector.DrawFilledRect(screen, rect.x, rect.y, rect.width, rect.height, rect.color, false)
+	}
+}
+
+type chromeRect struct {
+	x      float32
+	y      float32
+	width  float32
+	height float32
+	color  color.RGBA
+}
+
+func editorChromeRects() []chromeRect {
+	return []chromeRect{
+		{x: 0, y: 0, width: screenWidth, height: 36, color: chromeColor},
+		{x: 0, y: 36, width: 72, height: screenHeight - 60, color: panelColor},
+		{x: screenWidth - 128, y: 36, width: 128, height: screenHeight - 60, color: panelColor},
+		{x: 0, y: screenHeight - 24, width: screenWidth, height: 24, color: chromeColor},
+	}
 }
 
 func (g *Game) drawSprings(screen *ebiten.Image) {

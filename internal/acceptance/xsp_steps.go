@@ -70,7 +70,16 @@ func xspInputForCommand(command string) (string, error) {
 		"elas": "#1.0\nelas 0.4\n",
 		"kspr": "#1.0\nkspr 12.5\n",
 		"kdmp": "#1.0\nkdmp 0.7\n",
+		"fixm": "#1.0\nfixm 1\n",
+		"shws": "#1.0\nshws 0\n",
+		"cent": "#1.0\ncent -1\n",
 		"frce": "#1.0\nfrce gravity true magnitude=10 direction=90\n",
+		"visc": "#1.0\nvisc 0.2\n",
+		"stck": "#1.0\nstck 0.3\n",
+		"step": "#1.0\nstep 0.01\n",
+		"prec": "#1.0\nprec 0.001\n",
+		"adpt": "#1.0\nadpt 1\n",
+		"gsnp": "#1.0\ngsnp 5\n",
 		"wall": "#1.0\nwall left true\n",
 		"mass": "#1.0\nmass 1 10 20 3.0 0.8\n",
 		"spng": "#1.0\nmass 1 0 0 1 0.8\nmass 2 10 0 1 0.8\nspng 1 1 2 10 12 0.7\n",
@@ -191,6 +200,17 @@ func loadAndSaveXSPInput(w *world, _ map[string]string) error {
 	return nil
 }
 
+func assertSavedXSPIncludesCommand(w *world, example map[string]string) error {
+	command, err := stringValue(example, "command")
+	if err != nil {
+		return err
+	}
+	if !strings.Contains(w.xspSavedFirst, "\n"+command+" ") {
+		return fmt.Errorf("saved XSP missing command %q:\n%s", command, w.xspSavedFirst)
+	}
+	return nil
+}
+
 func assertXSPMassFixedState(w *world, example map[string]string) error {
 	id, err := intValue(example, "mass_id")
 	if err != nil {
@@ -249,6 +269,8 @@ func createMalformedXSPInput(w *world, example map[string]string) error {
 		"duplicate spring id":     "#1.0\nmass 1 0 0 1 0.8\nmass 2 1 1 1 0.8\nspng 1 1 2 1 1 0\nspng 1 1 2 1 1 0\n",
 		"missing spring endpoint": "#1.0\nmass 1 0 0 1 0.8\nspng 1 1 2 1 1 0\n",
 		"missing final newline":   "#1.0",
+		"blank line":              "#1.0\n\n",
+		"non-positive id":         "#1.0\nmass 0 0 0 1 0.8\n",
 	}
 	if input, ok := inputs[problem]; ok {
 		w.xspInput = input
@@ -273,4 +295,100 @@ func assertXSPLoadErrorReason(w *world, example map[string]string) error {
 
 func simpleSceneXSP() string {
 	return "#1.0\ncmas 1.5\nelas 0.8\nkspr 12\nkdmp 0.7\nmass 1 0 0 1 0.8\nmass 2 10 0 1 0.8\nspng 1 1 2 10 12 0.7\n"
+}
+
+func createFilenameInput(w *world, example map[string]string) error {
+	filename, err := stringValue(example, "filename")
+	if err != nil {
+		return err
+	}
+	w.xspInput = filename
+	return nil
+}
+
+func setSpringDirEnvironment(w *world, example map[string]string) error {
+	springDir, err := stringValue(example, "springdir")
+	if err != nil {
+		return err
+	}
+	if springDir == "unset" {
+		w.xspSpringDir = ""
+		return nil
+	}
+	w.xspSpringDir = springDir
+	return nil
+}
+
+func resolveXSPFilename(w *world, _ map[string]string) error {
+	w.xspResolvedFilename = xspfmt.ResolveXSPFilename(w.xspInput, w.xspSpringDir)
+	return nil
+}
+
+func assertResolvedXSPFilename(w *world, example map[string]string) error {
+	expected, err := stringValue(example, "resolved_filename")
+	if err != nil {
+		return err
+	}
+	return requireString("resolved filename", w.xspResolvedFilename, expected)
+}
+
+func requireString(label, actual, expected string) error {
+	if actual == expected {
+		return nil
+	}
+	return fmt.Errorf("%s = %q, want %q", label, actual, expected)
+}
+
+func createCurrentParameters(w *world, example map[string]string) error {
+	current, err := stringValue(example, "current_parameters")
+	if err != nil {
+		return err
+	}
+	if current != "custom" {
+		return fmt.Errorf("unsupported current parameters %q", current)
+	}
+	w.xspWorld = sim.NewWorld()
+	w.xspWorld.Parameters.Set("current mass", "custom")
+	return nil
+}
+
+func insertXSPFile(w *world, example map[string]string) error {
+	name, err := stringValue(example, "input_file")
+	if err != nil {
+		return err
+	}
+	if name != "complete" {
+		return fmt.Errorf("unsupported input file %q", name)
+	}
+	inserted, err := xspfmt.LoadXSP(completeXSP())
+	if err != nil {
+		return err
+	}
+	w.xspWorld.InsertFrom(inserted)
+	return nil
+}
+
+func assertInsertedObjectsAdded(w *world, _ map[string]string) error {
+	if _, ok := w.xspWorld.MassByID(1); !ok {
+		return fmt.Errorf("inserted mass not found")
+	}
+	if _, ok := w.xspWorld.SpringByID(1); !ok {
+		return fmt.Errorf("inserted spring not found")
+	}
+	return nil
+}
+
+func assertParametersRemain(w *world, example map[string]string) error {
+	current, err := stringValue(example, "current_parameters")
+	if err != nil {
+		return err
+	}
+	if got := w.xspWorld.Parameters.Value("current mass"); got != current {
+		return fmt.Errorf("current mass parameter = %q, want %q", got, current)
+	}
+	return nil
+}
+
+func completeXSP() string {
+	return "#1.0\ncmas loaded\nelas 0.4\nkspr 12\nkdmp 0.7\nfixm 0\nshws 1\ncent -1\nfrce gravity 1 magnitude=10 direction=90\nvisc 0.2\nstck 0.3\nstep 0.01\nprec 0.001\nadpt 0\ngsnp 5\nwall left 1\nmass 1 0 0 1 0.8\nmass 2 10 0 1 0.8\nspng 1 1 2 10 12 0.7\n"
 }

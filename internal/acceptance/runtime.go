@@ -31,11 +31,14 @@ type world struct {
 	xspLoadErr           error
 	xspSavedFirst        string
 	xspSavedSecond       string
+	xspResolvedFilename  string
+	xspSpringDir         string
 	appGame              appGame
 	appErr               error
 	appBeforeTime        float64
 	appWindowSize        string
 	editorScreen         editorScreen
+	startupSecondScreen  editorScreen
 	renderResult         renderResult
 	mouseEditor          *edit.Editor
 	createdMassID        int
@@ -183,6 +186,16 @@ var stepHandlers = map[string]stepHandler{
 	"the resulting state should be the same on every run":                                  assertResultDeterministic,
 	"the coder advances the simulation by <duration> using render frame rate <frame_rate>": advanceByDurationAtFrameRate,
 	"the resulting simulation time should be <duration>":                                   assertSimulationTime,
+	"the adaptive RK4 numerics task is accepted":                                           acceptStep,
+	"adaptive timestep is <adaptive>":                                                      setAdaptiveTimestep,
+	"time step is <time_step>":                                                             setTimeStep,
+	"RK4 integration should advance deterministically by <duration>":                       assertRK4DeterministicAdvance,
+	"precision is <precision>":                                                             setPrecision,
+	"the coder advances an unstable simulation by <duration>":                              advanceUnstableSimulation,
+	"adaptive RK4 should choose <step_behavior>":                                           assertAdaptiveStepBehavior,
+	"simulation time should advance by <duration>":                                         assertSimulationTimeAdvanced,
+	"render frame rate is <frame_rate>":                                                    setRenderFrameRate,
+	"simulation state should not depend on render frame rate <frame_rate>":                 assertStateIndependentOfFrameRate,
 	"the XSP load and save task is accepted":                                               acceptStep,
 	"XSP input starts with <marker>":                                                       createXSPInputWithMarker,
 	"the coder loads the XSP input":                                                        loadXSPInput,
@@ -195,9 +208,36 @@ var stepHandlers = map[string]stepHandler{
 	"each saved output should end with a newline":                                          assertXSPSaveEndsWithNewline,
 	"XSP input contains mass <mass_id> with file mass value <file_mass_value>":             createXSPInputWithFileMass,
 	"the coder loads and saves the XSP input":                                              loadAndSaveXSPInput,
+	"saved XSP output should include command <command>":                                    assertSavedXSPIncludesCommand,
 	"saved mass <mass_id> should use file mass sign <file_mass_sign>":                      assertSavedMassSign,
 	"XSP input has problem <problem>":                                                      createMalformedXSPInput,
 	"loading should fail with reason <reason>":                                             assertXSPLoadErrorReason,
+	"the XSP complete file format task is accepted":                                        acceptStep,
+	"filename input is <filename>":                                                         createFilenameInput,
+	"environment variable SPRINGDIR is <springdir>":                                        setSpringDirEnvironment,
+	"the coder resolves an XSP filename":                                                   resolveXSPFilename,
+	"resolved filename should be <resolved_filename>":                                      assertResolvedXSPFilename,
+	"current parameters are <current_parameters>":                                          createCurrentParameters,
+	"the coder inserts XSP file <input_file>":                                              insertXSPFile,
+	"inserted masses and springs should be added":                                          assertInsertedObjectsAdded,
+	"parameters should remain <current_parameters>":                                        assertParametersRemain,
+	"the force center and force parameters task is accepted":                               acceptStep,
+	"the coder selects force <force>":                                                      selectForce,
+	"force <force> should expose parameter <parameter_one>":                                assertForceExposesParameter,
+	"force <force> should expose parameter <parameter_two>":                                assertForceExposesParameter,
+	"gravity direction is <direction_degrees>":                                             setGravityDirection,
+	"the coder evaluates gravity":                                                          evaluateGravity,
+	"gravity should point <expected_direction>":                                            assertGravityDirection,
+	"selected masses are <selected_masses>":                                                createSelectedMasses,
+	"the coder sets the force center":                                                      setForceCenter,
+	"force center should be <expected_center>":                                             assertForceCenter,
+	"force center is mass <center_mass>":                                                   createForceCenterMass,
+	"force <force> is enabled":                                                             enableNamedForce,
+	"the coder evaluates center forces":                                                    evaluateCenterForces,
+	"mass <center_mass> should be visually marked as the center":                           assertCenterMassVisuallyMarked,
+	"mass <center_mass> should not receive reciprocal force response from <force>":         assertNoReciprocalCenterForce,
+	"the coder enables force <force>":                                                      enableForceForControls,
+	"parameter controls for force <force> should be active":                                assertForceControlsActive,
 	"the Ebitengine window task is accepted":                                               acceptStep,
 	"the coder starts the desktop application":                                             startDesktopApplication,
 	"the application window should open successfully":                                      assertApplicationWindowOpened,
@@ -388,6 +428,15 @@ var stepHandlers = map[string]stepHandler{
 	"wall <wall> is disabled":                                                              disableWall,
 	"mass <mass_id> moves toward wall <wall>":                                              moveMassTowardWall,
 	"mass <mass_id> should not bounce from wall <wall>":                                    assertMassDidNotBounce,
+	"the nonblank startup editor task is accepted":                                         acceptStep,
+	"the first screen should show visible editor chrome":                                   assertStartupEditorChrome,
+	"the first screen should show visible world content":                                   assertStartupWorldContent,
+	"debug text should not be the only visible content":                                    assertDebugTextNotOnlyContent,
+	"startup screen region <region> should be visible":                                     assertStartupRegionVisible,
+	"the startup world should contain <object_count> <object_type>":                        assertStartupObjectCount,
+	"the coder starts the desktop application twice":                                       startDesktopApplicationTwice,
+	"both startup worlds should be equivalent":                                             assertStartupWorldsEquivalent,
+	"both startup screens should show the same editor chrome":                              assertStartupScreensEquivalent,
 }
 
 func acceptStep(*world, map[string]string) error {

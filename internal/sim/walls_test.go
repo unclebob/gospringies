@@ -56,7 +56,7 @@ func TestStickinessCanHoldAndReleaseMass(t *testing.T) {
 		t.Fatalf("stuck mass = %#v", mass)
 	}
 
-	world.Parameters.EnableForce("gravity", map[string]string{"magnitude": "20"})
+	world.Parameters.EnableForce("gravity", map[string]string{"magnitude": "20", "direction": "0"})
 	world.Masses[0].StuckWall = "top"
 	world.Masses[0].Position = Vec2{X: 20, Y: 0}
 	world.Step(1)

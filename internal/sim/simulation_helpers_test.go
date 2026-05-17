@@ -142,6 +142,11 @@ func TestAdvanceDurationBoundarySteps(t *testing.T) {
 	if math.Abs(world.Time-0.10) > 0.000001 {
 		t.Fatalf("partial duration time = %f", world.Time)
 	}
+
+	world.AdvanceDuration(advanceEpsilon)
+	if world.LastAdvanceSteps != 0 {
+		t.Fatalf("epsilon duration steps = %d", world.LastAdvanceSteps)
+	}
 }
 
 func TestAdvanceDurationUsesConfiguredPositiveTimestep(t *testing.T) {
@@ -167,6 +172,27 @@ func TestAdvanceDurationUsesOneStepWhenDurationEqualsTimestep(t *testing.T) {
 
 	if advanced.Masses[0].Position != oneStep.Masses[0].Position {
 		t.Fatalf("equal-duration step position = %#v, want %#v", advanced.Masses[0].Position, oneStep.Masses[0].Position)
+	}
+	if advanced.LastAdvanceSteps != 1 {
+		t.Fatalf("equal-duration steps = %d", advanced.LastAdvanceSteps)
+	}
+}
+
+func TestAdaptiveStepBoundaryHelpers(t *testing.T) {
+	world := NewWorld()
+	world.Parameters.Set("precision", "0")
+	if got := world.configuredPrecision(); got != defaultPrecision {
+		t.Fatalf("zero configured precision = %f", got)
+	}
+	world.Parameters.Set("precision", "0.004")
+	if got := adaptiveStepDuration(0.25, world.configuredPrecision()); got != 0.25 {
+		t.Fatalf("clamped adaptive step = %f", got)
+	}
+	if got := adaptiveStepDuration(0.25, 0); got != 0.25 {
+		t.Fatalf("zero adaptive step = %f", got)
+	}
+	if got := adaptiveStepDuration(0.25, defaultPrecision); got != 0.25 {
+		t.Fatalf("equal adaptive step = %f", got)
 	}
 }
 

@@ -1,0 +1,147 @@
+package acceptance
+
+import (
+	"fmt"
+
+	"springs/internal/app"
+	"springs/internal/sim"
+)
+
+func assertStartupEditorChrome(w *world, _ map[string]string) error {
+	game, err := concreteStartupGame(w)
+	if err != nil {
+		return err
+	}
+	screen := game.EditorScreen()
+	for _, region := range startupRegions() {
+		if _, ok := screen.RegionPurpose(region); !ok {
+			return fmt.Errorf("startup region %q was not visible", region)
+		}
+	}
+	return requirePrerequisite(screen.Editor && screen.CanvasVisible && screen.ControlsUsable, "startup editor chrome was not visible")
+}
+
+func assertStartupWorldContent(w *world, _ map[string]string) error {
+	game, err := concreteStartupGame(w)
+	if err != nil {
+		return err
+	}
+	result := game.RenderWorld()
+	if !result.MassesVisible || !result.SpringLinesVisible {
+		return fmt.Errorf("startup world content was not visible: %#v", result)
+	}
+	return nil
+}
+
+func assertDebugTextNotOnlyContent(w *world, example map[string]string) error {
+	if err := assertStartupEditorChrome(w, example); err != nil {
+		return err
+	}
+	return assertStartupWorldContent(w, example)
+}
+
+func assertStartupRegionVisible(w *world, example map[string]string) error {
+	region, err := stringValue(example, "region")
+	if err != nil {
+		return err
+	}
+	game, err := concreteStartupGame(w)
+	if err != nil {
+		return err
+	}
+	if _, ok := game.EditorScreen().RegionPurpose(region); !ok {
+		return fmt.Errorf("startup region %q was not visible", region)
+	}
+	return nil
+}
+
+func assertStartupObjectCount(w *world, example map[string]string) error {
+	count, objectType, err := stringPair(example, "object_count", "object_type")
+	if err != nil {
+		return err
+	}
+	if count != "at least 1" {
+		return fmt.Errorf("unsupported object count %q", count)
+	}
+	game, err := concreteStartupGame(w)
+	if err != nil {
+		return err
+	}
+	if startupObjectCount(game.World(), objectType) < 1 {
+		return fmt.Errorf("startup world has no %s", objectType)
+	}
+	return nil
+}
+
+func startupObjectCount(world *sim.Simulation, objectType string) int {
+	switch objectType {
+	case "fixed mass":
+		return countMasses(world, true)
+	case "movable mass":
+		return countMasses(world, false)
+	case "spring":
+		return len(world.Springs)
+	default:
+		return 0
+	}
+}
+
+func countMasses(world *sim.Simulation, fixed bool) int {
+	count := 0
+	for _, mass := range world.Masses {
+		if mass.Fixed == fixed {
+			count++
+		}
+	}
+	return count
+}
+
+func startDesktopApplicationTwice(w *world, _ map[string]string) error {
+	first := app.NewGame()
+	second := app.NewGame()
+	w.domainWorld = first.World().Clone()
+	w.resultingWorld = second.World().Clone()
+	w.editorScreen = first.EditorScreen()
+	w.startupSecondScreen = second.EditorScreen()
+	return nil
+}
+
+func assertStartupWorldsEquivalent(w *world, _ map[string]string) error {
+	if !sameWorldState(w.domainWorld, w.resultingWorld) || len(w.domainWorld.Springs) != len(w.resultingWorld.Springs) {
+		return fmt.Errorf("startup worlds differed")
+	}
+	return nil
+}
+
+func assertStartupScreensEquivalent(w *world, _ map[string]string) error {
+	if !sameStringSlices(w.editorScreen.ModeControls, w.startupSecondScreen.ModeControls) ||
+		!sameStringSlices(w.editorScreen.CommandControls, w.startupSecondScreen.CommandControls) ||
+		len(w.editorScreen.Regions) != len(w.startupSecondScreen.Regions) {
+		return fmt.Errorf("startup screens differed")
+	}
+	return nil
+}
+
+func sameStringSlices(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func startupRegions() []string {
+	return []string{"canvas", "left toolbar", "top bar", "right inspector", "status line"}
+}
+
+func concreteStartupGame(w *world) (*app.Game, error) {
+	game, ok := w.appGame.(*app.Game)
+	if !ok {
+		return nil, fmt.Errorf("startup application was not started")
+	}
+	return game, nil
+}

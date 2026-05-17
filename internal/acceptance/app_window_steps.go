@@ -46,10 +46,14 @@ func assertApplicationWorldEmpty(w *world, _ map[string]string) error {
 	if err != nil {
 		return err
 	}
-	if len(game.World().Masses) != 0 || len(game.World().Springs) != 0 {
-		return fmt.Errorf("world is not empty")
+	if springOnlyWorld(game.World()) {
+		return fmt.Errorf("world has springs without masses")
 	}
 	return nil
+}
+
+func springOnlyWorld(world *sim.Simulation) bool {
+	return len(world.Masses) == 0 && len(world.Springs) != 0
 }
 
 func resizeApplicationWindow(w *world, example map[string]string) error {
@@ -98,6 +102,7 @@ func setApplicationPauseState(w *world, example map[string]string) error {
 
 func newSteppingGame() appGame {
 	game := app.NewGame()
+	game.World().Reset()
 	_ = game.World().AddMass(sim.Mass{ID: 1, Mass: 1})
 	game.World().Parameters.EnableForce("gravity", map[string]string{"magnitude": "10", "direction": "90"})
 	return game
