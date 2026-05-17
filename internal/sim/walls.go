@@ -9,9 +9,7 @@ type wallCollision struct {
 	boundary       float64
 	outside        func(float64) bool
 	movingOutward  func(float64) bool
-	reboundSign    float64
 	releaseForce   func(Vec2) float64
-	stuckPosition  Vec2
 	keepTangential func(*Mass)
 }
 
@@ -38,8 +36,17 @@ func (s *Simulation) bounceOrStick(mass *Mass, wall wallCollision) {
 		mass.StuckWall = wall.name
 		return
 	}
-	*wall.velocity = rebound * wall.reboundSign
+	*wall.velocity = signedRebound(rebound, wall)
 	mass.StuckWall = ""
+}
+
+func signedRebound(rebound float64, wall wallCollision) float64 {
+	switch wall.name {
+	case "right", "bottom":
+		return -rebound
+	default:
+		return rebound
+	}
 }
 
 func (s *Simulation) keepStuck(mass *Mass, acceleration Vec2) bool {
@@ -74,25 +81,25 @@ func (s *Simulation) collisionWalls(mass *Mass) []wallCollision {
 		{
 			name: "left", position: &mass.Position.X, velocity: &mass.Velocity.X, boundary: 0,
 			outside: func(position float64) bool { return position < 0 }, movingOutward: func(velocity float64) bool { return velocity < 0 },
-			reboundSign: 1, releaseForce: func(force Vec2) float64 { return force.X },
+			releaseForce:   func(force Vec2) float64 { return force.X },
 			keepTangential: func(mass *Mass) { mass.Velocity.X = 0 },
 		},
 		{
 			name: "right", position: &mass.Position.X, velocity: &mass.Velocity.X, boundary: s.Bounds.Width,
 			outside: func(position float64) bool { return position > s.Bounds.Width }, movingOutward: func(velocity float64) bool { return velocity > 0 },
-			reboundSign: -1, releaseForce: func(force Vec2) float64 { return -force.X },
+			releaseForce:   func(force Vec2) float64 { return -force.X },
 			keepTangential: func(mass *Mass) { mass.Velocity.X = 0 },
 		},
 		{
 			name: "top", position: &mass.Position.Y, velocity: &mass.Velocity.Y, boundary: 0,
 			outside: func(position float64) bool { return position < 0 }, movingOutward: func(velocity float64) bool { return velocity < 0 },
-			reboundSign: 1, releaseForce: func(force Vec2) float64 { return force.Y },
+			releaseForce:   func(force Vec2) float64 { return force.Y },
 			keepTangential: func(mass *Mass) { mass.Velocity.Y = 0 },
 		},
 		{
 			name: "bottom", position: &mass.Position.Y, velocity: &mass.Velocity.Y, boundary: s.Bounds.Height,
 			outside: func(position float64) bool { return position > s.Bounds.Height }, movingOutward: func(velocity float64) bool { return velocity > 0 },
-			reboundSign: -1, releaseForce: func(force Vec2) float64 { return -force.Y },
+			releaseForce:   func(force Vec2) float64 { return -force.Y },
 			keepTangential: func(mass *Mass) { mass.Velocity.Y = 0 },
 		},
 	}

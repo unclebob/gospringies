@@ -67,7 +67,7 @@ func assertWallNormalVelocityReversed(w *world, example map[string]string) error
 	if err != nil {
 		return err
 	}
-	if normalVelocity(mass, wall)*normalSignTowardInside(wall) <= 0 {
+	if normalVelocityTowardInside(mass, wall) <= 0 {
 		return fmt.Errorf("velocity was not reversed for %s: %#v", wall, mass.Velocity)
 	}
 	return nil
@@ -228,7 +228,7 @@ func assertMassDidNotBounce(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	if normalVelocity(mass, wall)*normalSignTowardInside(wall) > 0 {
+	if normalVelocityTowardInside(mass, wall) > 0 {
 		return fmt.Errorf("mass bounced from disabled %s: %#v", wall, mass.Velocity)
 	}
 	return nil
@@ -303,6 +303,16 @@ func normalVelocity(mass sim.Mass, wall string) float64 {
 		return mass.Velocity.X
 	}
 	return mass.Velocity.Y
+}
+
+func normalVelocityTowardInside(mass sim.Mass, wall string) float64 {
+	velocity := normalVelocity(mass, wall)
+	switch wall {
+	case "left", "top":
+		return velocity
+	default:
+		return -velocity
+	}
 }
 
 func normalSignTowardInside(wall string) float64 {
