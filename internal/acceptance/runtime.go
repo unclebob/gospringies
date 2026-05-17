@@ -51,6 +51,8 @@ type world struct {
 	originalMassIDs      []int
 	originalSpringIDs    []int
 	appCommand           string
+	clickShortcut        string
+	recordedAppState     string
 	documentation        string
 	cleanCheckout        bool
 	documentedCommand    string
@@ -453,6 +455,19 @@ var stepHandlers = map[string]stepHandler{
 	"editor chrome should not cover all world content":                                     assertChromeDoesNotCoverAllWorldContent,
 	"the coder draws the application frame at the default window size":                     drawApplicationFrameDefaultSize,
 	"visible control labels should fit inside their regions":                               assertVisibleControlLabelsFit,
+	"the clickable visible controls task is accepted":                                      acceptStep,
+	"the editor mode is <old_mode>":                                                        setClickableEditorMode,
+	"the coder clicks visible control <control>":                                           clickVisibleControl,
+	"the editor mode should be <new_mode>":                                                 assertClickableEditorMode,
+	"visible control <control> should show active state":                                   assertVisibleControlActive,
+	"keyboard path entry should open for <command>":                                        assertKeyboardPathEntryOpen,
+	"visible control <control> maps to shortcut <shortcut>":                                recordVisibleControlShortcut,
+	"the result should match pressing shortcut <shortcut>":                                 assertClickMatchesShortcut,
+	"the application state is recorded":                                                    recordClickableApplicationState,
+	"the coder clicks outside all visible controls":                                        clickOutsideVisibleControls,
+	"the application state should remain unchanged":                                        assertClickableApplicationStateUnchanged,
+	"simulation state is <old_state>":                                                      setClickableSimulationState,
+	"simulation state should be <new_state>":                                               assertClickableSimulationState,
 	"the original demo corpus task is accepted":                                            acceptStep,
 	"the coder imports the original XSpringies demo corpus":                                importOriginalDemoCorpus,
 	"imported demo file <demo_file> should exist under <demo_directory>":                   assertImportedDemoExists,

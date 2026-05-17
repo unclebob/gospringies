@@ -38,6 +38,7 @@ type statusField struct {
 type DrawFrameReport struct {
 	RegionPixels        map[string]int
 	Controls            map[string]string
+	ActiveControls      map[string]bool
 	InspectorSections   map[string]bool
 	StatusFields        map[string]string
 	CanvasWorldPixels   int
@@ -131,6 +132,7 @@ func analyzeDrawnFrame(game *Game) DrawFrameReport {
 	report := DrawFrameReport{
 		RegionPixels:        map[string]int{},
 		Controls:            visibleControlLabels(),
+		ActiveControls:      game.visibleActiveControls(),
 		InspectorSections:   visibleInspectorSections(),
 		StatusFields:        game.visibleStatusFields(),
 		RegionControlCounts: game.visibleRegionControlCounts(),
@@ -141,6 +143,14 @@ func analyzeDrawnFrame(game *Game) DrawFrameReport {
 	}
 	report.CanvasWorldPixels = visibleWorldPixels(game)
 	return report
+}
+
+func (g *Game) visibleActiveControls() map[string]bool {
+	active := map[string]bool{}
+	for _, control := range visibleControls() {
+		active[control.Label] = g.activeControl(control.Name)
+	}
+	return active
 }
 
 func visibleControlLabels() map[string]string {
