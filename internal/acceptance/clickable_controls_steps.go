@@ -47,6 +47,28 @@ func clickVisibleControl(w *world, example map[string]string) error {
 	return nil
 }
 
+func clickInsideRenderedVisibleControlBounds(w *world, example map[string]string) error {
+	control, err := stringValue(example, "control")
+	if err != nil {
+		return err
+	}
+	game, err := visibleControlsGame(w)
+	if err != nil {
+		return err
+	}
+	rect, ok := game.VisibleControlBounds(control)
+	if !ok {
+		return fmt.Errorf("visible control %q does not have rendered bounds", control)
+	}
+	x := rect.Min.X + rect.Dx()/2
+	y := rect.Min.Y + rect.Dy()/2
+	if !game.ClickAt(x, y) {
+		return fmt.Errorf("click inside rendered bounds of visible control %q was not handled", control)
+	}
+	w.appCommand = game.LastCommand()
+	return nil
+}
+
 func assertClickableEditorMode(w *world, example map[string]string) error {
 	return assertClickableGameValue(w, example, "new_mode", "editor mode", clickableEditorMode)
 }
