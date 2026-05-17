@@ -57,6 +57,7 @@ type world struct {
 	cleanCheckout        bool
 	documentedCommand    string
 	documentedCommandErr error
+	mutationOutput       string
 	handoffVerification  map[string]string
 }
 
@@ -140,6 +141,10 @@ var stepHandlers = map[string]stepHandler{
 	"the generated smoke acceptance test should pass":                                      assertSmokeAcceptanceTestPasses,
 	"the coder checks out the committed project":                                           acceptStep,
 	"the acceptance test command should pass without uncommitted setup steps":              assertAcceptanceCommandPassesFromCleanCheckout,
+	"feature file <feature_file> has mutation stamp state <stamp_state>":                   setFeatureMutationStampState,
+	"the coder runs acceptance mutation for <feature_file>":                                runAcceptanceMutationForFeature,
+	"acceptance mutation should <mutation_behavior> <feature_file>":                        assertAcceptanceMutationBehavior,
+	"feature file <feature_file> should have mutation stamp state <expected_stamp_state>":  assertFeatureMutationStampState,
 	"acceptance smoke is ready":                                                            acceptStep,
 	"acceptance smoke should pass":                                                         acceptStep,
 	"the project skeleton task is accepted":                                                acceptStep,

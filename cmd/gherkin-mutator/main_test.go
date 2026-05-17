@@ -109,9 +109,60 @@ func TestRunReturnsSuccessForFeatureWithoutMutations(t *testing.T) {
 	}
 }
 
+func TestRunStampsFeatureAfterSuccessfulMutation(t *testing.T) {
+	dir := t.TempDir()
+	featurePath := filepath.Join(dir, "empty.feature")
+	writeFile(t, featurePath, "Feature: Empty\n\nScenario: no examples\n  Given nothing\n")
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	code := run([]string{"-feature", featurePath, "-work-dir", filepath.Join(dir, "mutations")}, &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, stderr = %s", code, stderr.String())
+	}
+	content := readFile(t, featurePath)
+	if !strings.Contains(content, mutationStampPrefix) {
+		t.Fatalf("feature was not stamped:\n%s", content)
+	}
+}
+
+func TestRunSkipsStampedFeature(t *testing.T) {
+	dir := t.TempDir()
+	featurePath := filepath.Join(dir, "empty.feature")
+	writeFile(t, featurePath, "Feature: Empty\n\nScenario: no examples\n  Given nothing\n")
+	if err := stampMutationFeature(featurePath); err != nil {
+		t.Fatal(err)
+	}
+	before := readFile(t, featurePath)
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	code := run([]string{"-feature", featurePath, "-work-dir", filepath.Join(dir, "mutations")}, &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, stderr = %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "mutation stamp valid; skipping") {
+		t.Fatalf("stdout = %s", stdout.String())
+	}
+	if after := readFile(t, featurePath); after != before {
+		t.Fatalf("stamped feature changed:\nbefore:\n%s\nafter:\n%s", before, after)
+	}
+}
+
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func readFile(t *testing.T, path string) string {
+	t.Helper()
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(content)
 }

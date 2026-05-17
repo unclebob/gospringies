@@ -1,3 +1,4 @@
+# mutation-stamp: a38bbe36799fff8b2f7711985ef3ea44e12d44e74623053eaf2d3bf05826f729
 Feature: Acceptance pipeline
 
 Background:
