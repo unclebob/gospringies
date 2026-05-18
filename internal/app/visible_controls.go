@@ -79,11 +79,14 @@ func (g *Game) activeControl(name string) bool {
 }
 
 func (g *Game) activeRunControl(name string) bool {
-	activeStates := map[string]bool{
-		"pause command": g.paused,
-		"run command":   !g.paused,
+	switch name {
+	case "pause command":
+		return g.paused
+	case "run command":
+		return !g.paused
+	default:
+		return false
 	}
-	return activeStates[name]
 }
 
 func visibleControls() []controlBox {

@@ -130,27 +130,23 @@ func assertAdaptiveStepBehavior(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	check, ok := adaptiveStepChecks()[behavior]
+	check, ok := adaptiveStepChecks[behavior]
 	if !ok {
 		return fmt.Errorf("unsupported step behavior %q", behavior)
 	}
-	return check(w.resultingWorld.LastAdvanceSteps)
+	return requireAdaptiveSteps(w.resultingWorld.LastAdvanceSteps, behavior, check(w.resultingWorld.LastAdvanceSteps))
 }
 
-func adaptiveStepChecks() map[string]func(int) error {
-	return map[string]func(int) error{
-		"smaller steps": requireAdaptiveSteps("smaller steps", func(steps int) bool { return steps > 10 }),
-		"larger steps":  requireAdaptiveSteps("larger steps", func(steps int) bool { return steps <= 10 }),
+func requireAdaptiveSteps(steps int, want string, matches bool) error {
+	if !matches {
+		return fmt.Errorf("adaptive step count = %d, want %s", steps, want)
 	}
+	return nil
 }
 
-func requireAdaptiveSteps(want string, matches func(int) bool) func(int) error {
-	return func(steps int) error {
-		if !matches(steps) {
-			return fmt.Errorf("adaptive step count = %d, want %s", steps, want)
-		}
-		return nil
-	}
+var adaptiveStepChecks = map[string]func(int) bool{
+	"smaller steps": func(steps int) bool { return steps > 10 },
+	"larger steps":  func(steps int) bool { return steps <= 10 },
 }
 
 func assertSimulationTimeAdvanced(w *world, example map[string]string) error {
