@@ -321,19 +321,23 @@ func segmentsIntersect(a sim.Vec2, b sim.Vec2, c sim.Vec2, d sim.Vec2) bool {
 	o2 := orientation(a, b, d)
 	o3 := orientation(c, d, a)
 	o4 := orientation(c, d, b)
-	if o1 == 0 && onSegment(a, c, b) {
+	if collinearEndpointOnSegment(a, b, c, o1) {
 		return true
 	}
-	if o2 == 0 && onSegment(a, d, b) {
+	if collinearEndpointOnSegment(a, b, d, o2) {
 		return true
 	}
-	if o3 == 0 && onSegment(c, a, d) {
+	if collinearEndpointOnSegment(c, d, a, o3) {
 		return true
 	}
-	if o4 == 0 && onSegment(c, b, d) {
+	if collinearEndpointOnSegment(c, d, b, o4) {
 		return true
 	}
 	return (o1 > 0) != (o2 > 0) && (o3 > 0) != (o4 > 0)
+}
+
+func collinearEndpointOnSegment(start sim.Vec2, end sim.Vec2, point sim.Vec2, orientation float64) bool {
+	return orientation == 0 && onSegment(start, point, end)
 }
 
 func orientation(a sim.Vec2, b sim.Vec2, c sim.Vec2) float64 {
@@ -347,7 +351,11 @@ func orientation(a sim.Vec2, b sim.Vec2, c sim.Vec2) float64 {
 func onSegment(a sim.Vec2, b sim.Vec2, c sim.Vec2) bool {
 	lowX, highX := ordered(a.X, c.X)
 	lowY, highY := ordered(a.Y, c.Y)
-	return b.X >= lowX && b.X <= highX && b.Y >= lowY && b.Y <= highY
+	return between(b.X, lowX, highX) && between(b.Y, lowY, highY)
+}
+
+func between(value float64, low float64, high float64) bool {
+	return value >= low && value <= high
 }
 
 func ordered(a float64, b float64) (float64, float64) {

@@ -157,30 +157,41 @@ func (g *Game) pollMouseControls() {
 }
 
 func (g *Game) pollKeyboardControls() {
+	g.pollEscapeShortcut()
+	if controlKeyPressed() {
+		g.pollControlShortcuts()
+	}
+}
+
+func (g *Game) pollEscapeShortcut() {
 	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
 		g.HandleShortcut("Esc")
 	}
-	if !controlKeyPressed() {
-		return
+}
+
+func (g *Game) pollControlShortcuts() {
+	for _, binding := range controlShortcutBindings {
+		if inpututil.IsKeyJustPressed(binding.key) {
+			g.HandleShortcut(binding.shortcut)
+			return
+		}
 	}
-	switch {
-	case inpututil.IsKeyJustPressed(ebiten.KeyX):
-		g.HandleShortcut("Ctrl+X")
-	case inpututil.IsKeyJustPressed(ebiten.KeyC):
-		g.HandleShortcut("Ctrl+C")
-	case inpututil.IsKeyJustPressed(ebiten.KeyV):
-		g.HandleShortcut("Ctrl+V")
-	case inpututil.IsKeyJustPressed(ebiten.KeyA):
-		g.HandleShortcut("Ctrl+A")
-	case inpututil.IsKeyJustPressed(ebiten.KeyD):
-		g.HandleShortcut("Ctrl+D")
-	case inpututil.IsKeyJustPressed(ebiten.KeyS):
-		g.HandleShortcut("Ctrl+S")
-	case inpututil.IsKeyJustPressed(ebiten.KeyO):
-		g.HandleShortcut("Ctrl+O")
-	case inpututil.IsKeyJustPressed(ebiten.KeyI):
-		g.HandleShortcut("Ctrl+I")
-	}
+}
+
+type keyShortcutBinding struct {
+	key      ebiten.Key
+	shortcut string
+}
+
+var controlShortcutBindings = []keyShortcutBinding{
+	{key: ebiten.KeyX, shortcut: "Ctrl+X"},
+	{key: ebiten.KeyC, shortcut: "Ctrl+C"},
+	{key: ebiten.KeyV, shortcut: "Ctrl+V"},
+	{key: ebiten.KeyA, shortcut: "Ctrl+A"},
+	{key: ebiten.KeyD, shortcut: "Ctrl+D"},
+	{key: ebiten.KeyS, shortcut: "Ctrl+S"},
+	{key: ebiten.KeyO, shortcut: "Ctrl+O"},
+	{key: ebiten.KeyI, shortcut: "Ctrl+I"},
 }
 
 func controlKeyPressed() bool {
@@ -216,49 +227,77 @@ func (g *Game) handleRightPointer(pressed bool, x int, y int) {
 
 func (g *Game) handlePointer(pressed bool, x int, y int) {
 	position := g.screenToWorld(simVec(x, y))
-	if pressed && !g.mousePressed {
-		if g.valueDialog.Open {
-			g.clickValueDialog(x, y)
-			g.mousePressed = pressed
-			return
-		}
-		if g.massMenu.Open {
-			g.clickMassContextMenu(x, y)
-			g.mousePressed = pressed
-			return
-		}
-		if g.demoPickerOpen {
-			g.clickDemoPicker(x, y)
-			g.mousePressed = pressed
-			return
-		}
-		if g.controlKeyPressed() {
-			if !g.ClickAt(x, y) {
-				g.beginSpringAt(position)
-			}
-			g.mousePressed = pressed
-			return
-		}
-		if !g.ClickAt(x, y) {
-			g.beginCanvasGesture(position)
-		}
-	} else if pressed && g.draggingMassID != 0 {
-		g.DragMass(g.draggingMassID, position)
-	} else if pressed && g.pendingSpringID != 0 {
-		g.pendingSpringEnd = position
-	} else if pressed && g.selectionDrag {
-		g.selectionEnd = position
-	} else if pressed && g.activeSlider != "" {
-		g.setSliderAt(g.activeSlider, x)
-	} else if !pressed {
-		g.finishWorldPointer(position)
-		g.draggingMassID = 0
-		g.draggingOffsets = nil
-		g.dragMoved = false
-		g.selectionDrag = false
-		g.activeSlider = ""
+	if pressed {
+		g.handlePressedPointer(position, x, y)
+	} else {
+		g.releasePointer(position)
 	}
 	g.mousePressed = pressed
+}
+
+func (g *Game) handlePressedPointer(position sim.Vec2, x int, y int) {
+	if !g.mousePressed {
+		g.beginPointerPress(position, x, y)
+		return
+	}
+	g.continuePointerPress(position, x)
+}
+
+func (g *Game) continuePointerPress(position sim.Vec2, x int) {
+	switch {
+	case g.draggingMassID != 0:
+		g.DragMass(g.draggingMassID, position)
+	case g.pendingSpringID != 0:
+		g.pendingSpringEnd = position
+	case g.selectionDrag:
+		g.selectionEnd = position
+	case g.activeSlider != "":
+		g.setSliderAt(g.activeSlider, x)
+	}
+}
+
+func (g *Game) releasePointer(position sim.Vec2) {
+	g.finishWorldPointer(position)
+	g.draggingMassID = 0
+	g.draggingOffsets = nil
+	g.dragMoved = false
+	g.selectionDrag = false
+	g.activeSlider = ""
+}
+
+func (g *Game) beginPointerPress(position sim.Vec2, x int, y int) {
+	if g.clickOpenOverlay(x, y) {
+		return
+	}
+	if g.controlKeyPressed() {
+		g.controlPointerPress(position, x, y)
+		return
+	}
+	if !g.ClickAt(x, y) {
+		g.beginCanvasGesture(position)
+	}
+}
+
+func (g *Game) clickOpenOverlay(x int, y int) bool {
+	if g.valueDialog.Open {
+		g.clickValueDialog(x, y)
+		return true
+	}
+	if g.massMenu.Open {
+		g.clickMassContextMenu(x, y)
+		return true
+	}
+	if g.demoPickerOpen {
+		g.clickDemoPicker(x, y)
+		return true
+	}
+	return false
+}
+
+func (g *Game) controlPointerPress(position sim.Vec2, x int, y int) {
+	if !g.ClickAt(x, y) {
+		g.beginSpringAt(position)
+	}
 }
 
 func (g *Game) scrollDemoPicker(delta int) {
@@ -317,20 +356,29 @@ func (g *Game) finishMassDrag(position sim.Vec2) {
 
 func (g *Game) throwDraggedMasses(velocity sim.Vec2) {
 	if len(g.draggingOffsets) > 0 {
-		for i := range g.simulation.Masses {
-			if _, ok := g.draggingOffsets[g.simulation.Masses[i].ID]; ok {
-				g.simulation.Masses[i].Velocity = velocity
-			}
-		}
+		g.throwSelectedDraggingMasses(velocity)
 		g.dirty = true
 		return
 	}
+	g.throwSingleDraggingMass(velocity)
+}
+
+func (g *Game) throwSelectedDraggingMasses(velocity sim.Vec2) {
 	for i := range g.simulation.Masses {
-		if g.simulation.Masses[i].ID == g.draggingMassID {
+		if _, ok := g.draggingOffsets[g.simulation.Masses[i].ID]; ok {
 			g.simulation.Masses[i].Velocity = velocity
-			g.dirty = true
-			return
 		}
+	}
+}
+
+func (g *Game) throwSingleDraggingMass(velocity sim.Vec2) {
+	for i := range g.simulation.Masses {
+		if g.simulation.Masses[i].ID != g.draggingMassID {
+			continue
+		}
+		g.simulation.Masses[i].Velocity = velocity
+		g.dirty = true
+		return
 	}
 }
 

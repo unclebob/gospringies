@@ -8,51 +8,69 @@ import (
 func (g *Game) RunCommand(command string) {
 	g.lastCommand = command
 	g.pathEntryCommand = ""
-	switch command {
-	case "run":
-		g.paused = false
-	case "pause", "pause toggle":
-		g.paused = !g.paused
-	case "reset":
-		g.simulation.Reset()
-		g.dirty = false
-	case "save state":
-		g.SaveState()
-	case "restore state":
-		g.RestoreState()
+	action, ok := commandActions[command]
+	if ok {
+		action(g, command)
+	}
+}
+
+var commandActions = map[string]func(*Game, string){
+	"run":             func(g *Game, _ string) { g.paused = false },
+	"pause":           func(g *Game, _ string) { g.paused = !g.paused },
+	"pause toggle":    func(g *Game, _ string) { g.paused = !g.paused },
+	"reset":           func(g *Game, _ string) { g.resetWorld() },
+	"save state":      func(g *Game, _ string) { g.SaveState() },
+	"restore state":   func(g *Game, _ string) { g.restoreWorldState() },
+	"load":            func(g *Game, _ string) { g.openDemoPicker() },
+	"insert":          func(g *Game, command string) { g.pathEntryCommand = pathEntryLabel(command) },
+	"save":            func(g *Game, command string) { g.pathEntryCommand = pathEntryLabel(command) },
+	"select all":      func(g *Game, _ string) { g.selectAllObjects() },
+	"clear selection": func(g *Game, _ string) { g.clearSelection() },
+	"delete":          func(g *Game, _ string) { g.deleteSelection() },
+	"cut":             func(g *Game, _ string) { g.cutSelection() },
+	"copy":            func(g *Game, _ string) { g.copySelection() },
+	"paste":           func(g *Game, _ string) { g.pasteAtCursor() },
+	"duplicate":       func(g *Game, _ string) { g.duplicateSelection() },
+	"quit":            func(g *Game, _ string) { _ = g.Close() },
+}
+
+func (g *Game) resetWorld() {
+	g.simulation.Reset()
+	g.dirty = false
+}
+
+func (g *Game) restoreWorldState() {
+	g.RestoreState()
+	g.dirty = true
+}
+
+func (g *Game) selectAllObjects() {
+	g.editing().SelectAll()
+	g.syncSelectionState()
+}
+
+func (g *Game) deleteSelection() {
+	g.editing().DeleteSelected()
+	g.selected = false
+	g.dirty = true
+}
+
+func (g *Game) cutSelection() {
+	g.copySelection()
+	g.deleteSelection()
+}
+
+func (g *Game) pasteAtCursor() {
+	if g.pasteSelectionAt(g.lastCursor) {
+		g.selected = true
 		g.dirty = true
-	case "load":
-		g.openDemoPicker()
-	case "insert", "save":
-		g.pathEntryCommand = pathEntryLabel(command)
-	case "select all":
-		g.editing().SelectAll()
-		g.syncSelectionState()
-	case "clear selection":
-		g.clearSelection()
-	case "delete":
-		g.editing().DeleteSelected()
-		g.selected = false
+	}
+}
+
+func (g *Game) duplicateSelection() {
+	if _, err := g.editing().DuplicateSelected(); err == nil {
+		g.selected = true
 		g.dirty = true
-	case "cut":
-		g.copySelection()
-		g.editing().DeleteSelected()
-		g.selected = false
-		g.dirty = true
-	case "copy":
-		g.copySelection()
-	case "paste":
-		if g.pasteSelectionAt(g.lastCursor) {
-			g.selected = true
-			g.dirty = true
-		}
-	case "duplicate":
-		if _, err := g.editing().DuplicateSelected(); err == nil {
-			g.selected = true
-			g.dirty = true
-		}
-	case "quit":
-		_ = g.Close()
 	}
 }
 
@@ -72,16 +90,13 @@ func (g *Game) openDemoPicker() {
 }
 
 func pathEntryLabel(command string) string {
-	switch command {
-	case "load":
-		return "Load"
-	case "insert":
-		return "Insert"
-	case "save":
-		return "Save"
-	default:
-		return ""
-	}
+	return pathEntryLabels[command]
+}
+
+var pathEntryLabels = map[string]string{
+	"load":   "Load",
+	"insert": "Insert",
+	"save":   "Save",
 }
 
 func (g *Game) SaveXSP() string {

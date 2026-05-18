@@ -90,58 +90,45 @@ func (g *Game) editMenuControlAt(point image.Point) (controlBox, bool) {
 }
 
 func (g *Game) activateInspectorControl(name string) bool {
-	switch name {
-	case "mass parameter":
-		g.stepEditorControl("mass", 1)
-	case "elasticity parameter":
-		g.stepEditorControl("elasticity", 0.1)
-	case "fixed mass toggle":
-		g.toggleFixedMass()
-	case "kspring parameter":
-		g.stepEditorControl("Kspring", 1)
-	case "kdamp parameter":
-		g.stepEditorControl("Kdamp", 0.1)
-	case "set rest length command":
-		_ = g.editing().SetRestLength()
-	case "gravity force":
-		g.toggleForce("gravity", map[string]string{"magnitude": "10", "direction": "0"})
-	case "center attraction force":
-		g.toggleForce("center attraction", map[string]string{"magnitude": "10", "exponent": "0"})
-	case "center mass force":
-		g.toggleForce("center of mass attraction", map[string]string{"magnitude": "5", "damping": "2"})
-	case "wall repulsion force":
-		g.toggleForce("wall repulsion", map[string]string{"magnitude": "10000", "exponent": "1"})
-	case "mass collision force":
-		g.toggleForce("mass collision", map[string]string{})
-	case "set center command":
-		g.simulation.SetForceCenter(g.selectedMassIDs())
-	case "top wall toggle":
-		g.toggleWall("top")
-	case "bottom wall toggle":
-		g.toggleWall("bottom")
-	case "left wall toggle":
-		g.toggleWall("left")
-	case "right wall toggle":
-		g.toggleWall("right")
-	case "grid snap toggle":
-		g.toggleGridSnap()
-	case "show springs toggle":
-		g.toggleParameter("show springs")
-	case "viscosity parameter":
-		g.stepParameter("viscosity", 0.1)
-	case "stickiness parameter":
-		g.stepParameter("stickiness", 0.1)
-	case "timestep parameter":
-		g.stepParameter("timestep", 0.001)
-	case "precision parameter":
-		g.stepParameter("precision", 0.001)
-	case "adaptive timestep toggle":
-		g.toggleParameter("adaptive timestep")
-	default:
+	action, ok := inspectorControlActions[name]
+	if !ok {
 		return false
 	}
+	action(g)
 	g.dirty = true
 	return true
+}
+
+var inspectorControlActions = map[string]func(*Game){
+	"mass parameter":          func(g *Game) { g.stepEditorControl("mass", 1) },
+	"elasticity parameter":    func(g *Game) { g.stepEditorControl("elasticity", 0.1) },
+	"fixed mass toggle":       func(g *Game) { g.toggleFixedMass() },
+	"kspring parameter":       func(g *Game) { g.stepEditorControl("Kspring", 1) },
+	"kdamp parameter":         func(g *Game) { g.stepEditorControl("Kdamp", 0.1) },
+	"set rest length command": func(g *Game) { _ = g.editing().SetRestLength() },
+	"gravity force":           func(g *Game) { g.toggleForce("gravity", map[string]string{"magnitude": "10", "direction": "0"}) },
+	"center attraction force": func(g *Game) {
+		g.toggleForce("center attraction", map[string]string{"magnitude": "10", "exponent": "0"})
+	},
+	"center mass force": func(g *Game) {
+		g.toggleForce("center of mass attraction", map[string]string{"magnitude": "5", "damping": "2"})
+	},
+	"wall repulsion force": func(g *Game) {
+		g.toggleForce("wall repulsion", map[string]string{"magnitude": "10000", "exponent": "1"})
+	},
+	"mass collision force":     func(g *Game) { g.toggleForce("mass collision", map[string]string{}) },
+	"set center command":       func(g *Game) { g.simulation.SetForceCenter(g.selectedMassIDs()) },
+	"top wall toggle":          func(g *Game) { g.toggleWall("top") },
+	"bottom wall toggle":       func(g *Game) { g.toggleWall("bottom") },
+	"left wall toggle":         func(g *Game) { g.toggleWall("left") },
+	"right wall toggle":        func(g *Game) { g.toggleWall("right") },
+	"grid snap toggle":         func(g *Game) { g.toggleGridSnap() },
+	"show springs toggle":      func(g *Game) { g.toggleParameter("show springs") },
+	"viscosity parameter":      func(g *Game) { g.stepParameter("viscosity", 0.1) },
+	"stickiness parameter":     func(g *Game) { g.stepParameter("stickiness", 0.1) },
+	"timestep parameter":       func(g *Game) { g.stepParameter("timestep", 0.001) },
+	"precision parameter":      func(g *Game) { g.stepParameter("precision", 0.001) },
+	"adaptive timestep toggle": func(g *Game) { g.toggleParameter("adaptive timestep") },
 }
 
 func (g *Game) setSliderAt(name string, x int) {
@@ -172,18 +159,18 @@ func (g *Game) stepEditorControl(control string, delta float64) {
 }
 
 func (g *Game) parameterForEditorControl(control string) float64 {
-	switch control {
-	case "mass":
-		return g.parameterFloat("current mass")
-	case "elasticity":
-		return g.parameterFloat("elasticity")
-	case "Kspring":
-		return g.parameterFloat("spring constant")
-	case "Kdamp":
-		return g.parameterFloat("damping")
-	default:
+	parameter, ok := editorControlParameters[control]
+	if !ok {
 		return 0
 	}
+	return g.parameterFloat(parameter)
+}
+
+var editorControlParameters = map[string]string{
+	"mass":       "current mass",
+	"elasticity": "elasticity",
+	"Kspring":    "spring constant",
+	"Kdamp":      "damping",
 }
 
 func (g *Game) toggleFixedMass() {

@@ -84,6 +84,106 @@ func TestAppWorldBoundsUseWindowSize(t *testing.T) {
 	}
 }
 
+func TestValueDialogInputKeepsNumericCharacters(t *testing.T) {
+	game := NewGame()
+	game.valueDialog.Text = "1"
+
+	game.appendValueDialogInput([]rune{'2', 'x', '.', '-', '3'})
+
+	if game.valueDialog.Text != "12.-3" {
+		t.Fatalf("dialog text = %q", game.valueDialog.Text)
+	}
+}
+
+func TestValueDialogFractionClampsParsedText(t *testing.T) {
+	game := NewGame()
+	game.valueDialog = valueDialog{Text: "15", Min: 0, Max: 10}
+	if got := game.valueDialogFraction(); got != 1 {
+		t.Fatalf("high fraction = %f", got)
+	}
+
+	game.valueDialog.Text = "-5"
+	if got := game.valueDialogFraction(); got != 0 {
+		t.Fatalf("low fraction = %f", got)
+	}
+
+	game.valueDialog.Text = "5"
+	if got := game.valueDialogFraction(); got != 0.5 {
+		t.Fatalf("mid fraction = %f", got)
+	}
+}
+
+func TestSelectedMassIDsReturnsOnlySelectedMasses(t *testing.T) {
+	game := NewGame()
+	editor := game.editing()
+	editor.SelectedMasses = map[int]bool{1: true, 2: false, 3: true}
+
+	ids := game.selectedMassIDs()
+
+	if !reflect.DeepEqual(mapFromInts(ids), map[int]bool{1: true, 3: true}) {
+		t.Fatalf("selected mass ids = %#v", ids)
+	}
+}
+
+func mapFromInts(values []int) map[int]bool {
+	result := map[int]bool{}
+	for _, value := range values {
+		result[value] = true
+	}
+	return result
+}
+
+func TestMoveSelectedMassesMovesOnlySelectedMasses(t *testing.T) {
+	game := gameWithMasses(
+		sim.Mass{ID: 1, Position: sim.Vec2{X: 1, Y: 1}},
+		sim.Mass{ID: 2, Position: sim.Vec2{X: 5, Y: 5}},
+	)
+	_ = game.editing().SelectMass(1)
+
+	game.moveSelectedMasses(sim.Vec2{X: 2, Y: 3})
+
+	if got := game.World().Masses[0].Position; got != (sim.Vec2{X: 3, Y: 4}) {
+		t.Fatalf("selected mass position = %#v", got)
+	}
+	if got := game.World().Masses[1].Position; got != (sim.Vec2{X: 5, Y: 5}) {
+		t.Fatalf("unselected mass position = %#v", got)
+	}
+}
+
+func TestThrowSingleDraggingMassSetsVelocity(t *testing.T) {
+	game := gameWithMasses(sim.Mass{ID: 7})
+	game.draggingMassID = 7
+
+	game.throwSingleDraggingMass(sim.Vec2{X: 4, Y: -2})
+
+	if got := game.World().Masses[0].Velocity; got != (sim.Vec2{X: 4, Y: -2}) {
+		t.Fatalf("velocity = %#v", got)
+	}
+	if !game.dirty {
+		t.Fatal("throw should mark game dirty")
+	}
+}
+
+func TestDrawCoversOpenOverlayBranches(t *testing.T) {
+	game := gameWithMasses(sim.Mass{ID: 1, Position: sim.Vec2{X: 120, Y: 120}})
+	_ = game.editing().SelectMass(1)
+	game.selected = true
+	game.demoFiles = []string{"demos/pendulum.xsp", "demos/spring-chain.xsp"}
+	game.demoPickerOpen = true
+	game.massMenu = massContextMenu{Open: true, MassID: 1, X: 120, Y: 120}
+	game.valueDialog = valueDialog{Open: true, Title: "Value", Text: "1", Min: 0, Max: 2}
+
+	game.Draw(ebiten.NewImage(screenWidth, screenHeight))
+}
+
+func gameWithMasses(masses ...sim.Mass) *Game {
+	game := NewGame()
+	world := sim.NewWorld()
+	world.Masses = append(world.Masses, masses...)
+	game.ReplaceWorld(world)
+	return game
+}
+
 func TestGameUpdateStepsOnlyWhenUnpaused(t *testing.T) {
 	game := NewGame()
 	game.World().Parameters.EnableForce("gravity", map[string]string{"magnitude": "10", "direction": "90"})

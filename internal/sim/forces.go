@@ -56,14 +56,30 @@ func (s *Simulation) addSpringForces(forces map[int]MassForces) {
 
 func (s *Simulation) springEndpointMasses(spring Spring) (Mass, Mass, bool) {
 	if spring.MassA != 0 || spring.MassB != 0 {
-		a, okA := s.MassByID(spring.MassA)
-		b, okB := s.MassByID(spring.MassB)
-		return a, b, okA && okB
+		return s.springEndpointMassesByID(spring)
 	}
-	if spring.A >= 0 && spring.B >= 0 && spring.A < len(s.Masses) && spring.B < len(s.Masses) {
-		return s.Masses[spring.A], s.Masses[spring.B], true
+	return s.springEndpointMassesByIndex(spring)
+}
+
+func (s *Simulation) springEndpointMassesByID(spring Spring) (Mass, Mass, bool) {
+	a, okA := s.MassByID(spring.MassA)
+	b, okB := s.MassByID(spring.MassB)
+	return a, b, okA && okB
+}
+
+func (s *Simulation) springEndpointMassesByIndex(spring Spring) (Mass, Mass, bool) {
+	if !s.validSpringMassIndexes(spring) {
+		return Mass{}, Mass{}, false
 	}
-	return Mass{}, Mass{}, false
+	return s.Masses[spring.A], s.Masses[spring.B], true
+}
+
+func (s *Simulation) validSpringMassIndexes(spring Spring) bool {
+	return validMassIndex(spring.A, len(s.Masses)) && validMassIndex(spring.B, len(s.Masses))
+}
+
+func validMassIndex(index int, massCount int) bool {
+	return index >= 0 && index < massCount
 }
 
 func (s *Simulation) addEnvironmentalForces(forces map[int]MassForces) {

@@ -57,6 +57,10 @@ func TestRemoveDeletesOnlyFirstStampLine(t *testing.T) {
 }
 
 func TestValidRejectsMissingAndStaleStamps(t *testing.T) {
+	if Valid(filepath.Join(t.TempDir(), "missing.feature")) {
+		t.Fatal("missing file should be invalid")
+	}
+
 	unstamped := writeTempFeature(t, "Feature: Smoke\n")
 	if Valid(unstamped) {
 		t.Fatal("unstamped file should be invalid")

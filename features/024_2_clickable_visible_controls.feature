@@ -1,4 +1,4 @@
-# mutation-stamp: 6f9772a7acefccea4402711d6d16e34409718d53c1a87c7c26dd0b5afff58d27
+# mutation-stamp: sha256=0165530018a1f37a562a6fcc178d2c4a637287fb08850a757e744fd30a007474
 Feature: Clickable visible controls
 
 Background:

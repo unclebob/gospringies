@@ -11,12 +11,14 @@ func setClickableEditorMode(w *world, example map[string]string) error {
 }
 
 func supportedClickableMode(mode string) bool {
-	switch mode {
-	case "select", "add mass", "add spring", "drag":
-		return true
-	default:
-		return false
-	}
+	return supportedClickableModes[mode]
+}
+
+var supportedClickableModes = map[string]bool{
+	"select":     true,
+	"add mass":   true,
+	"add spring": true,
+	"drag":       true,
 }
 
 func clickInsideRenderedVisibleControlBounds(w *world, example map[string]string) error {

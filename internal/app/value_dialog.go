@@ -133,20 +133,50 @@ func (g *Game) pollValueDialogKeyboard() {
 	if !g.valueDialog.Open {
 		return
 	}
-	for _, char := range ebiten.AppendInputChars(nil) {
+	g.appendValueDialogInput(ebiten.AppendInputChars(nil))
+	g.handleValueDialogControlKeys()
+}
+
+func (g *Game) appendValueDialogInput(chars []rune) {
+	for _, char := range chars {
 		if strings.ContainsRune("0123456789.-", char) {
 			g.valueDialog.Text += string(char)
 		}
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) && len(g.valueDialog.Text) > 0 {
-		g.valueDialog.Text = g.valueDialog.Text[:len(g.valueDialog.Text)-1]
+}
+
+func (g *Game) handleValueDialogControlKeys() {
+	g.handleValueDialogBackspace()
+	g.handleValueDialogSubmit()
+	g.handleValueDialogCancel()
+}
+
+func (g *Game) handleValueDialogBackspace() {
+	if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
+		g.deleteValueDialogCharacter()
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeyKPEnter) {
+}
+
+func (g *Game) handleValueDialogSubmit() {
+	if valueDialogSubmitPressed() {
 		g.applyValueDialog()
 	}
+}
+
+func (g *Game) handleValueDialogCancel() {
 	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
 		g.valueDialog.Open = false
 	}
+}
+
+func (g *Game) deleteValueDialogCharacter() {
+	if len(g.valueDialog.Text) > 0 {
+		g.valueDialog.Text = g.valueDialog.Text[:len(g.valueDialog.Text)-1]
+	}
+}
+
+func valueDialogSubmitPressed() bool {
+	return inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeyKPEnter)
 }
 
 func (g *Game) applyValueDialog() {
