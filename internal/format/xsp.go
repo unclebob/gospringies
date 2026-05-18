@@ -141,10 +141,8 @@ func loadCenterLine(world *sim.Simulation, fields []string) error {
 }
 
 func loadForceLine(world *sim.Simulation, fields []string) error {
-	if len(fields) == 5 {
-		if _, err := intField(fields[1], "force id"); err == nil {
-			return loadLegacyForceLine(world, fields)
-		}
+	if legacyForceLine(fields) {
+		return loadLegacyForceLine(world, fields)
 	}
 	if len(fields) < 3 {
 		return fmt.Errorf("frce expects name and enabled state")
@@ -157,7 +155,20 @@ func loadForceLine(world *sim.Simulation, fields []string) error {
 	if err != nil {
 		return err
 	}
-	force, _ := world.Parameters.Force(fields[1])
+	setForceValues(world, fields[1], enabled, values)
+	return nil
+}
+
+func legacyForceLine(fields []string) bool {
+	if len(fields) != 5 {
+		return false
+	}
+	_, err := intField(fields[1], "force id")
+	return err == nil
+}
+
+func setForceValues(world *sim.Simulation, name string, enabled string, values map[string]string) {
+	force, _ := world.Parameters.Force(name)
 	force.Enabled = enabled
 	if force.Values == nil {
 		force.Values = map[string]string{}
@@ -165,36 +176,47 @@ func loadForceLine(world *sim.Simulation, fields []string) error {
 	for key, value := range values {
 		force.Values[key] = value
 	}
-	world.Parameters.Forces[fields[1]] = force
-	return nil
+	world.Parameters.Forces[name] = force
 }
 
 func loadLegacyForceLine(world *sim.Simulation, fields []string) error {
-	forceID, err := intField(fields[1], "force id")
+	name, enabled, first, second, err := legacyForceFields(fields)
 	if err != nil {
 		return err
 	}
-	if forceID < 0 || forceID >= len(legacyForceNames) {
-		return fmt.Errorf("unsupported force id %d", forceID)
-	}
-	enabled, err := booleanField(fields[2], "frce enabled")
-	if err != nil {
-		return err
-	}
-	first, err := floatField(fields[3], "force first parameter")
-	if err != nil {
-		return err
-	}
-	second, err := floatField(fields[4], "force second parameter")
-	if err != nil {
-		return err
-	}
-	name := legacyForceNames[forceID]
 	force, _ := world.Parameters.Force(name)
 	force.Enabled = enabled
 	force.Values = legacyForceValues(name, first, second)
 	world.Parameters.Forces[name] = force
 	return nil
+}
+
+func legacyForceFields(fields []string) (string, string, float64, float64, error) {
+	forceID, err := intField(fields[1], "force id")
+	if err != nil {
+		return "", "", 0, 0, err
+	}
+	name, err := legacyForceName(forceID)
+	if err != nil {
+		return "", "", 0, 0, err
+	}
+	enabled, err := booleanField(fields[2], "frce enabled")
+	if err != nil {
+		return "", "", 0, 0, err
+	}
+	first, err := floatField(fields[3], "force first parameter")
+	if err != nil {
+		return "", "", 0, 0, err
+	}
+	second, err := floatField(fields[4], "force second parameter")
+	return name, enabled, first, second, err
+}
+
+func legacyForceName(forceID int) (string, error) {
+	if forceID < 0 || forceID >= len(legacyForceNames) {
+		return "", fmt.Errorf("unsupported force id %d", forceID)
+	}
+	return legacyForceNames[forceID], nil
 }
 
 var legacyForceNames = []string{"gravity", "center attraction", "center of mass attraction", "wall repulsion", "mass collision"}
@@ -254,21 +276,15 @@ func loadMassLine(world *sim.Simulation, fields []string) error {
 	if len(fields) != 6 && len(fields) != 8 {
 		return fmt.Errorf("mass expects id x y mass elasticity")
 	}
-	id, err := intField(fields[1], "mass id")
+	id, err := positiveIDField(fields[1], "mass id")
 	if err != nil {
 		return err
-	}
-	if id <= 0 {
-		return ErrNonPositiveID
 	}
 	position, velocity, massValue, elasticity, err := massNumericFields(fields)
 	if err != nil {
 		return err
 	}
-	fixed := massValue < 0
-	if fixed {
-		massValue = -massValue
-	}
+	massValue, fixed := parsedMassValue(massValue)
 	return world.AddMass(sim.Mass{
 		ID:         id,
 		Position:   position,
@@ -279,38 +295,68 @@ func loadMassLine(world *sim.Simulation, fields []string) error {
 	})
 }
 
+func positiveIDField(field string, name string) (int, error) {
+	id, err := intField(field, name)
+	if err != nil {
+		return 0, err
+	}
+	if id <= 0 {
+		return 0, ErrNonPositiveID
+	}
+	return id, nil
+}
+
+func parsedMassValue(massValue float64) (float64, bool) {
+	if massValue < 0 {
+		return -massValue, true
+	}
+	return massValue, false
+}
+
 func massNumericFields(fields []string) (sim.Vec2, sim.Vec2, float64, float64, error) {
-	x, err := floatField(fields[2], "mass x")
+	position, err := vectorFields(fields[2:4], "mass x", "mass y")
 	if err != nil {
 		return sim.Vec2{}, sim.Vec2{}, 0, 0, err
 	}
-	y, err := floatField(fields[3], "mass y")
+	velocity, massIndex, err := massVelocityFields(fields)
 	if err != nil {
 		return sim.Vec2{}, sim.Vec2{}, 0, 0, err
 	}
-	velocity := sim.Vec2{}
+	massValue, elasticity, err := massValueFields(fields[massIndex : massIndex+2])
+	if err != nil {
+		return sim.Vec2{}, sim.Vec2{}, 0, 0, err
+	}
+	return position, velocity, massValue, elasticity, nil
+}
+
+func massVelocityFields(fields []string) (sim.Vec2, int, error) {
 	massIndex := 4
-	if len(fields) == 8 {
-		vx, err := floatField(fields[4], "mass velocity x")
-		if err != nil {
-			return sim.Vec2{}, sim.Vec2{}, 0, 0, err
-		}
-		vy, err := floatField(fields[5], "mass velocity y")
-		if err != nil {
-			return sim.Vec2{}, sim.Vec2{}, 0, 0, err
-		}
-		velocity = sim.Vec2{X: vx, Y: vy}
-		massIndex = 6
+	if len(fields) != 8 {
+		return sim.Vec2{}, massIndex, nil
 	}
-	massValue, err := floatField(fields[massIndex], "mass value")
+	velocity, err := vectorFields(fields[4:6], "mass velocity x", "mass velocity y")
+	return velocity, 6, err
+}
+
+func vectorFields(fields []string, xName string, yName string) (sim.Vec2, error) {
+	x, err := floatField(fields[0], xName)
 	if err != nil {
-		return sim.Vec2{}, sim.Vec2{}, 0, 0, err
+		return sim.Vec2{}, err
 	}
-	elasticity, err := floatField(fields[massIndex+1], "mass elasticity")
+	y, err := floatField(fields[1], yName)
 	if err != nil {
-		return sim.Vec2{}, sim.Vec2{}, 0, 0, err
+		return sim.Vec2{}, err
 	}
-	return sim.Vec2{X: x, Y: y}, velocity, massValue, elasticity, nil
+	return sim.Vec2{X: x, Y: y}, nil
+}
+
+func massValueFields(fields []string) (float64, float64, error) {
+	massValue, err := floatField(fields[0], "mass value")
+	if err != nil {
+		return 0, 0, err
+	}
+	elasticity, err := floatField(fields[1], "mass elasticity")
+	return massValue, elasticity, err
 }
 
 func loadSpringLine(world *sim.Simulation, fields []string) error {

@@ -72,12 +72,18 @@ func drawLabeledRect(screen *ebiten.Image, rect image.Rectangle, fill color.RGBA
 }
 
 func (g *Game) activeControl(name string) bool {
-	return (name == "select mode" && g.mode == "select") ||
-		(name == "mass mode" && g.mode == "add mass") ||
-		(name == "spring mode" && g.mode == "add spring") ||
-		(name == "drag mode" && g.mode == "drag") ||
-		(name == "pause command" && g.paused) ||
-		(name == "run command" && !g.paused)
+	if mode, ok := modeControlModes[name]; ok {
+		return g.mode == mode
+	}
+	return g.activeRunControl(name)
+}
+
+func (g *Game) activeRunControl(name string) bool {
+	activeStates := map[string]bool{
+		"pause command": g.paused,
+		"run command":   !g.paused,
+	}
+	return activeStates[name]
 }
 
 func visibleControls() []controlBox {
@@ -230,26 +236,38 @@ func visibleRegionRects() map[string]image.Rectangle {
 }
 
 func (g *Game) visibleRegionPixels(region string) int {
-	count := 0
-	for _, control := range visibleControls() {
-		if control.Region == region {
-			count += control.Rect.Dx() * control.Rect.Dy()
-		}
-	}
-	for _, section := range inspectorSections() {
-		if section.Region == region {
-			count += section.Rect.Dx() * section.Rect.Dy()
-		}
-	}
-	if region == "status line" {
-		for _, field := range g.statusFields() {
-			count += field.Rect.Dx() * field.Rect.Dy()
-		}
-	}
+	count := regionControlPixels(visibleControls(), region) +
+		regionControlPixels(inspectorSections(), region) +
+		g.regionStatusPixels(region)
 	if count == 0 && region == "canvas" {
-		return visibleRegionRects()[region].Dx() * visibleRegionRects()[region].Dy()
+		return rectPixels(visibleRegionRects()[region])
 	}
 	return count
+}
+
+func regionControlPixels(controls []controlBox, region string) int {
+	count := 0
+	for _, control := range controls {
+		if control.Region == region {
+			count += rectPixels(control.Rect)
+		}
+	}
+	return count
+}
+
+func (g *Game) regionStatusPixels(region string) int {
+	if region != "status line" {
+		return 0
+	}
+	count := 0
+	for _, field := range g.statusFields() {
+		count += rectPixels(field.Rect)
+	}
+	return count
+}
+
+func rectPixels(rect image.Rectangle) int {
+	return rect.Dx() * rect.Dy()
 }
 
 func visibleWorldPixels(game *Game) int {
