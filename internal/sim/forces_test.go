@@ -16,6 +16,22 @@ func TestSpringForceIsEqualAndOpposite(t *testing.T) {
 	assertVecEqual(t, forces.ByMassID[1].Force, forces.ByMassID[2].Force.Scale(-1))
 }
 
+func TestSpringForcesUseEndpointIDsWhenIndexesAreStale(t *testing.T) {
+	world := NewWorld()
+	_ = world.AddMass(Mass{ID: 10, Position: Vec2{X: 0, Y: 0}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 20, Position: Vec2{X: 12, Y: 0}, Mass: 1})
+	_ = world.AddSpring(Spring{ID: 1, A: 0, B: 0, MassA: 10, MassB: 20, RestLength: 10, SpringConstant: 12})
+
+	forces := world.EvaluateForces()
+
+	if forces.ByMassID[10].Force.X <= 0 {
+		t.Fatalf("mass 10 force = %#v, want pull toward mass 20", forces.ByMassID[10].Force)
+	}
+	if forces.ByMassID[20].Force.X >= 0 {
+		t.Fatalf("mass 20 force = %#v, want pull toward mass 10", forces.ByMassID[20].Force)
+	}
+}
+
 func TestSpringDampingActsAlongSpringDirection(t *testing.T) {
 	world := NewWorld()
 	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: 0, Y: 0}, Velocity: Vec2{X: 1, Y: 5}, Mass: 1})
@@ -82,10 +98,10 @@ func TestWallForcePushesMassBackInside(t *testing.T) {
 		pos  Vec2
 		want Vec2
 	}{
-		{"top", 1, Vec2{X: 50, Y: -5}, Vec2{Y: 1}},
+		{"bottom", 1, Vec2{X: 50, Y: -5}, Vec2{Y: 1}},
 		{"left", 2, Vec2{X: -5, Y: 50}, Vec2{X: 1}},
 		{"right", 3, Vec2{X: 105, Y: 50}, Vec2{X: -1}},
-		{"bottom", 4, Vec2{X: 50, Y: 105}, Vec2{Y: -1}},
+		{"top", 4, Vec2{X: 50, Y: 105}, Vec2{Y: -1}},
 	}
 	for _, tc := range cases {
 		world := NewWorld()
@@ -108,9 +124,9 @@ func TestGravityDirectionUsesXSpringiesDegrees(t *testing.T) {
 		degrees string
 		want    Vec2
 	}{
-		{"0", Vec2{Y: 1}},
+		{"0", Vec2{Y: -1}},
 		{"90", Vec2{X: 1}},
-		{"180", Vec2{Y: -1}},
+		{"180", Vec2{Y: 1}},
 		{"270", Vec2{X: -1}},
 	}
 	for _, tc := range cases {
@@ -131,7 +147,7 @@ func TestGravityScalesByMagnitudeAndMass(t *testing.T) {
 
 	force := world.EvaluateForces().ByMassID[1].Force
 
-	assertVecEqual(t, roundedVec(force), Vec2{X: 4, Y: 4})
+	assertVecEqual(t, roundedVec(force), Vec2{X: 4, Y: -4})
 }
 
 func TestCenterMassDoesNotReceiveCenterForceResponse(t *testing.T) {
@@ -262,10 +278,10 @@ func TestWallForceBoundariesAndHelpers(t *testing.T) {
 	outside.Parameters.EnableWall("right")
 	outside.Parameters.EnableWall("bottom")
 	_ = outside.AddMass(Mass{ID: 1, Position: Vec2{X: 101, Y: 50}, Mass: 1})
-	_ = outside.AddMass(Mass{ID: 2, Position: Vec2{X: 50, Y: 101}, Mass: 1})
+	_ = outside.AddMass(Mass{ID: 2, Position: Vec2{X: 50, Y: -1}, Mass: 1})
 	forces = outside.EvaluateForces()
 	assertVecEqual(t, forces.ByMassID[1].Force, Vec2{X: -8})
-	assertVecEqual(t, forces.ByMassID[2].Force, Vec2{Y: -8})
+	assertVecEqual(t, forces.ByMassID[2].Force, Vec2{Y: 8})
 }
 
 func TestCenterMassAndEnabledForceHelpers(t *testing.T) {

@@ -27,11 +27,25 @@ func (g *Game) RunCommand(command string) {
 		g.pathEntryCommand = pathEntryLabel(command)
 	case "select all":
 		g.editing().SelectAll()
-		g.selected = len(g.simulation.Masses) > 0 || len(g.simulation.Springs) > 0
+		g.syncSelectionState()
+	case "clear selection":
+		g.clearSelection()
 	case "delete":
 		g.editing().DeleteSelected()
 		g.selected = false
 		g.dirty = true
+	case "cut":
+		g.copySelection()
+		g.editing().DeleteSelected()
+		g.selected = false
+		g.dirty = true
+	case "copy":
+		g.copySelection()
+	case "paste":
+		if g.pasteSelectionAt(g.lastCursor) {
+			g.selected = true
+			g.dirty = true
+		}
 	case "duplicate":
 		if _, err := g.editing().DuplicateSelected(); err == nil {
 			g.selected = true
@@ -40,6 +54,15 @@ func (g *Game) RunCommand(command string) {
 	case "quit":
 		_ = g.Close()
 	}
+}
+
+func (g *Game) clearSelection() {
+	g.editing().ClearSelection()
+	g.selected = false
+}
+
+func (g *Game) syncSelectionState() {
+	g.selected = g.selectedObjectCount() > 0
 }
 
 func (g *Game) openDemoPicker() {
@@ -71,6 +94,7 @@ func (g *Game) LoadXSP(input string) error {
 	if err != nil {
 		return err
 	}
+	g.canvasYUp = xspfmt.UsesOriginalXSpringiesCoordinates(input)
 	g.simulation.Reset()
 	g.simulation.LoadFrom(loaded)
 	if g.editor != nil {
@@ -109,6 +133,7 @@ func (g *Game) SetParameter(parameter string, value string) {
 }
 
 func (g *Game) ReplaceWorld(world *sim.Simulation) {
+	g.canvasYUp = false
 	g.simulation.LoadFrom(world)
 	if g.editor != nil {
 		g.editor.World = g.simulation

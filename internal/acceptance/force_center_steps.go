@@ -92,9 +92,9 @@ func assertGravityDirection(w *world, example map[string]string) error {
 
 func matchesExpectedDirection(force sim.Vec2, expected string) bool {
 	directions := map[string]sim.Vec2{
-		"down":  {Y: 1},
+		"down":  {Y: -1},
 		"right": {X: 1},
-		"up":    {Y: -1},
+		"up":    {Y: 1},
 		"left":  {X: -1},
 	}
 	want, ok := directions[expected]

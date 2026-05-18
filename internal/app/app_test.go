@@ -114,10 +114,7 @@ func TestDrawFrameRendersVisibleControlRegions(t *testing.T) {
 func TestDrawFrameRendersReadableControlLabels(t *testing.T) {
 	report := NewGame().DrawFrameReport()
 	expected := map[string]string{
-		"select mode":             "Select",
-		"mass mode":               "Mass",
-		"spring mode":             "Spring",
-		"drag mode":               "Drag",
+		"edit menu":               "Edit",
 		"run command":             "Run",
 		"pause command":           "Pause",
 		"reset command":           "Reset",
@@ -147,6 +144,33 @@ func TestDrawFrameRendersReadableControlLabels(t *testing.T) {
 	}
 }
 
+func TestEditMenuShowsStandardItems(t *testing.T) {
+	game := NewGame()
+	control, ok := visibleControlWithName("edit menu")
+	if !ok {
+		t.Fatal("missing edit menu")
+	}
+
+	if !game.ClickAt(control.Rect.Min.X+2, control.Rect.Min.Y+2) {
+		t.Fatal("edit menu click was not handled")
+	}
+
+	expected := map[string]string{
+		"cut command":   "Cut     Ctrl+X",
+		"copy command":  "Copy    Ctrl+C",
+		"paste command": "Paste   Ctrl+V",
+	}
+	for _, control := range game.editMenuControls() {
+		if expected[control.Name] != control.Label {
+			t.Fatalf("edit menu control %q label = %q", control.Name, control.Label)
+		}
+		delete(expected, control.Name)
+	}
+	if len(expected) != 0 {
+		t.Fatalf("missing edit menu controls: %#v", expected)
+	}
+}
+
 func TestDrawFrameRendersInspectorAndStatusFields(t *testing.T) {
 	report := NewGame().DrawFrameReport()
 	for _, section := range []string{"Mass", "Spring", "Forces", "Walls", "Simulation"} {
@@ -155,7 +179,6 @@ func TestDrawFrameRendersInspectorAndStatusFields(t *testing.T) {
 		}
 	}
 	for field, expected := range map[string]string{
-		"mode":          "Select mode",
 		"run state":     "running",
 		"object counts": "object counts",
 		"file state":    "saved",
@@ -189,8 +212,8 @@ func TestEditorChromeRectsCoverStartupRegions(t *testing.T) {
 func TestDrawWallsUsesSimulationBounds(t *testing.T) {
 	lines := wallDrawLines(sim.Bounds{Width: 20, Height: 16})
 	expected := []wallDrawLine{
-		{name: "top", x1: 0, y1: 0, x2: 20, y2: 0},
-		{name: "bottom", x1: 0, y1: 15, x2: 20, y2: 15},
+		{name: "top", x1: 0, y1: 15, x2: 20, y2: 15},
+		{name: "bottom", x1: 0, y1: 0, x2: 20, y2: 0},
 		{name: "left", x1: 0, y1: 0, x2: 0, y2: 16},
 		{name: "right", x1: 19, y1: 0, x2: 19, y2: 16},
 	}
@@ -253,11 +276,15 @@ func TestSelectedMassOutlineIsEmptyWithoutMasses(t *testing.T) {
 	}
 }
 
-func TestSelectedMassOutlineUsesFirstMass(t *testing.T) {
+func TestSelectedMassOutlineUsesEveryMass(t *testing.T) {
 	lines := selectedMassOutline([]sim.Mass{
 		{Position: sim.Vec2{X: 30, Y: 40}},
+		{Position: sim.Vec2{X: 80, Y: 90}},
 	})
-	expected := selectionOutline(sim.Mass{Position: sim.Vec2{X: 30, Y: 40}})
+	expected := append(
+		selectionOutline(sim.Mass{Position: sim.Vec2{X: 30, Y: 40}}),
+		selectionOutline(sim.Mass{Position: sim.Vec2{X: 80, Y: 90}})...,
+	)
 
 	if len(lines) != len(expected) {
 		t.Fatalf("line count = %d", len(lines))
@@ -266,6 +293,52 @@ func TestSelectedMassOutlineUsesFirstMass(t *testing.T) {
 		if line != expected[i] {
 			t.Fatalf("line %d = %#v, want %#v", i, line, expected[i])
 		}
+	}
+}
+
+func TestSelectedSpringLinesUseEverySelectedSpring(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 20}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 30, Y: 40}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 3, Position: sim.Vec2{X: 50, Y: 60}, Mass: 1})
+	_ = world.AddSpring(sim.Spring{ID: 1, MassA: 1, MassB: 2, RestLength: 1, SpringConstant: 1})
+	_ = world.AddSpring(sim.Spring{ID: 2, MassA: 2, MassB: 3, RestLength: 1, SpringConstant: 1})
+	game.ReplaceWorld(world)
+	game.editing().SelectedSprings[1] = true
+	game.editing().SelectedSprings[2] = true
+
+	lines := game.selectedSpringLines()
+	expected := []selectionLine{
+		{x1: 10, y1: 20, x2: 30, y2: 40},
+		{x1: 30, y1: 40, x2: 50, y2: 60},
+	}
+
+	if len(lines) != len(expected) {
+		t.Fatalf("line count = %d, want %d", len(lines), len(expected))
+	}
+	for i, line := range lines {
+		if line != expected[i] {
+			t.Fatalf("line %d = %#v, want %#v", i, line, expected[i])
+		}
+	}
+}
+
+func TestSpringOnlySelectionDoesNotHighlightMasses(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 20}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 30, Y: 40}, Mass: 1})
+	_ = world.AddSpring(sim.Spring{ID: 3, MassA: 1, MassB: 2, RestLength: 1, SpringConstant: 1})
+	game.ReplaceWorld(world)
+	game.editing().SelectedSprings[3] = true
+	game.syncSelectionState()
+
+	if masses := game.selectedMasses(); len(masses) != 0 {
+		t.Fatalf("selected masses = %#v, want none", masses)
+	}
+	if lines := game.selectedSpringLines(); len(lines) != 1 {
+		t.Fatalf("selected spring lines = %#v, want one", lines)
 	}
 }
 
@@ -305,6 +378,51 @@ func TestShowSpringsControlsSpringVisibility(t *testing.T) {
 	}
 	if !result.MassesVisible {
 		t.Fatal("expected masses to remain visible")
+	}
+}
+
+func TestSpringThicknessIsDoubled(t *testing.T) {
+	if springThickness != 2 {
+		t.Fatalf("spring thickness = %f, want 2", springThickness)
+	}
+}
+
+func TestGridPointsFollowGridSnapSetting(t *testing.T) {
+	game := NewGame()
+	game.World().Parameters.Set("grid snap", "10")
+
+	points := game.gridPoints()
+
+	if len(points) == 0 {
+		t.Fatal("expected grid points when grid snap is enabled")
+	}
+	for _, point := range points {
+		if math.Mod(point.X, 10) != 0 || math.Mod(point.Y, 10) != 0 {
+			t.Fatalf("grid point = %#v, want multiples of 10", point)
+		}
+	}
+
+	game.World().Parameters.Set("grid snap", "0")
+	if points := game.gridPoints(); len(points) != 0 {
+		t.Fatalf("grid point count = %d, want none when grid snap is disabled", len(points))
+	}
+}
+
+func TestClickCreatedMassSnapsToGridPoint(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	world.Parameters.Set("grid snap", "10")
+	game.ReplaceWorld(world)
+
+	game.handlePointer(true, 123, 87)
+	game.handlePointer(false, 123, 87)
+
+	mass, ok := game.World().MassByID(1)
+	if !ok {
+		t.Fatal("mass was not created")
+	}
+	if mass.Position != (sim.Vec2{X: 120, Y: 90}) {
+		t.Fatalf("mass position = %#v, want snapped grid point 120,90", mass.Position)
 	}
 }
 
@@ -364,10 +482,13 @@ func TestValidSpringRejectsOutOfRangeEndpoints(t *testing.T) {
 	}{
 		{name: "valid", spring: sim.Spring{A: 0, B: 1}, valid: true},
 		{name: "valid zero b", spring: sim.Spring{A: 1, B: 0}, valid: true},
+		{name: "valid mass ids", spring: sim.Spring{MassA: 1, MassB: 2}, valid: true},
 		{name: "negative a", spring: sim.Spring{A: -1, B: 1}},
 		{name: "negative b", spring: sim.Spring{A: 0, B: -1}},
 		{name: "a too high", spring: sim.Spring{A: 2, B: 1}},
 		{name: "b too high", spring: sim.Spring{A: 0, B: 2}},
+		{name: "missing mass a", spring: sim.Spring{MassA: 9, MassB: 2}},
+		{name: "missing mass b", spring: sim.Spring{MassA: 1, MassB: 9}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -429,10 +550,10 @@ func TestEditorScreenHasRequiredRegions(t *testing.T) {
 	screen := NewGame().EditorScreen()
 	expected := map[string]string{
 		"canvas":          "edit and view the simulation world",
-		"left toolbar":    "choose editing modes",
+		"left toolbar":    "run selection commands",
 		"top bar":         "run commands and file commands",
 		"right inspector": "edit selected objects and world parameters",
-		"status line":     "show mode, simulation state, counts, and file state",
+		"status line":     "show simulation state, counts, and file state",
 	}
 
 	if !screen.Editor || screen.LandingPage {
@@ -448,20 +569,12 @@ func TestEditorScreenHasRequiredRegions(t *testing.T) {
 	}
 }
 
-func TestEditorScreenHasVisibleModeAndCommandControls(t *testing.T) {
+func TestEditorScreenHasVisibleCommandControls(t *testing.T) {
 	screen := NewGame().EditorScreen()
-	for _, mode := range []string{"select", "add mass", "add spring", "drag"} {
-		if !screen.HasModeControl(mode) {
-			t.Fatalf("missing mode %q", mode)
-		}
-	}
-	for _, command := range []string{"run", "pause", "reset", "load", "insert", "save", "quit", "delete", "select all"} {
+	for _, command := range []string{"run", "pause", "reset", "load", "insert", "save", "quit", "delete", "select all", "cut", "copy", "paste"} {
 		if !screen.HasCommandControl(command) {
 			t.Fatalf("missing command %q", command)
 		}
-	}
-	if screen.HasModeControl("paint") {
-		t.Fatal("unexpected paint mode")
 	}
 	if screen.HasCommandControl("export") {
 		t.Fatal("unexpected export command")
@@ -470,16 +583,12 @@ func TestEditorScreenHasVisibleModeAndCommandControls(t *testing.T) {
 
 func TestEditorIndicatorsReflectState(t *testing.T) {
 	game := NewGame()
-	game.SetMode("select")
 	game.SetPaused(true)
 	game.SetSelected(true)
 	game.SetDirty(true)
 
 	indicators := game.EditorScreen().Indicators
 
-	if indicators["active mode"] != "select mode" {
-		t.Fatalf("active mode = %q", indicators["active mode"])
-	}
 	if indicators["simulation state"] != "paused" {
 		t.Fatalf("simulation state = %q", indicators["simulation state"])
 	}
@@ -497,6 +606,9 @@ func TestKeyboardShortcutsRunVisibleCommands(t *testing.T) {
 		"Space":  "pause",
 		"Delete": "delete",
 		"Ctrl+A": "select all",
+		"Ctrl+X": "cut",
+		"Ctrl+C": "copy",
+		"Ctrl+V": "paste",
 		"R":      "reset",
 		"Ctrl+S": "save",
 		"Ctrl+O": "load",
@@ -515,7 +627,7 @@ func TestKeyboardShortcutsRunVisibleCommands(t *testing.T) {
 			t.Fatalf("shortcut %q ran %q, want %q", shortcut, got, command)
 		}
 	}
-	if game.HandleShortcut("Ctrl+X") {
+	if game.HandleShortcut("Ctrl+Z") {
 		t.Fatal("unexpected unknown shortcut handling")
 	}
 }
@@ -543,30 +655,56 @@ func TestCommandsAffectApplicationState(t *testing.T) {
 	}
 }
 
-func TestClickVisibleModeControlsChangeMode(t *testing.T) {
-	tests := map[string]string{
-		"Select": "select",
-		"Mass":   "add mass",
-		"Spring": "add spring",
-		"Drag":   "drag",
-	}
-	for label, mode := range tests {
-		game := NewGame()
-		game.SetMode("select")
+func TestCopyPasteDuplicatesSelectedObjects(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 20}, Mass: 2})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 30, Y: 40}, Mass: 3})
+	_ = world.AddSpring(sim.Spring{ID: 1, MassA: 1, MassB: 2, RestLength: 20, SpringConstant: 12})
+	game.ReplaceWorld(world)
+	_ = game.editing().SelectMass(1)
+	game.editing().SelectedMasses[2] = true
+	game.editing().SelectedSprings[1] = true
 
-		if !game.ClickVisibleControl(label) {
-			t.Fatalf("click %q was not handled", label)
-		}
-		if game.Mode() != mode {
-			t.Fatalf("mode after %q = %q, want %q", label, game.Mode(), mode)
-		}
-		if !game.VisibleControlActive(label) {
-			t.Fatalf("control %q was not active", label)
-		}
-		report := game.DrawFrameReport()
-		if !report.ActiveControls[label] || !report.ActiveControls[labelControlName(label)] {
-			t.Fatalf("active controls after %q = %#v", label, report.ActiveControls)
-		}
+	game.RunCommand("copy")
+	game.lastCursor = sim.Vec2{X: 100, Y: 120}
+	game.RunCommand("paste")
+
+	if len(game.World().Masses) != 4 {
+		t.Fatalf("mass count = %d, want 4", len(game.World().Masses))
+	}
+	if len(game.World().Springs) != 2 {
+		t.Fatalf("spring count = %d, want 2", len(game.World().Springs))
+	}
+	pasted, ok := game.World().MassByID(3)
+	if !ok || pasted.Position != (sim.Vec2{X: 100, Y: 120}) {
+		t.Fatalf("pasted mass = %#v, ok=%t", pasted, ok)
+	}
+	secondPasted, ok := game.World().MassByID(4)
+	if !ok || secondPasted.Position != (sim.Vec2{X: 120, Y: 140}) {
+		t.Fatalf("second pasted mass = %#v, ok=%t", secondPasted, ok)
+	}
+	if !game.editing().MassSelected(3) || !game.editing().MassSelected(4) || !game.editing().SpringSelected(2) {
+		t.Fatalf("pasted selection = %#v %#v", game.editing().SelectedMasses, game.editing().SelectedSprings)
+	}
+}
+
+func TestCutCopiesThenDeletesSelection(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 20}, Mass: 2})
+	game.ReplaceWorld(world)
+	_ = game.editing().SelectMass(1)
+
+	game.RunCommand("cut")
+
+	if len(game.World().Masses) != 0 {
+		t.Fatalf("mass count after cut = %d, want 0", len(game.World().Masses))
+	}
+	game.lastCursor = sim.Vec2{X: 200, Y: 220}
+	game.RunCommand("paste")
+	if len(game.World().Masses) != 1 {
+		t.Fatalf("mass count after paste = %d, want 1", len(game.World().Masses))
 	}
 }
 
@@ -588,6 +726,30 @@ func TestClickVisibleCommandControlsRunCommands(t *testing.T) {
 		if game.LastCommand() != command {
 			t.Fatalf("command after %q = %q, want %q", label, game.LastCommand(), command)
 		}
+	}
+}
+
+func TestClickEditMenuRunsCutCopyPasteCommands(t *testing.T) {
+	game := NewGame()
+	editControl, _ := visibleControlWithName("edit menu")
+
+	if !game.ClickAt(editControl.Rect.Min.X+2, editControl.Rect.Min.Y+2) {
+		t.Fatal("edit menu click was not handled")
+	}
+	for _, expectedCommand := range []string{"cut", "copy", "paste"} {
+		var menuItem controlBox
+		for _, control := range game.editMenuControls() {
+			if visibleControlCommands[control.Name] == expectedCommand {
+				menuItem = control
+			}
+		}
+		if !game.ClickAt(menuItem.Rect.Min.X+2, menuItem.Rect.Min.Y+2) {
+			t.Fatalf("%s menu click was not handled", expectedCommand)
+		}
+		if game.LastCommand() != expectedCommand {
+			t.Fatalf("last command = %q, want %q", game.LastCommand(), expectedCommand)
+		}
+		game.ClickAt(editControl.Rect.Min.X+2, editControl.Rect.Min.Y+2)
 	}
 }
 
@@ -833,6 +995,16 @@ func TestQuitControlTerminatesUpdateLoop(t *testing.T) {
 	}
 }
 
+func TestWindowCloseTerminatesUpdateLoop(t *testing.T) {
+	game := NewGame()
+
+	game.handleWindowClose(true)
+
+	if err := game.Update(); !errors.Is(err, ebiten.Termination) {
+		t.Fatalf("Update after window close = %v, want ebiten.Termination", err)
+	}
+}
+
 func TestInspectorTogglesMapToSimulationParameters(t *testing.T) {
 	tests := []struct {
 		label  string
@@ -876,7 +1048,6 @@ func TestWorldPointerCreatesMassAndSpring(t *testing.T) {
 	world := sim.NewWorld()
 	game.ReplaceWorld(world)
 
-	game.SetMode("add mass")
 	game.handlePointer(true, 100, 100)
 	game.handlePointer(false, 100, 100)
 	game.handlePointer(true, 140, 100)
@@ -886,7 +1057,7 @@ func TestWorldPointerCreatesMassAndSpring(t *testing.T) {
 		t.Fatalf("masses = %#v", game.World().Masses)
 	}
 
-	game.SetMode("add spring")
+	game.controlDown = true
 	game.handlePointer(true, 100, 100)
 	game.handlePointer(false, 140, 100)
 
@@ -895,13 +1066,13 @@ func TestWorldPointerCreatesMassAndSpring(t *testing.T) {
 	}
 }
 
-func TestSpringModeRubberBandsPendingSpring(t *testing.T) {
+func TestControlDragRubberBandsPendingSpringGesture(t *testing.T) {
 	game := NewGame()
 	world := sim.NewWorld()
 	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 100, Y: 100}, Mass: 1})
 	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 200, Y: 100}, Mass: 1})
 	game.ReplaceWorld(world)
-	game.SetMode("add spring")
+	game.controlDown = true
 
 	game.handlePointer(true, 100, 100)
 	game.handlePointer(true, 150, 140)
@@ -920,94 +1091,345 @@ func TestSpringModeRubberBandsPendingSpring(t *testing.T) {
 	}
 }
 
+func TestControlDragCreatesSpringFromAnyMode(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 500, Y: 300}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 540, Y: 340}, Mass: 1})
+	game.ReplaceWorld(world)
+	game.controlDown = true
+
+	game.handlePointer(true, 500, 300)
+	game.handlePointer(true, 540, 340)
+	game.handlePointer(false, 540, 340)
+
+	if len(game.World().Springs) != 1 {
+		t.Fatalf("springs = %#v, want one", game.World().Springs)
+	}
+	spring := game.World().Springs[0]
+	if spring.MassA != 1 || spring.MassB != 2 {
+		t.Fatalf("spring endpoints = %d,%d, want 1,2", spring.MassA, spring.MassB)
+	}
+}
+
+func TestControlDragRubberBandsPendingSpring(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 500, Y: 300}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 540, Y: 340}, Mass: 1})
+	game.ReplaceWorld(world)
+	game.controlDown = true
+
+	game.handlePointer(true, 500, 300)
+	game.handlePointer(true, 520, 330)
+
+	line, ok := game.pendingSpringLine()
+	if !ok {
+		t.Fatal("expected pending spring line")
+	}
+	if line != (selectionLine{x1: 500, y1: 300, x2: 520, y2: 330}) {
+		t.Fatalf("pending spring line = %#v", line)
+	}
+}
+
 func TestClickVisibleControlsUseRectHitTesting(t *testing.T) {
 	game := NewGame()
 
-	if !game.ClickAt(12, 82) {
-		t.Fatal("expected click inside Mass control to be handled")
-	}
-	if game.Mode() != "add mass" {
-		t.Fatalf("mode = %q, want add mass", game.Mode())
+	if !game.ClickAt(12, 52) {
+		t.Fatal("expected click inside All control to be handled")
 	}
 	if game.ClickAt(500, 300) {
 		t.Fatal("unexpected handled click outside controls")
 	}
 }
 
-func TestRenderedControlBoundsDriveControlClicks(t *testing.T) {
-	tests := map[string]string{
-		"Select": "select",
-		"Mass":   "add mass",
-		"Spring": "add spring",
-		"Drag":   "drag",
-	}
-	for label, mode := range tests {
-		game := NewGame()
-		rect, ok := game.VisibleControlBounds(label)
-		if !ok {
-			t.Fatalf("missing bounds for %q", label)
-		}
-		x := rect.Min.X + rect.Dx()/2
-		y := rect.Min.Y + rect.Dy()/2
-
-		if !game.ClickAt(x, y) {
-			t.Fatalf("click inside %q bounds was not handled", label)
-		}
-		if game.Mode() != mode {
-			t.Fatalf("mode after %q bounds click = %q, want %q", label, game.Mode(), mode)
-		}
-	}
-}
-
-func TestDragControlEnablesMassDragging(t *testing.T) {
+func TestDragMassWorksWithoutMode(t *testing.T) {
 	game := NewGame()
 	world := sim.NewWorld()
-	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 500, Y: 300}, Mass: 1})
 	game.ReplaceWorld(world)
-	rect, ok := game.VisibleControlBounds("Drag")
-	if !ok {
-		t.Fatal("missing Drag bounds")
-	}
 
-	if !game.ClickAt(rect.Min.X+rect.Dx()/2, rect.Min.Y+rect.Dy()/2) {
-		t.Fatal("Drag control click was not handled")
-	}
 	if !game.DragMass(1, sim.Vec2{X: 40, Y: 50}) {
 		t.Fatal("drag was not handled")
 	}
+}
+
+func TestPointerGestureDragsMass(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 500, Y: 300}, Mass: 1})
+	game.ReplaceWorld(world)
+
+	game.handlePointer(true, 500, 300)
+	game.handlePointer(true, 540, 340)
+	game.handlePointer(false, 540, 340)
+	game.handlePointer(true, 700, 500)
 
 	mass, _ := game.World().MassByID(1)
-	if mass.Position != (sim.Vec2{X: 40, Y: 50}) {
-		t.Fatalf("mass position = %#v", mass.Position)
+	if mass.Position != (sim.Vec2{X: 540, Y: 340}) {
+		t.Fatalf("mass position = %#v, want 540,340", mass.Position)
 	}
 }
 
-func TestMassDraggingRequiresDragMode(t *testing.T) {
+func TestClickOnEmptyCanvasCreatesMassAndReplacesSelection(t *testing.T) {
 	game := NewGame()
 	world := sim.NewWorld()
-	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 600, Y: 300}, Mass: 1})
 	game.ReplaceWorld(world)
+	_ = game.editing().SelectMass(1)
+	game.syncSelectionState()
 
-	if game.DragMass(1, sim.Vec2{X: 40, Y: 50}) {
-		t.Fatal("drag was handled outside drag mode")
+	game.handlePointer(true, 500, 300)
+	game.handlePointer(false, 500, 300)
+
+	if game.editing().MassSelected(1) {
+		t.Fatalf("selection was not cleared: %#v", game.editing().SelectedMasses)
+	}
+	if len(game.World().Masses) != 2 {
+		t.Fatalf("empty click should create a mass, count = %d", len(game.World().Masses))
+	}
+	if !game.editing().MassSelected(2) || !game.selected {
+		t.Fatalf("new mass was not selected: %#v", game.editing().SelectedMasses)
 	}
 }
 
-func TestPointerGestureDragsMassInDragMode(t *testing.T) {
+func TestPointerGestureOnMassDragsMass(t *testing.T) {
 	game := NewGame()
 	world := sim.NewWorld()
-	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 500, Y: 300}, Mass: 1, Fixed: true})
 	game.ReplaceWorld(world)
-	game.SetMode("drag")
 
-	game.handlePointer(true, 10, 10)
-	game.handlePointer(true, 40, 50)
-	game.handlePointer(false, 40, 50)
-	game.handlePointer(true, 80, 90)
+	game.handlePointer(true, 500, 300)
+	if game.draggingMassID != 1 {
+		t.Fatalf("dragging mass id = %d, want 1", game.draggingMassID)
+	}
+	game.handlePointer(true, 540, 340)
+	game.handlePointer(false, 540, 340)
 
 	mass, _ := game.World().MassByID(1)
-	if mass.Position != (sim.Vec2{X: 40, Y: 50}) {
-		t.Fatalf("mass position = %#v, want 40,50", mass.Position)
+	if mass.Position != (sim.Vec2{X: 540, Y: 340}) {
+		t.Fatalf("mass position = %#v, want 540,340", mass.Position)
+	}
+	if !mass.Fixed {
+		t.Fatal("dragging should preserve fixed state")
+	}
+}
+
+func TestDraggingSelectedMassMovesEntireSelection(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 500, Y: 300}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 600, Y: 350}, Mass: 1, Fixed: true})
+	_ = world.AddMass(sim.Mass{ID: 3, Position: sim.Vec2{X: 700, Y: 500}, Mass: 1})
+	game.ReplaceWorld(world)
+	_ = game.editing().SelectMass(1)
+	game.editing().SelectedMasses[2] = true
+	game.syncSelectionState()
+
+	game.handlePointer(true, 500, 300)
+	game.handlePointer(true, 540, 340)
+	game.handlePointer(false, 540, 340)
+
+	mass1, _ := game.World().MassByID(1)
+	mass2, _ := game.World().MassByID(2)
+	mass3, _ := game.World().MassByID(3)
+	if mass1.Position != (sim.Vec2{X: 540, Y: 340}) {
+		t.Fatalf("dragged mass position = %#v, want 540,340", mass1.Position)
+	}
+	if mass2.Position != (sim.Vec2{X: 640, Y: 390}) {
+		t.Fatalf("selected fixed mass position = %#v, want 640,390", mass2.Position)
+	}
+	if mass3.Position != (sim.Vec2{X: 700, Y: 500}) {
+		t.Fatalf("unselected mass position = %#v, want unchanged", mass3.Position)
+	}
+}
+
+func TestDraggingMassPinsItToCursorWhileSimulationRuns(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 500, Y: 300}, Mass: 1})
+	world.Parameters.EnableForce("gravity", map[string]string{"magnitude": "1000", "direction": "90"})
+	game.ReplaceWorld(world)
+	game.paused = false
+	game.simulationSpeed = 1
+
+	game.handlePointer(true, 500, 300)
+	game.handlePointer(true, 540, 340)
+	game.lastCursor = sim.Vec2{X: 540, Y: 340}
+	game.advanceSimulationFrame()
+
+	mass, _ := game.World().MassByID(1)
+	if mass.Position != (sim.Vec2{X: 540, Y: 340}) {
+		t.Fatalf("dragged mass position after advance = %#v, want cursor", mass.Position)
+	}
+	if mass.Velocity != (sim.Vec2{}) {
+		t.Fatalf("dragged mass velocity after advance = %#v, want zero", mass.Velocity)
+	}
+}
+
+func TestDraggingMassWhileSimulationRunsDoesNotChangeAttachedSpringRestLength(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 500, Y: 300}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 600, Y: 300}, Mass: 1})
+	_ = world.AddSpring(sim.Spring{ID: 1, MassA: 1, MassB: 2, RestLength: 100, SpringConstant: 12})
+	world.Parameters.EnableForce("gravity", map[string]string{"magnitude": "1000", "direction": "90"})
+	game.ReplaceWorld(world)
+	game.paused = false
+	game.simulationSpeed = 1
+
+	game.handlePointer(true, 500, 300)
+	game.handlePointer(true, 540, 340)
+	game.lastCursor = sim.Vec2{X: 540, Y: 340}
+	game.advanceSimulationFrame()
+	game.handlePointer(false, 540, 340)
+
+	spring, _ := game.World().SpringByID(1)
+	if spring.RestLength != 100 {
+		t.Fatalf("spring rest length after drag = %f, want 100", spring.RestLength)
+	}
+}
+
+func TestDraggingSelectedMassesPinsGroupToCursorWhileSimulationRuns(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 500, Y: 300}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 600, Y: 350}, Mass: 1})
+	world.Parameters.EnableForce("gravity", map[string]string{"magnitude": "1000", "direction": "90"})
+	game.ReplaceWorld(world)
+	_ = game.editing().SelectMass(1)
+	game.editing().SelectedMasses[2] = true
+	game.syncSelectionState()
+
+	game.handlePointer(true, 500, 300)
+	game.handlePointer(true, 540, 340)
+	game.lastCursor = sim.Vec2{X: 540, Y: 340}
+	game.advanceSimulationFrame()
+
+	mass1, _ := game.World().MassByID(1)
+	mass2, _ := game.World().MassByID(2)
+	if mass1.Position != (sim.Vec2{X: 540, Y: 340}) {
+		t.Fatalf("dragged mass position after advance = %#v, want cursor", mass1.Position)
+	}
+	if mass2.Position != (sim.Vec2{X: 640, Y: 390}) {
+		t.Fatalf("selected mass position after advance = %#v, want pinned offset", mass2.Position)
+	}
+	if mass1.Velocity != (sim.Vec2{}) || mass2.Velocity != (sim.Vec2{}) {
+		t.Fatalf("dragged velocities after advance = %#v %#v, want zero", mass1.Velocity, mass2.Velocity)
+	}
+}
+
+func TestClickingSelectedMassWithoutDraggingReplacesSelection(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 500, Y: 300}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 600, Y: 350}, Mass: 1})
+	game.ReplaceWorld(world)
+	_ = game.editing().SelectMass(1)
+	game.editing().SelectedMasses[2] = true
+	game.syncSelectionState()
+
+	game.handlePointer(true, 500, 300)
+	game.handlePointer(false, 500, 300)
+
+	if !game.editing().MassSelected(1) || game.editing().MassSelected(2) {
+		t.Fatalf("selection = %#v, want only mass 1", game.editing().SelectedMasses)
+	}
+}
+
+func TestDragOnEmptyCanvasBoxSelectsMasses(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 500, Y: 300}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 700, Y: 500}, Mass: 1})
+	game.ReplaceWorld(world)
+
+	game.handlePointer(true, 450, 250)
+	game.handlePointer(true, 600, 400)
+	if !game.selectionDrag {
+		t.Fatal("selection rectangle was not active during drag")
+	}
+	game.handlePointer(false, 600, 400)
+
+	if !game.editing().MassSelected(1) {
+		t.Fatal("mass inside selection rectangle was not selected")
+	}
+	if game.editing().MassSelected(2) {
+		t.Fatal("mass outside selection rectangle was selected")
+	}
+	if len(game.World().Masses) != 2 {
+		t.Fatal("box selection should not create a mass")
+	}
+}
+
+func TestShiftClickMassAddsToSelection(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 500, Y: 300}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 700, Y: 500}, Mass: 1})
+	game.ReplaceWorld(world)
+	_ = game.editing().SelectMass(1)
+	game.syncSelectionState()
+	game.shiftDown = true
+
+	game.handlePointer(true, 700, 500)
+	game.handlePointer(false, 700, 500)
+
+	if !game.editing().MassSelected(1) || !game.editing().MassSelected(2) {
+		t.Fatalf("shift click selection = %#v", game.editing().SelectedMasses)
+	}
+}
+
+func TestShiftBoxSelectAddsToSelection(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 500, Y: 300}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 700, Y: 500}, Mass: 1})
+	game.ReplaceWorld(world)
+	_ = game.editing().SelectMass(2)
+	game.syncSelectionState()
+	game.shiftDown = true
+
+	game.handlePointer(true, 450, 250)
+	game.handlePointer(true, 600, 400)
+	game.handlePointer(false, 600, 400)
+
+	if !game.editing().MassSelected(1) || !game.editing().MassSelected(2) {
+		t.Fatalf("shift box selection = %#v", game.editing().SelectedMasses)
+	}
+}
+
+func TestShiftClickEmptyCanvasAddsCreatedMassToSelection(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 600, Y: 300}, Mass: 1})
+	game.ReplaceWorld(world)
+	_ = game.editing().SelectMass(1)
+	game.syncSelectionState()
+	game.shiftDown = true
+
+	game.handlePointer(true, 500, 300)
+	game.handlePointer(false, 500, 300)
+
+	if !game.editing().MassSelected(1) || !game.editing().MassSelected(2) || !game.selected {
+		t.Fatalf("shift empty click selection = %#v", game.editing().SelectedMasses)
+	}
+}
+
+func TestEscapeClearsSelection(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 500, Y: 300}, Mass: 1})
+	game.ReplaceWorld(world)
+	_ = game.editing().SelectMass(1)
+	game.syncSelectionState()
+
+	if !game.HandleShortcut("Esc") {
+		t.Fatal("Esc shortcut was not handled")
+	}
+
+	if game.editing().MassSelected(1) || game.selected {
+		t.Fatalf("selection after Esc = %#v", game.editing().SelectedMasses)
 	}
 }
 
@@ -1016,7 +1438,6 @@ func TestPointerGestureRequiresMouseDownOnMass(t *testing.T) {
 	world := sim.NewWorld()
 	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
 	game.ReplaceWorld(world)
-	game.SetMode("drag")
 
 	game.handlePointer(true, 80, 90)
 	game.handlePointer(true, 40, 50)
@@ -1027,19 +1448,193 @@ func TestPointerGestureRequiresMouseDownOnMass(t *testing.T) {
 	}
 }
 
-func TestPointerGestureDoesNotDragFixedMass(t *testing.T) {
+func TestPointerGestureDragsFixedMass(t *testing.T) {
 	game := NewGame()
 	world := sim.NewWorld()
-	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1, Fixed: true})
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 500, Y: 300}, Mass: 1, Fixed: true})
 	game.ReplaceWorld(world)
-	game.SetMode("drag")
 
-	game.handlePointer(true, 10, 10)
-	game.handlePointer(true, 40, 50)
+	game.handlePointer(true, 500, 300)
+	game.handlePointer(true, 540, 340)
 
 	mass, _ := game.World().MassByID(1)
-	if mass.Position != (sim.Vec2{X: 10, Y: 10}) {
-		t.Fatalf("mass position = %#v, want 10,10", mass.Position)
+	if mass.Position != (sim.Vec2{X: 540, Y: 340}) {
+		t.Fatalf("mass position = %#v, want 540,340", mass.Position)
+	}
+	if !mass.Fixed {
+		t.Fatal("dragging should not make fixed mass free")
+	}
+}
+
+func TestRightClickOnMassOpensContextMenu(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 7, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
+	game.ReplaceWorld(world)
+
+	game.handleRightPointer(true, 10, 10)
+
+	if !game.massMenu.Open {
+		t.Fatal("mass context menu was not opened")
+	}
+	if game.massMenu.MassID != 7 {
+		t.Fatalf("menu mass id = %d, want 7", game.massMenu.MassID)
+	}
+	if !game.editing().MassSelected(7) {
+		t.Fatal("right-clicked mass was not selected")
+	}
+}
+
+func TestMassContextMenuTogglesFixedState(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
+	game.ReplaceWorld(world)
+
+	game.handleRightPointer(true, 10, 10)
+	game.handleRightPointer(false, 10, 10)
+	row := game.massContextMenuRowRect(0)
+	game.handlePointer(true, row.Min.X+2, row.Min.Y+2)
+	game.handlePointer(false, row.Min.X+2, row.Min.Y+2)
+
+	mass, _ := game.World().MassByID(1)
+	if !mass.Fixed {
+		t.Fatal("mass was not fixed")
+	}
+	if game.massMenu.Open {
+		t.Fatal("mass context menu stayed open")
+	}
+}
+
+func TestMassContextMenuOpensSetMassDialog(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 5})
+	game.ReplaceWorld(world)
+
+	game.handleRightPointer(true, 10, 10)
+	game.handleRightPointer(false, 10, 10)
+	row := game.massContextMenuRowRect(1)
+	game.handlePointer(true, row.Min.X+2, row.Min.Y+2)
+	game.handlePointer(false, row.Min.X+2, row.Min.Y+2)
+
+	if !game.valueDialog.Open {
+		t.Fatal("value dialog was not opened")
+	}
+	if game.valueDialog.Title != "Set Mass #1" || game.valueDialog.Text != "5" {
+		t.Fatalf("value dialog = %#v", game.valueDialog)
+	}
+}
+
+func TestSetMassDialogStaysOpenWhileOpeningClickIsHeld(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 5})
+	game.ReplaceWorld(world)
+
+	game.handleRightPointer(true, 10, 10)
+	game.handleRightPointer(false, 10, 10)
+	row := game.massContextMenuRowRect(1)
+	game.handlePointer(true, row.Min.X+2, row.Min.Y+2)
+	game.handlePointer(true, row.Min.X+2, row.Min.Y+2)
+
+	if !game.valueDialog.Open {
+		t.Fatal("value dialog closed while opening click was still held")
+	}
+}
+
+func TestSetMassDialogAppliesTypedMassValue(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
+	game.ReplaceWorld(world)
+	game.openMassValueDialog(1)
+	game.valueDialog.Text = "7.5"
+
+	game.applyValueDialog()
+
+	mass, _ := game.World().MassByID(1)
+	if mass.Mass != 7.5 {
+		t.Fatalf("mass value = %f, want 7.5", mass.Mass)
+	}
+	if game.valueDialog.Open {
+		t.Fatal("value dialog stayed open")
+	}
+}
+
+func TestSetMassDialogSliderUpdatesText(t *testing.T) {
+	game := NewGame()
+	game.openMassValueDialog(1)
+	track := game.valueDialogSliderTrack()
+
+	game.clickValueDialog(track.Min.X+track.Dx()/2, track.Min.Y)
+
+	if game.valueDialog.Text != "10" {
+		t.Fatalf("mass dialog text = %q, want 10", game.valueDialog.Text)
+	}
+}
+
+func TestValueDialogCursorBlinks(t *testing.T) {
+	game := NewGame()
+	game.openMassValueDialog(1)
+
+	if !game.valueDialogCursorVisible() {
+		t.Fatal("cursor should start visible")
+	}
+	game.valueDialog.Ticks = valueCursorPeriod
+	if game.valueDialogCursorVisible() {
+		t.Fatal("cursor should hide after one blink period")
+	}
+	game.valueDialog.Ticks = valueCursorPeriod * 2
+	if !game.valueDialogCursorVisible() {
+		t.Fatal("cursor should show after two blink periods")
+	}
+}
+
+func TestValueDialogTickAdvancesBlinkState(t *testing.T) {
+	game := NewGame()
+	game.openMassValueDialog(1)
+
+	game.tickValueDialog()
+
+	if game.valueDialog.Ticks != 1 {
+		t.Fatalf("dialog ticks = %d, want 1", game.valueDialog.Ticks)
+	}
+}
+
+func TestRightClickNearSpringOpensSpringConstantDialog(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 110, Y: 10}, Mass: 1})
+	_ = world.AddSpring(sim.Spring{ID: 3, MassA: 1, MassB: 2, RestLength: 100, SpringConstant: 12})
+	game.ReplaceWorld(world)
+
+	game.handleRightPointer(true, 60, 12)
+
+	if !game.valueDialog.Open {
+		t.Fatal("spring constant dialog was not opened")
+	}
+	if game.valueDialog.Title != "Set Spring #3" || game.valueDialog.Text != "12" {
+		t.Fatalf("spring dialog = %#v", game.valueDialog)
+	}
+}
+
+func TestSpringConstantDialogAppliesValue(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 110, Y: 10}, Mass: 1})
+	_ = world.AddSpring(sim.Spring{ID: 3, MassA: 1, MassB: 2, RestLength: 100, SpringConstant: 12})
+	game.ReplaceWorld(world)
+	game.openSpringConstantDialogAt(60, 10)
+	game.valueDialog.Text = "22"
+
+	game.applyValueDialog()
+
+	spring, _ := game.World().SpringByID(3)
+	if spring.SpringConstant != 22 || spring.Stiffness != 22 {
+		t.Fatalf("spring = %#v, want constant and stiffness 22", spring)
 	}
 }
 
@@ -1183,21 +1778,6 @@ func assertStarterObjects(t *testing.T, world *sim.Simulation) {
 	}
 	if fixed < 1 || movable < 1 || len(world.Springs) < 1 {
 		t.Fatalf("starter world fixed=%d movable=%d springs=%d: %#v", fixed, movable, len(world.Springs), world)
-	}
-}
-
-func labelControlName(label string) string {
-	switch label {
-	case "Select":
-		return "select mode"
-	case "Mass":
-		return "mass mode"
-	case "Spring":
-		return "spring mode"
-	case "Drag":
-		return "drag mode"
-	default:
-		return ""
 	}
 }
 

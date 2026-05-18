@@ -183,7 +183,7 @@ func runNamedFileCommand(w *world, game *app.Game, command string) error {
 func controlWorldStateAssertions(w *world) map[string]func(*app.Game) error {
 	return map[string]func(*app.Game) error{
 		"written to XSP file": func(*app.Game) error {
-			return requirePrerequisite(strings.HasPrefix(w.xspSavedFirst, "#1.0\n"), "world was not saved")
+			return requirePrerequisite(strings.HasPrefix(w.xspSavedFirst, "#1.0"), "world was not saved")
 		},
 		"replaced by XSP file":       assertLoadedControlWorld,
 		"current plus inserted file": assertInsertedControlWorld,

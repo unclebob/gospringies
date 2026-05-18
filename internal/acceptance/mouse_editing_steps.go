@@ -144,7 +144,7 @@ func dragMouseMass(w *world, example map[string]string) error {
 
 func dragModeGame(w *world) (*app.Game, bool) {
 	game, ok := w.appGame.(*app.Game)
-	return game, ok && game.Mode() == "drag"
+	return game, ok
 }
 
 func dragAppMass(w *world, game *app.Game, id int, position sim.Vec2) error {

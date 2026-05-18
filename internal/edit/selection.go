@@ -16,6 +16,10 @@ func (e *Editor) SelectMass(id int) error {
 	return e.selectExisting(id, "mass", e.massExists, func() { e.SelectedMasses[id] = true })
 }
 
+func (e *Editor) AddMassSelection(id int) error {
+	return e.selectExisting(id, "mass", e.massExists, func() { e.SelectedMasses[id] = true }, keepSelection)
+}
+
 func (e *Editor) SelectSpring(id int) error {
 	return e.selectExisting(id, "spring", e.springExists, func() { e.SelectedSprings[id] = true })
 }
@@ -34,14 +38,21 @@ func (e *Editor) SelectNearest(position sim.Vec2, toggle bool) error {
 	return nil
 }
 
-func (e *Editor) selectExisting(id int, objectType string, exists func(int) bool, selectObject func()) error {
+func (e *Editor) selectExisting(id int, objectType string, exists func(int) bool, selectObject func(), options ...func(*Editor)) error {
 	if !exists(id) {
 		return fmt.Errorf("%s %d not found", objectType, id)
 	}
-	e.clearSelection()
+	if len(options) == 0 {
+		e.clearSelection()
+	}
+	for _, option := range options {
+		option(e)
+	}
 	selectObject()
 	return nil
 }
+
+func keepSelection(*Editor) {}
 
 func (e *Editor) SelectAll() {
 	e.clearSelection()
@@ -57,10 +68,47 @@ func (e *Editor) BoxSelect(min sim.Vec2, max sim.Vec2, add bool) {
 	if !add {
 		e.clearSelection()
 	}
+	massesInBox := 0
 	for _, mass := range e.World.Masses {
 		if withinBox(mass.Position, min, max) {
 			e.SelectedMasses[mass.ID] = true
+			massesInBox++
 		}
+	}
+	fullyEnclosedSprings := e.selectFullyEnclosedSprings(min, max)
+	if massesInBox == 0 && fullyEnclosedSprings == 0 {
+		e.selectSinglePartiallyEnclosedSpring(min, max)
+	}
+}
+
+func (e *Editor) selectFullyEnclosedSprings(min sim.Vec2, max sim.Vec2) int {
+	count := 0
+	for _, spring := range e.World.Springs {
+		a, okA := e.World.MassByID(spring.MassA)
+		b, okB := e.World.MassByID(spring.MassB)
+		if okA && okB && withinBox(a.Position, min, max) && withinBox(b.Position, min, max) {
+			e.SelectedSprings[spring.ID] = true
+			count++
+		}
+	}
+	return count
+}
+
+func (e *Editor) selectSinglePartiallyEnclosedSpring(min sim.Vec2, max sim.Vec2) {
+	selectedID := 0
+	for _, spring := range e.World.Springs {
+		a, okA := e.World.MassByID(spring.MassA)
+		b, okB := e.World.MassByID(spring.MassB)
+		if !okA || !okB || !segmentIntersectsBox(a.Position, b.Position, min, max) {
+			continue
+		}
+		if selectedID != 0 {
+			return
+		}
+		selectedID = spring.ID
+	}
+	if selectedID != 0 {
+		e.SelectedSprings[selectedID] = true
 	}
 }
 
@@ -114,6 +162,10 @@ func (e *Editor) DuplicateSelected() (DuplicatedObjects, error) {
 func (e *Editor) clearSelection() {
 	e.SelectedMasses = map[int]bool{}
 	e.SelectedSprings = map[int]bool{}
+}
+
+func (e *Editor) ClearSelection() {
+	e.clearSelection()
 }
 
 func (e *Editor) toggleMassSelection(id int) {
@@ -242,6 +294,60 @@ func withinBox(position sim.Vec2, min sim.Vec2, max sim.Vec2) bool {
 	lowX, highX := ordered(min.X, max.X)
 	lowY, highY := ordered(min.Y, max.Y)
 	return position.X >= lowX && position.X <= highX && position.Y >= lowY && position.Y <= highY
+}
+
+func segmentIntersectsBox(a sim.Vec2, b sim.Vec2, min sim.Vec2, max sim.Vec2) bool {
+	if withinBox(a, min, max) || withinBox(b, min, max) {
+		return true
+	}
+	lowX, highX := ordered(min.X, max.X)
+	lowY, highY := ordered(min.Y, max.Y)
+	corners := []sim.Vec2{
+		{X: lowX, Y: lowY},
+		{X: highX, Y: lowY},
+		{X: highX, Y: highY},
+		{X: lowX, Y: highY},
+	}
+	for i := range corners {
+		if segmentsIntersect(a, b, corners[i], corners[(i+1)%len(corners)]) {
+			return true
+		}
+	}
+	return false
+}
+
+func segmentsIntersect(a sim.Vec2, b sim.Vec2, c sim.Vec2, d sim.Vec2) bool {
+	o1 := orientation(a, b, c)
+	o2 := orientation(a, b, d)
+	o3 := orientation(c, d, a)
+	o4 := orientation(c, d, b)
+	if o1 == 0 && onSegment(a, c, b) {
+		return true
+	}
+	if o2 == 0 && onSegment(a, d, b) {
+		return true
+	}
+	if o3 == 0 && onSegment(c, a, d) {
+		return true
+	}
+	if o4 == 0 && onSegment(c, b, d) {
+		return true
+	}
+	return (o1 > 0) != (o2 > 0) && (o3 > 0) != (o4 > 0)
+}
+
+func orientation(a sim.Vec2, b sim.Vec2, c sim.Vec2) float64 {
+	value := (b.X-a.X)*(c.Y-a.Y) - (b.Y-a.Y)*(c.X-a.X)
+	if math.Abs(value) < 1e-9 {
+		return 0
+	}
+	return value
+}
+
+func onSegment(a sim.Vec2, b sim.Vec2, c sim.Vec2) bool {
+	lowX, highX := ordered(a.X, c.X)
+	lowY, highY := ordered(a.Y, c.Y)
+	return b.X >= lowX && b.X <= highX && b.Y >= lowY && b.Y <= highY
 }
 
 func ordered(a float64, b float64) (float64, float64) {

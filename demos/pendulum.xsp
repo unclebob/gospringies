@@ -1,9 +1,9 @@
-#1.0
+#1.0 *** XSpringies data file
 cmas 1
 elas 0.8
 kspr 12
 kdmp 0.4
 frce gravity true magnitude=10 direction=0
-mass 1 320 120 -1 0.8
+mass 1 320 360 -1 0.8
 mass 2 320 240 1 0.8
-spng 1 1 2 120 12 0.4
+spng 1 1 2 12 0.4 120

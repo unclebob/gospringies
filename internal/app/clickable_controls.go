@@ -8,13 +8,6 @@ import (
 	"springs/internal/sim"
 )
 
-var modeControlModes = map[string]string{
-	"select mode": "select",
-	"mass mode":   "add mass",
-	"spring mode": "add spring",
-	"drag mode":   "drag",
-}
-
 var visibleControlCommands = map[string]string{
 	"run command":           "run",
 	"pause command":         "pause",
@@ -28,12 +21,23 @@ var visibleControlCommands = map[string]string{
 	"select all command":    "select all",
 	"duplicate command":     "duplicate",
 	"delete command":        "delete",
+	"cut command":           "cut",
+	"copy command":          "copy",
+	"paste command":         "paste",
 }
 
 // ClickAt handles pointer activation for the same rectangles Draw uses for controls.
 func (g *Game) ClickAt(x int, y int) bool {
+	g.lastCursor = g.screenToWorld(simVec(x, y))
+	if control, ok := g.editMenuControlAt(image.Pt(x, y)); ok {
+		return g.activateVisibleControl(control)
+	}
 	control, ok := visibleControlAt(image.Pt(x, y))
 	if !ok {
+		if g.editMenuOpen {
+			g.editMenuOpen = false
+			return true
+		}
 		return false
 	}
 	if isSliderControl(control.Name) {
@@ -61,11 +65,12 @@ func (g *Game) VisibleControlBounds(label string) (image.Rectangle, bool) {
 }
 
 func (g *Game) activateVisibleControl(control controlBox) bool {
-	if mode, ok := modeControlModes[control.Name]; ok {
-		g.SetMode(mode)
+	if control.Name == "edit menu" {
+		g.editMenuOpen = !g.editMenuOpen
 		return true
 	}
 	if command, ok := visibleControlCommands[control.Name]; ok {
+		g.editMenuOpen = false
 		g.RunCommand(command)
 		return true
 	}
@@ -73,6 +78,15 @@ func (g *Game) activateVisibleControl(control controlBox) bool {
 		return true
 	}
 	return false
+}
+
+func (g *Game) editMenuControlAt(point image.Point) (controlBox, bool) {
+	for _, control := range g.editMenuControls() {
+		if point.In(control.Rect) {
+			return control, true
+		}
+	}
+	return controlBox{}, false
 }
 
 func (g *Game) activateInspectorControl(name string) bool {
@@ -304,10 +318,6 @@ func visibleControlWithName(name string) (controlBox, bool) {
 	return controlBox{}, false
 }
 
-func (g *Game) Mode() string {
-	return g.mode
-}
-
 func (g *Game) PathEntryCommand() string {
 	return g.pathEntryCommand
 }
@@ -322,17 +332,50 @@ func (g *Game) VisibleControlActive(label string) bool {
 }
 
 func (g *Game) DragMass(id int, position sim.Vec2) bool {
-	if g.mode != "drag" {
-		return false
+	if g.editing().MassSelected(id) {
+		if len(g.draggingOffsets) > 0 {
+			g.applyDraggingOffsets(position)
+		} else {
+			delta := position.Sub(g.draggingLast)
+			g.moveSelectedMasses(delta)
+		}
+		g.draggingLast = position
+		if !selectionClick(g.draggingStart, position) {
+			g.dragMoved = true
+		}
+		g.dirty = true
+		return true
 	}
 	for i := range g.simulation.Masses {
 		if g.simulation.Masses[i].ID == id {
-			if !g.simulation.Masses[i].Fixed {
-				g.simulation.Masses[i].Position = position
-				g.dirty = true
+			g.simulation.Masses[i].Position = position
+			g.simulation.Masses[i].Velocity = sim.Vec2{}
+			g.draggingLast = position
+			if !selectionClick(g.draggingStart, position) {
+				g.dragMoved = true
 			}
+			g.dirty = true
 			return true
 		}
 	}
 	return false
+}
+
+func (g *Game) moveSelectedMasses(delta sim.Vec2) {
+	for i := range g.simulation.Masses {
+		if g.editing().MassSelected(g.simulation.Masses[i].ID) {
+			g.simulation.Masses[i].Position = g.simulation.Masses[i].Position.Add(delta)
+			g.simulation.Masses[i].Velocity = sim.Vec2{}
+		}
+	}
+}
+
+func (g *Game) applyDraggingOffsets(cursor sim.Vec2) {
+	for i := range g.simulation.Masses {
+		offset, ok := g.draggingOffsets[g.simulation.Masses[i].ID]
+		if ok {
+			g.simulation.Masses[i].Position = cursor.Add(offset)
+			g.simulation.Masses[i].Velocity = sim.Vec2{}
+		}
+	}
 }

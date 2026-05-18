@@ -21,10 +21,6 @@ Scenario Outline: visible controls have readable labels
 
 Examples:
   | control       | label         |
-  | select mode   | Select        |
-  | mass mode     | Mass          |
-  | spring mode   | Spring        |
-  | drag mode     | Drag          |
   | run command   | Run           |
   | pause command | Pause         |
   | reset command | Reset         |
@@ -53,7 +49,6 @@ Scenario Outline: status fields are visibly rendered
 
 Examples:
   | state            | field          |
-  | Select mode      | mode           |
   | running          | run state      |
   | object counts    | object counts  |
   | saved            | file state     |

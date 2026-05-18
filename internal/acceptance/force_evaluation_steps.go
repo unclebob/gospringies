@@ -316,26 +316,26 @@ func namedVelocity(value string) (sim.Vec2, error) {
 func outsideWallPosition(wall string) sim.Vec2 {
 	switch wall {
 	case "top":
-		return sim.Vec2{X: 50, Y: -5}
+		return sim.Vec2{X: 50, Y: 105}
 	case "left":
 		return sim.Vec2{X: -5, Y: 50}
 	case "right":
 		return sim.Vec2{X: 105, Y: 50}
 	default:
-		return sim.Vec2{X: 50, Y: 105}
+		return sim.Vec2{X: 50, Y: -5}
 	}
 }
 
 func insideDirection(wall string) sim.Vec2 {
 	switch wall {
 	case "top":
-		return sim.Vec2{Y: 1}
+		return sim.Vec2{Y: -1}
 	case "left":
 		return sim.Vec2{X: 1}
 	case "right":
 		return sim.Vec2{X: -1}
 	default:
-		return sim.Vec2{Y: -1}
+		return sim.Vec2{Y: 1}
 	}
 }
 

@@ -40,6 +40,13 @@ var xspForceNames = []string{"gravity", "center attraction", "center of mass att
 var xspForceValueKeys = []string{"magnitude", "direction", "exponent", "damping"}
 var xspWallNames = []string{"top", "left", "right", "bottom"}
 
+const originalXSpringiesMarker = "#1.0 *** XSpringies data file"
+
+func UsesOriginalXSpringiesCoordinates(text string) bool {
+	line, _, _ := strings.Cut(text, "\n")
+	return strings.Contains(line, "XSpringies data file")
+}
+
 func LoadXSP(text string) (*sim.Simulation, error) {
 	if !strings.HasSuffix(text, "\n") {
 		return nil, ErrMissingFinalNewline
@@ -315,7 +322,7 @@ func massNumericFields(fields []string) (sim.Vec2, sim.Vec2, float64, float64, e
 
 func loadSpringLine(world *sim.Simulation, fields []string) error {
 	if len(fields) != 7 {
-		return fmt.Errorf("spng expects id mass_a mass_b rest_length spring_constant damping")
+		return fmt.Errorf("spng expects id mass_a mass_b spring_constant damping rest_length")
 	}
 	spring, err := springFromFields(fields)
 	if err != nil {
@@ -333,16 +340,16 @@ func springFromFields(fields []string) (sim.Spring, error) {
 		ID:             ids[0],
 		MassA:          ids[1],
 		MassB:          ids[2],
-		RestLength:     floats[0],
-		SpringConstant: floats[1],
-		Stiffness:      floats[1],
-		Damping:        floats[2],
+		RestLength:     floats[2],
+		SpringConstant: floats[0],
+		Stiffness:      floats[0],
+		Damping:        floats[1],
 	}, nil
 }
 
 func springFieldGroups(fields []string) ([3]int, [3]float64, error) {
 	intNames := []string{"spring id", "spring mass a", "spring mass b"}
-	floatNames := []string{"spring rest length", "spring constant", "spring damping"}
+	floatNames := []string{"spring constant", "spring damping", "spring rest length"}
 	var ids [3]int
 	var values [3]float64
 	for i, name := range intNames {
@@ -367,7 +374,7 @@ func springFieldGroups(fields []string) ([3]int, [3]float64, error) {
 
 func SaveXSP(world *sim.Simulation) string {
 	var builder strings.Builder
-	builder.WriteString("#1.0\n")
+	builder.WriteString(originalXSpringiesMarker + "\n")
 	writeParameterLines(&builder, world)
 	writeForceLines(&builder, world)
 	writeWallLines(&builder, world)
@@ -394,9 +401,9 @@ func writeSpringLines(builder *strings.Builder, world *sim.Simulation) {
 			spring.ID,
 			spring.MassA,
 			spring.MassB,
-			formatFloat(spring.RestLength),
 			formatFloat(spring.SpringConstant),
 			formatFloat(spring.Damping),
+			formatFloat(spring.RestLength),
 		))
 	}
 }

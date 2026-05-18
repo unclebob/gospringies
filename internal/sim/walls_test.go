@@ -54,7 +54,7 @@ func TestStickinessCanHoldAndReleaseMass(t *testing.T) {
 
 	world.Parameters.EnableForce("gravity", map[string]string{"magnitude": "20", "direction": "0"})
 	world.Masses[0].StuckWall = "top"
-	world.Masses[0].Position = Vec2{X: 20, Y: 0}
+	world.Masses[0].Position = Vec2{X: 20, Y: world.Bounds.Height}
 	world.Step(1)
 	mass, _ = world.MassByID(1)
 	if mass.StuckWall != "" {
@@ -97,10 +97,16 @@ func TestWallBounceStickinessThresholds(t *testing.T) {
 		t.Fatalf("right wall rebound = %#v", right)
 	}
 
-	top := Mass{ID: 4, Velocity: Vec2{Y: -3}, Elasticity: 1}
+	top := Mass{ID: 4, Velocity: Vec2{Y: 3}, Elasticity: 1}
 	world.bounceOrStick(&top, namedCollisionWall(t, world, &top, "top"))
-	if top.Velocity.Y != 3 {
+	if top.Velocity.Y != -3 {
 		t.Fatalf("top wall rebound = %#v", top)
+	}
+
+	bottom := Mass{ID: 5, Velocity: Vec2{Y: -3}, Elasticity: 1}
+	world.bounceOrStick(&bottom, namedCollisionWall(t, world, &bottom, "bottom"))
+	if bottom.Velocity.Y != 3 {
+		t.Fatalf("bottom wall rebound = %#v", bottom)
 	}
 }
 
@@ -143,7 +149,7 @@ func TestStuckWallContracts(t *testing.T) {
 	if !world.wallReleasedBy(namedCollisionWall(t, world, &mass, "right"), Vec2{X: -11}) {
 		t.Fatal("right wall should release from leftward force")
 	}
-	if !world.wallReleasedBy(namedCollisionWall(t, world, &mass, "bottom"), Vec2{Y: -11}) {
+	if !world.wallReleasedBy(namedCollisionWall(t, world, &mass, "bottom"), Vec2{Y: 11}) {
 		t.Fatal("bottom wall should release from upward force")
 	}
 	if !world.keepStuck(&mass, Vec2{X: 5}) {

@@ -16,21 +16,10 @@ Scenario Outline: the editor screen contains required regions
 Examples:
   | region        | purpose                                      |
   | canvas        | edit and view the simulation world           |
-  | left toolbar  | choose editing modes                         |
+  | left toolbar  | run selection commands                       |
   | top bar       | run commands and file commands               |
   | right inspector | edit selected objects and world parameters |
-  | status line   | show mode, simulation state, counts, and file state |
-
-Scenario Outline: editing modes are visible controls
-  When the coder shows the left toolbar
-  Then editing mode <mode> should have a visible control
-
-Examples:
-  | mode       |
-  | select     |
-  | add mass   |
-  | add spring |
-  | drag       |
+  | status line   | show simulation state, counts, and file state |
 
 Scenario Outline: commands are visible controls
   When the coder shows the top command bar
@@ -53,7 +42,6 @@ Scenario Outline: visible state reflects application state
 
 Examples:
   | state           | indicator        |
-  | select mode     | active mode      |
   | paused          | simulation state |
   | running         | simulation state |
   | object selected | selection        |

@@ -9,8 +9,6 @@ import (
 type editorScreen = app.EditorScreen
 
 var applicationStateChanges = map[string]func(appGame){
-	"Select mode":     func(game appGame) { game.SetMode("select") },
-	"select mode":     func(game appGame) { game.SetMode("select") },
 	"paused":          func(game appGame) { game.SetPaused(true) },
 	"running":         func(game appGame) { game.SetPaused(false) },
 	"object counts":   func(appGame) {},
@@ -57,7 +55,7 @@ func assertScreenRegionPurpose(w *world, example map[string]string) error {
 }
 
 func assertModeVisible(w *world, example map[string]string) error {
-	return assertVisibleControl(w, example, "mode", "mode", editorScreen.HasModeControl)
+	return fmt.Errorf("mode controls were removed from the app")
 }
 
 func assertCommandVisible(w *world, example map[string]string) error {

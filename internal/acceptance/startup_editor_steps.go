@@ -180,8 +180,7 @@ func assertStartupWorldsEquivalent(w *world, _ map[string]string) error {
 }
 
 func assertStartupScreensEquivalent(w *world, _ map[string]string) error {
-	if !sameStringSlices(w.editorScreen.ModeControls, w.startupSecondScreen.ModeControls) ||
-		!sameStringSlices(w.editorScreen.CommandControls, w.startupSecondScreen.CommandControls) ||
+	if !sameStringSlices(w.editorScreen.CommandControls, w.startupSecondScreen.CommandControls) ||
 		len(w.editorScreen.Regions) != len(w.startupSecondScreen.Regions) {
 		return fmt.Errorf("startup screens differed")
 	}

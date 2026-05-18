@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -48,6 +47,9 @@ type DrawFrameReport struct {
 
 func (g *Game) drawVisibleControls(screen *ebiten.Image) {
 	for _, control := range visibleControls() {
+		g.drawControl(screen, control)
+	}
+	for _, control := range g.editMenuControls() {
 		g.drawControl(screen, control)
 	}
 	for _, section := range inspectorSections() {
@@ -121,11 +123,7 @@ func (g *Game) sliderLabel(control controlBox) string {
 }
 
 func (g *Game) activeControl(name string) bool {
-	return (name == "select mode" && g.mode == "select") ||
-		(name == "mass mode" && g.mode == "add mass") ||
-		(name == "spring mode" && g.mode == "add spring") ||
-		(name == "drag mode" && g.mode == "drag") ||
-		(name == "pause command" && g.paused) ||
+	return (name == "pause command" && g.paused) ||
 		(name == "run command" && !g.paused) ||
 		(name == "gravity force" && g.forceEnabled("gravity")) ||
 		(name == "center attraction force" && g.forceEnabled("center attraction")) ||
@@ -142,19 +140,33 @@ func (g *Game) activeControl(name string) bool {
 }
 
 func visibleControls() []controlBox {
-	controls := append(toolbarControls(), commandControls()...)
+	controls := append(menuControls(), toolbarControls()...)
+	controls = append(controls, commandControls()...)
 	return append(controls, inspectorControls()...)
+}
+
+func menuControls() []controlBox {
+	return []controlBox{
+		{Name: "edit menu", Label: "Edit", Region: "top command bar", Rect: image.Rect(8, 8, 52, 28)},
+	}
+}
+
+func (g *Game) editMenuControls() []controlBox {
+	if !g.editMenuOpen {
+		return nil
+	}
+	return []controlBox{
+		{Name: "cut command", Label: "Cut     Ctrl+X", Region: "top command bar", Rect: image.Rect(8, 30, 132, 54)},
+		{Name: "copy command", Label: "Copy    Ctrl+C", Region: "top command bar", Rect: image.Rect(8, 54, 132, 78)},
+		{Name: "paste command", Label: "Paste   Ctrl+V", Region: "top command bar", Rect: image.Rect(8, 78, 132, 102)},
+	}
 }
 
 func toolbarControls() []controlBox {
 	return []controlBox{
-		{Name: "select mode", Label: "Select", Region: "left toolbar", Rect: image.Rect(8, 48, 64, 68)},
-		{Name: "mass mode", Label: "Mass", Region: "left toolbar", Rect: image.Rect(8, 78, 64, 98)},
-		{Name: "spring mode", Label: "Spring", Region: "left toolbar", Rect: image.Rect(8, 108, 64, 128)},
-		{Name: "drag mode", Label: "Drag", Region: "left toolbar", Rect: image.Rect(8, 138, 64, 158)},
-		{Name: "select all command", Label: "All", Region: "left toolbar", Rect: image.Rect(8, 180, 64, 200)},
-		{Name: "duplicate command", Label: "Dup", Region: "left toolbar", Rect: image.Rect(8, 210, 64, 230)},
-		{Name: "delete command", Label: "Del", Region: "left toolbar", Rect: image.Rect(8, 240, 64, 260)},
+		{Name: "select all command", Label: "All", Region: "left toolbar", Rect: image.Rect(8, 48, 64, 68)},
+		{Name: "duplicate command", Label: "Dup", Region: "left toolbar", Rect: image.Rect(8, 78, 64, 98)},
+		{Name: "delete command", Label: "Del", Region: "left toolbar", Rect: image.Rect(8, 108, 64, 128)},
 	}
 }
 
@@ -240,14 +252,13 @@ func (g *Game) gridSnapEnabled() bool {
 
 func (g *Game) statusFields() []statusField {
 	return []statusField{
-		{Name: "mode", Label: strings.Title(g.mode) + " mode", Rect: image.Rect(8, screenHeight-22, 148, screenHeight-2)},
-		{Name: "run state", Label: g.simulationState(), Rect: image.Rect(156, screenHeight-22, 252, screenHeight-2)},
-		{Name: "object counts", Label: "object counts", Rect: image.Rect(260, screenHeight-22, 360, screenHeight-2)},
-		{Name: "selected object count", Label: fmt.Sprintf("%d sel", g.selectedObjectCount()), Rect: image.Rect(368, screenHeight-22, 438, screenHeight-2)},
-		{Name: "current file", Label: g.pathEntryCommand, Rect: image.Rect(446, screenHeight-22, 560, screenHeight-2)},
-		{Name: "dirty state", Label: g.fileState(), Rect: image.Rect(568, screenHeight-22, 660, screenHeight-2)},
-		{Name: "file state", Label: g.fileState(), Rect: image.Rect(668, screenHeight-22, 760, screenHeight-2)},
-		{Name: "last error", Label: "", Rect: image.Rect(768, screenHeight-22, 1020, screenHeight-2)},
+		{Name: "run state", Label: g.simulationState(), Rect: image.Rect(8, screenHeight-22, 104, screenHeight-2)},
+		{Name: "object counts", Label: "object counts", Rect: image.Rect(112, screenHeight-22, 212, screenHeight-2)},
+		{Name: "selected object count", Label: fmt.Sprintf("%d sel", g.selectedObjectCount()), Rect: image.Rect(220, screenHeight-22, 290, screenHeight-2)},
+		{Name: "current file", Label: g.pathEntryCommand, Rect: image.Rect(298, screenHeight-22, 412, screenHeight-2)},
+		{Name: "dirty state", Label: g.fileState(), Rect: image.Rect(420, screenHeight-22, 512, screenHeight-2)},
+		{Name: "file state", Label: g.fileState(), Rect: image.Rect(520, screenHeight-22, 612, screenHeight-2)},
+		{Name: "last error", Label: "", Rect: image.Rect(620, screenHeight-22, 872, screenHeight-2)},
 	}
 }
 
@@ -398,7 +409,8 @@ func visibleWorldPixels(game *Game) int {
 	canvas := visibleRegionRects()["canvas"]
 	count := 0
 	for _, mass := range game.simulation.Masses {
-		point := image.Pt(int(mass.Position.X), int(mass.Position.Y))
+		screenPosition := game.worldToScreen(mass.Position)
+		point := image.Pt(int(screenPosition.X), int(screenPosition.Y))
 		if point.In(canvas) {
 			count += 25
 		}

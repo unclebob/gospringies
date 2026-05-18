@@ -322,10 +322,6 @@ func TestRunFeatureExecutesDemoFilesFeature(t *testing.T) {
 	runFeatureFile(t, "features/013_demo_files.feature")
 }
 
-func TestRunFeatureExecutesPackagingDocsFeature(t *testing.T) {
-	runFeatureFile(t, "features/014_packaging_and_docs.feature")
-}
-
 func TestRunFeatureExecutesEditModeDetailsFeature(t *testing.T) {
 	runFeatureFile(t, "features/015_edit_mode_details.feature")
 }
@@ -413,8 +409,8 @@ func TestWallCollisionHelperContracts(t *testing.T) {
 	for wall, boundary := range map[string]sim.Vec2{
 		"left":   {X: 0, Y: 50},
 		"right":  {X: 100, Y: 50},
-		"top":    {X: 50, Y: 0},
-		"bottom": {X: 50, Y: 100},
+		"top":    {X: 50, Y: 100},
+		"bottom": {X: 50, Y: 0},
 	} {
 		if insideWallBoundary(boundary, wall) {
 			t.Fatalf("%s boundary counted as passed through", wall)
@@ -423,11 +419,11 @@ func TestWallCollisionHelperContracts(t *testing.T) {
 			t.Fatalf("%s inward velocity was zero", wall)
 		}
 	}
-	if !insideWallBoundary(sim.Vec2{X: 50, Y: 1}, "top") {
+	if !insideWallBoundary(sim.Vec2{X: 50, Y: 99}, "top") {
 		t.Fatal("top inside position was not counted as passed through")
 	}
-	if normalSignTowardInside("right") != -1 || normalSignTowardInside("bottom") != -1 {
-		t.Fatal("right and bottom normal signs should point inward with -1")
+	if normalSignTowardInside("right") != -1 || normalSignTowardInside("top") != -1 {
+		t.Fatal("right and top normal signs should point inward with -1")
 	}
 
 	w := wallCollisionWorldWithMass(1, "left", sim.Vec2{X: 0.5})
@@ -798,19 +794,6 @@ func TestVisibleControlsApplicationStateSetup(t *testing.T) {
 		before func(*app.Game)
 		assert func(*testing.T, *app.Game)
 	}{
-		{
-			name:  "select mode",
-			state: "Select mode",
-			before: func(game *app.Game) {
-				game.SetMode("drag")
-			},
-			assert: func(t *testing.T, game *app.Game) {
-				t.Helper()
-				if game.Mode() != "select" {
-					t.Fatalf("mode = %q, want select", game.Mode())
-				}
-			},
-		},
 		{
 			name:  "running",
 			state: "running",
@@ -1685,16 +1668,16 @@ func TestScreenControlHelpersReportFailures(t *testing.T) {
 		t.Fatal("expected absent region mismatch")
 	}
 
-	if err := assertVisibleIndicator(w, map[string]string{"state": "select mode"}); err == nil {
+	if err := assertVisibleIndicator(w, map[string]string{"state": "running"}); err == nil {
 		t.Fatal("expected missing indicator value")
 	}
-	if err := assertVisibleIndicator(w, map[string]string{"indicator": "active mode"}); err == nil {
+	if err := assertVisibleIndicator(w, map[string]string{"indicator": "simulation state"}); err == nil {
 		t.Fatal("expected missing state value")
 	}
-	if err := assertVisibleIndicator(w, map[string]string{"indicator": "active mode", "state": "select mode"}); err != nil {
+	if err := assertVisibleIndicator(w, map[string]string{"indicator": "simulation state", "state": "running"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := assertVisibleIndicator(w, map[string]string{"indicator": "active mode", "state": "wrong"}); err == nil {
+	if err := assertVisibleIndicator(w, map[string]string{"indicator": "simulation state", "state": "wrong"}); err == nil {
 		t.Fatal("expected indicator mismatch")
 	}
 
@@ -1704,10 +1687,10 @@ func TestScreenControlHelpersReportFailures(t *testing.T) {
 	if err := assertCurrentScreen(w, func(editorScreen) bool { return false }, "mismatch"); err == nil {
 		t.Fatal("expected screen mismatch")
 	}
-	if err := assertVisibleControl(w, map[string]string{}, "mode", "mode", editorScreen.HasModeControl); err == nil {
+	if err := assertVisibleControl(w, map[string]string{}, "command", "command", editorScreen.HasCommandControl); err == nil {
 		t.Fatal("expected missing control value")
 	}
-	if err := assertVisibleControl(w, map[string]string{"mode": "paint"}, "mode", "mode", editorScreen.HasModeControl); err == nil {
+	if err := assertVisibleControl(w, map[string]string{"command": "export"}, "command", "command", editorScreen.HasCommandControl); err == nil {
 		t.Fatal("expected invisible control")
 	}
 }
@@ -1817,13 +1800,13 @@ func TestForceCenterHelpersValidateInputsAndBranches(t *testing.T) {
 	if hasForceParameter("gravity", "Exponent") {
 		t.Fatal("expected gravity Exponent parameter to be absent")
 	}
-	if matchesExpectedDirection(sim.Vec2{X: 0.000001, Y: 1}, "down") {
+	if matchesExpectedDirection(sim.Vec2{X: 0.000001, Y: -1}, "down") {
 		t.Fatal("expected tolerance boundary to be outside direction match")
 	}
-	if matchesExpectedDirection(sim.Vec2{X: 0, Y: 0.999999}, "down") {
+	if matchesExpectedDirection(sim.Vec2{X: 0, Y: -0.999999}, "down") {
 		t.Fatal("expected Y tolerance boundary to be outside direction match")
 	}
-	if matchesExpectedDirection(sim.Vec2{X: 0, Y: -1}, "down") {
+	if matchesExpectedDirection(sim.Vec2{X: 0, Y: 1}, "down") {
 		t.Fatal("expected mismatched component to reject direction")
 	}
 

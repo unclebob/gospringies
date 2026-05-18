@@ -1,36 +1,35 @@
 package app
 
-import "springs/internal/sim"
-
 var editorRegions = []ScreenRegion{
 	{"canvas", "edit and view the simulation world"},
-	{"left toolbar", "choose editing modes"},
+	{"left toolbar", "run selection commands"},
 	{"top bar", "run commands and file commands"},
 	{"right inspector", "edit selected objects and world parameters"},
-	{"status line", "show mode, simulation state, counts, and file state"},
+	{"status line", "show simulation state, counts, and file state"},
 }
 
-var editorModeControls = []string{"select", "add mass", "add spring", "drag"}
-
-var editorCommandControls = []string{"run", "pause", "reset", "load", "insert", "save", "quit", "delete", "select all"}
+var editorCommandControls = []string{"run", "pause", "reset", "load", "insert", "save", "quit", "delete", "select all", "cut", "copy", "paste"}
 
 var shortcutCommands = map[string]string{
 	"Space":  "pause",
 	"Delete": "delete",
 	"Ctrl+A": "select all",
+	"Ctrl+X": "cut",
+	"Ctrl+C": "copy",
+	"Ctrl+V": "paste",
 	"Ctrl+D": "duplicate",
 	"R":      "reset",
 	"Ctrl+S": "save",
 	"Ctrl+O": "load",
 	"Ctrl+I": "insert",
 	"Q":      "quit",
+	"Esc":    "clear selection",
 }
 
 type EditorScreen struct {
 	Editor          bool
 	LandingPage     bool
 	Regions         []ScreenRegion
-	ModeControls    []string
 	CommandControls []string
 	Indicators      map[string]string
 	CanvasVisible   bool
@@ -47,10 +46,8 @@ func (g *Game) EditorScreen() EditorScreen {
 		Editor:          true,
 		LandingPage:     false,
 		Regions:         editorRegions,
-		ModeControls:    editorModeControls,
 		CommandControls: editorCommandControls,
 		Indicators: map[string]string{
-			"active mode":      g.mode + " mode",
 			"simulation state": g.simulationState(),
 			"selection":        g.selectionState(),
 			"file state":       g.fileState(),
@@ -69,19 +66,8 @@ func (s EditorScreen) RegionPurpose(name string) (string, bool) {
 	return "", false
 }
 
-func (s EditorScreen) HasModeControl(mode string) bool {
-	return contains(s.ModeControls, mode)
-}
-
 func (s EditorScreen) HasCommandControl(command string) bool {
 	return contains(s.CommandControls, command)
-}
-
-func (g *Game) SetMode(mode string) {
-	g.mode = mode
-	g.draggingMassID = 0
-	g.pendingSpringID = 0
-	g.pendingSpringEnd = sim.Vec2{}
 }
 
 func (g *Game) SetSelected(selected bool) {

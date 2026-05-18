@@ -14,7 +14,6 @@ type appGame interface {
 	World() *sim.Simulation
 	SetPaused(bool)
 	EditorScreen() editorScreen
-	SetMode(string)
 	SetSelected(bool)
 	SetDirty(bool)
 	HandleShortcut(string) bool

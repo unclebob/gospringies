@@ -15,18 +15,6 @@ Examples:
   | right inspector |
   | status line     |
 
-Scenario Outline: original mode controls are visible and clickable
-  When the coder renders the left toolbar
-  Then mode control <mode> should be visible
-  And mode control <mode> should be clickable
-
-Examples:
-  | mode   |
-  | Select |
-  | Mass   |
-  | Spring |
-  | Drag   |
-
 Scenario Outline: original command controls are visible and clickable
   When the coder renders the top command bar
   Then command control <command> should be visible
@@ -75,7 +63,6 @@ Scenario Outline: status line reports current application state
 
 Examples:
   | state              | field                 |
-  | Select mode        | mode                  |
   | running            | run state             |
   | paused             | run state             |
   | object counts      | object counts         |

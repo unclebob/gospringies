@@ -1,4 +1,4 @@
-#1.0
+#1.0 *** XSpringies data file
 cmas 1
 elas 0.8
 kspr 10
@@ -7,6 +7,6 @@ mass 1 160 240 -1 0.8
 mass 2 240 240 1 0.8
 mass 3 320 240 1 0.8
 mass 4 400 240 1 0.8
-spng 1 1 2 80 10 0.3
-spng 2 2 3 80 10 0.3
-spng 3 3 4 80 10 0.3
+spng 1 1 2 10 0.3 80
+spng 2 2 3 10 0.3 80
+spng 3 3 4 10 0.3 80

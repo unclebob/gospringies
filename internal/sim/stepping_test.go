@@ -67,11 +67,11 @@ func TestStepUsesRK4ForConstantAcceleration(t *testing.T) {
 	world.Step(1)
 
 	mass, _ := world.MassByID(1)
-	if math.Abs(mass.Position.Y-5) > 0.000001 {
-		t.Fatalf("RK4 position Y = %f, want 5", mass.Position.Y)
+	if math.Abs(mass.Position.Y+5) > 0.000001 {
+		t.Fatalf("RK4 position Y = %f, want -5", mass.Position.Y)
 	}
-	if math.Abs(mass.Velocity.Y-10) > 0.000001 {
-		t.Fatalf("RK4 velocity Y = %f, want 10", mass.Velocity.Y)
+	if math.Abs(mass.Velocity.Y+10) > 0.000001 {
+		t.Fatalf("RK4 velocity Y = %f, want -10", mass.Velocity.Y)
 	}
 }
 

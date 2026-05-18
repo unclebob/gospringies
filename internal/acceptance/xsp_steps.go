@@ -82,7 +82,7 @@ func xspInputForCommand(command string) (string, error) {
 		"gsnp": "#1.0\ngsnp 5\n",
 		"wall": "#1.0\nwall left true\n",
 		"mass": "#1.0\nmass 1 10 20 3.0 0.8\n",
-		"spng": "#1.0\nmass 1 0 0 1 0.8\nmass 2 10 0 1 0.8\nspng 1 1 2 10 12 0.7\n",
+		"spng": "#1.0\nmass 1 0 0 1 0.8\nmass 2 10 0 1 0.8\nspng 1 1 2 12 0.7 10\n",
 	}
 	if input, ok := lines[command]; ok {
 		return input, nil
@@ -294,7 +294,7 @@ func assertXSPLoadErrorReason(w *world, example map[string]string) error {
 }
 
 func simpleSceneXSP() string {
-	return "#1.0\ncmas 1.5\nelas 0.8\nkspr 12\nkdmp 0.7\nmass 1 0 0 1 0.8\nmass 2 10 0 1 0.8\nspng 1 1 2 10 12 0.7\n"
+	return "#1.0\ncmas 1.5\nelas 0.8\nkspr 12\nkdmp 0.7\nmass 1 0 0 1 0.8\nmass 2 10 0 1 0.8\nspng 1 1 2 12 0.7 10\n"
 }
 
 func createFilenameInput(w *world, example map[string]string) error {
@@ -390,5 +390,5 @@ func assertParametersRemain(w *world, example map[string]string) error {
 }
 
 func completeXSP() string {
-	return "#1.0\ncmas loaded\nelas 0.4\nkspr 12\nkdmp 0.7\nfixm 0\nshws 1\ncent -1\nfrce gravity 1 magnitude=10 direction=90\nvisc 0.2\nstck 0.3\nstep 0.01\nprec 0.001\nadpt 0\ngsnp 5\nwall left 1\nmass 1 0 0 1 0.8\nmass 2 10 0 1 0.8\nspng 1 1 2 10 12 0.7\n"
+	return "#1.0\ncmas loaded\nelas 0.4\nkspr 12\nkdmp 0.7\nfixm 0\nshws 1\ncent -1\nfrce gravity 1 magnitude=10 direction=90\nvisc 0.2\nstck 0.3\nstep 0.01\nprec 0.001\nadpt 0\ngsnp 5\nwall left 1\nmass 1 0 0 1 0.8\nmass 2 10 0 1 0.8\nspng 1 1 2 12 0.7 10\n"
 }

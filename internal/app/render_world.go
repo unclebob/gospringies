@@ -73,7 +73,20 @@ func (r RenderResult) HasVisibleRepresentation(object string) bool {
 }
 
 func (g *Game) validSpring(spring sim.Spring) bool {
-	return spring.A >= 0 && spring.B >= 0 && spring.A < len(g.simulation.Masses) && spring.B < len(g.simulation.Masses)
+	_, _, ok := g.springEndpoints(spring)
+	return ok
+}
+
+func (g *Game) springEndpoints(spring sim.Spring) (sim.Mass, sim.Mass, bool) {
+	if spring.MassA != 0 || spring.MassB != 0 {
+		a, okA := g.simulation.MassByID(spring.MassA)
+		b, okB := g.simulation.MassByID(spring.MassB)
+		return a, b, okA && okB
+	}
+	if spring.A >= 0 && spring.B >= 0 && spring.A < len(g.simulation.Masses) && spring.B < len(g.simulation.Masses) {
+		return g.simulation.Masses[spring.A], g.simulation.Masses[spring.B], true
+	}
+	return sim.Mass{}, sim.Mass{}, false
 }
 
 func (g *Game) massRepresentations(representations map[string]string) {

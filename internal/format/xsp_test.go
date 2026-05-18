@@ -37,7 +37,7 @@ func TestLoadXSPSupportsParametersForcesWallsMassesAndSprings(t *testing.T) {
 		"wall left 1",
 		"mass 1 10 20 -3.0 0.4",
 		"mass 2 30 40 2.0 0.5",
-		"spng 7 1 2 15 12.5 0.7",
+		"spng 7 1 2 12.5 0.7 15",
 	}, "\n") + "\n")
 	if err != nil {
 		t.Fatalf("LoadXSP returned error: %v", err)
@@ -243,18 +243,23 @@ func TestSaveXSPWritesDocumentedCommands(t *testing.T) {
 		"gsnp 5",
 		"wall left true",
 		"mass 1 10 20 1 0.8",
+		"mass 2 20 20 1 0.8",
+		"spng 7 1 2 12.5 0.7 15",
 	}, "\n") + "\n")
 	if err != nil {
 		t.Fatal(err)
 	}
 	output := SaveXSP(world)
-	for _, command := range []string{"cmas", "elas", "kspr", "kdmp", "fixm", "shws", "cent", "frce", "visc", "stck", "step", "prec", "adpt", "gsnp", "wall", "mass"} {
+	for _, command := range []string{"cmas", "elas", "kspr", "kdmp", "fixm", "shws", "cent", "frce", "visc", "stck", "step", "prec", "adpt", "gsnp", "wall", "mass", "spng"} {
 		if !strings.Contains(output, "\n"+command+" ") {
 			t.Fatalf("saved output missing %s:\n%s", command, output)
 		}
 	}
 	if !strings.Contains(output, "\nfrce gravity true magnitude=10 direction=90\n") {
 		t.Fatalf("saved output missing force values:\n%s", output)
+	}
+	if !strings.Contains(output, "\nspng 7 1 2 12.5 0.7 15\n") {
+		t.Fatalf("saved output should use original spring order:\n%s", output)
 	}
 }
 

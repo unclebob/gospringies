@@ -10,7 +10,6 @@ import (
 type drawFrameReport = app.DrawFrameReport
 
 var visibleControlStateSetters = map[string]func(*app.Game){
-	"Select mode":   func(game *app.Game) { game.SetMode("select") },
 	"running":       func(game *app.Game) { game.SetPaused(false) },
 	"object counts": func(*app.Game) {},
 	"saved":         func(game *app.Game) { game.SetDirty(false) },

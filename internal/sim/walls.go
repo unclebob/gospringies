@@ -42,7 +42,7 @@ func (s *Simulation) bounceOrStick(mass *Mass, wall wallCollision) {
 
 func signedRebound(rebound float64, wall wallCollision) float64 {
 	switch wall.name {
-	case "right", "bottom":
+	case "right", "top":
 		return -rebound
 	default:
 		return rebound
@@ -91,13 +91,13 @@ func (s *Simulation) collisionWalls(mass *Mass) []wallCollision {
 			keepTangential: func(mass *Mass) { mass.Velocity.X = 0 },
 		},
 		{
-			name: "top", position: &mass.Position.Y, velocity: &mass.Velocity.Y, boundary: 0,
+			name: "bottom", position: &mass.Position.Y, velocity: &mass.Velocity.Y, boundary: 0,
 			outside: func(position float64) bool { return position < 0 }, movingOutward: func(velocity float64) bool { return velocity < 0 },
 			releaseForce:   func(force Vec2) float64 { return force.Y },
 			keepTangential: func(mass *Mass) { mass.Velocity.Y = 0 },
 		},
 		{
-			name: "bottom", position: &mass.Position.Y, velocity: &mass.Velocity.Y, boundary: s.Bounds.Height,
+			name: "top", position: &mass.Position.Y, velocity: &mass.Velocity.Y, boundary: s.Bounds.Height,
 			outside: func(position float64) bool { return position > s.Bounds.Height }, movingOutward: func(velocity float64) bool { return velocity > 0 },
 			releaseForce:   func(force Vec2) float64 { return -force.Y },
 			keepTangential: func(mass *Mass) { mass.Velocity.Y = 0 },

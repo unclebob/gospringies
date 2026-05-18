@@ -34,8 +34,10 @@ func (s *Simulation) EvaluateForces() ForceEvaluation {
 
 func (s *Simulation) addSpringForces(forces map[int]MassForces) {
 	for _, spring := range s.Springs {
-		a := s.Masses[spring.A]
-		b := s.Masses[spring.B]
+		a, b, ok := s.springEndpointMasses(spring)
+		if !ok {
+			continue
+		}
 		delta := b.Position.Sub(a.Position)
 		distance := length(delta)
 		if distance == 0 {
@@ -49,6 +51,18 @@ func (s *Simulation) addSpringForces(forces map[int]MassForces) {
 		addForce(forces, a.ID, force)
 		addForce(forces, b.ID, force.Scale(-1))
 	}
+}
+
+func (s *Simulation) springEndpointMasses(spring Spring) (Mass, Mass, bool) {
+	if spring.MassA != 0 || spring.MassB != 0 {
+		a, okA := s.MassByID(spring.MassA)
+		b, okB := s.MassByID(spring.MassB)
+		return a, b, okA && okB
+	}
+	if spring.A >= 0 && spring.B >= 0 && spring.A < len(s.Masses) && spring.B < len(s.Masses) {
+		return s.Masses[spring.A], s.Masses[spring.B], true
+	}
+	return Mass{}, Mass{}, false
 }
 
 func (s *Simulation) addEnvironmentalForces(forces map[int]MassForces) {
@@ -78,7 +92,7 @@ func (s *Simulation) gravityForce(mass Mass) Vec2 {
 	}
 	magnitude := forceFloat(force, "magnitude")
 	radians := forceFloat(force, "direction") * math.Pi / 180
-	return Vec2{X: magnitude * math.Sin(radians) * mass.Mass, Y: magnitude * math.Cos(radians) * mass.Mass}
+	return Vec2{X: magnitude * math.Sin(radians) * mass.Mass, Y: -magnitude * math.Cos(radians) * mass.Mass}
 }
 
 func (s *Simulation) viscosityForce(mass Mass) Vec2 {
@@ -128,10 +142,10 @@ type wallCheck struct {
 func (s *Simulation) wallChecks(mass Mass, magnitude float64) []wallCheck {
 	exponent := forceExponent(s.Parameters.Forces["wall repulsion"])
 	return []wallCheck{
-		{name: "top", outside: mass.Position.Y < 0, force: Vec2{Y: wallMagnitude(magnitude, -mass.Position.Y, exponent)}},
+		{name: "bottom", outside: mass.Position.Y < 0, force: Vec2{Y: wallMagnitude(magnitude, -mass.Position.Y, exponent)}},
 		{name: "left", outside: mass.Position.X < 0, force: Vec2{X: wallMagnitude(magnitude, -mass.Position.X, exponent)}},
 		{name: "right", outside: mass.Position.X > s.Bounds.Width, force: Vec2{X: -wallMagnitude(magnitude, mass.Position.X-s.Bounds.Width, exponent)}},
-		{name: "bottom", outside: mass.Position.Y > s.Bounds.Height, force: Vec2{Y: -wallMagnitude(magnitude, mass.Position.Y-s.Bounds.Height, exponent)}},
+		{name: "top", outside: mass.Position.Y > s.Bounds.Height, force: Vec2{Y: -wallMagnitude(magnitude, mass.Position.Y-s.Bounds.Height, exponent)}},
 	}
 }
 

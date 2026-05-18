@@ -39,8 +39,12 @@ func TestLoadXSPAcceptsOriginalXSpringiesLineForms(t *testing.T) {
 	if len(world.Masses) != 2 || len(world.Springs) != 1 {
 		t.Fatalf("world = %#v", world)
 	}
-	if mass := world.Masses[0]; !mass.Fixed || mass.Velocity.X != 1.5 || mass.Velocity.Y != -2.5 {
+	if mass := world.Masses[0]; !mass.Fixed || mass.Position.Y != 20 || mass.Velocity.X != 1.5 || mass.Velocity.Y != -2.5 {
 		t.Fatalf("legacy mass = %#v", mass)
+	}
+	spring, _ := world.SpringByID(1)
+	if spring.SpringConstant != 100 || spring.Stiffness != 100 || spring.Damping != 5 || spring.RestLength != 20 {
+		t.Fatalf("legacy spring = %#v", spring)
 	}
 	if enabled, _ := world.Parameters.WallEnabled("top"); !enabled {
 		t.Fatalf("walls = %#v", world.Parameters.Walls)
@@ -72,6 +76,32 @@ func TestOriginalDemoCorpusLoads(t *testing.T) {
 		if _, err := LoadXSP(string(content)); err != nil {
 			t.Fatalf("load %s: %v", entry.Name(), err)
 		}
+	}
+}
+
+func TestOriginalXSpringiesHammerLoadsBaseAtBottom(t *testing.T) {
+	content, err := os.ReadFile(filepath.Join(originalDemoCorpusDir(), "hammer.xsp"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	world, err := LoadXSP(string(content))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	base, ok := world.MassByID(28)
+	if !ok {
+		t.Fatal("hammer base mass 28 not found")
+	}
+	if base.Position.Y > 100 {
+		t.Fatalf("hammer base Y = %f, want original file coordinate near bottom of Y-up canvas", base.Position.Y)
+	}
+	spring, ok := world.SpringByID(1)
+	if !ok {
+		t.Fatal("hammer spring 1 not found")
+	}
+	if spring.SpringConstant != 10 || spring.Damping != 0.6 || spring.RestLength != 39 {
+		t.Fatalf("hammer spring 1 = %#v, want original k,damp,rest field order", spring)
 	}
 }
 

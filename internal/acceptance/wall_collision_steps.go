@@ -32,16 +32,16 @@ var wallCollisionSpecs = map[string]collisionWallSpec{
 		passedThrough: func(position sim.Vec2) bool { return position.X < 100 },
 	},
 	"top": {
-		inside:        sim.Vec2{X: 50, Y: 1},
-		outside:       sim.Vec2{X: 50, Y: -5},
-		outward:       sim.Vec2{Y: -wallCollisionSpeed},
-		passedThrough: func(position sim.Vec2) bool { return position.Y > 0 },
-	},
-	"bottom": {
 		inside:        sim.Vec2{X: 50, Y: 99},
 		outside:       sim.Vec2{X: 50, Y: 105},
 		outward:       sim.Vec2{Y: wallCollisionSpeed},
 		passedThrough: func(position sim.Vec2) bool { return position.Y < 100 },
+	},
+	"bottom": {
+		inside:        sim.Vec2{X: 50, Y: 1},
+		outside:       sim.Vec2{X: 50, Y: -5},
+		outward:       sim.Vec2{Y: -wallCollisionSpeed},
+		passedThrough: func(position sim.Vec2) bool { return position.Y > 0 },
 	},
 }
 
@@ -307,7 +307,7 @@ func normalVelocity(mass sim.Mass, wall string) float64 {
 func normalVelocityTowardInside(mass sim.Mass, wall string) float64 {
 	velocity := normalVelocity(mass, wall)
 	switch wall {
-	case "left", "top":
+	case "left", "bottom":
 		return velocity
 	default:
 		return -velocity
@@ -315,7 +315,7 @@ func normalVelocityTowardInside(mass sim.Mass, wall string) float64 {
 }
 
 func normalSignTowardInside(wall string) float64 {
-	if wall == "left" || wall == "top" {
+	if wall == "left" || wall == "bottom" {
 		return 1
 	}
 	return -1

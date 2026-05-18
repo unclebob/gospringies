@@ -367,6 +367,66 @@ func TestBoxSelectAndShiftBoxSelect(t *testing.T) {
 	}
 }
 
+func TestBoxSelectSelectsFullyEnclosedSpring(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 40, Y: 40}, Mass: 1})
+	_ = world.AddSpring(sim.Spring{ID: 3, MassA: 1, MassB: 2, RestLength: 30, SpringConstant: 1})
+	editor := NewEditor(world)
+
+	editor.BoxSelect(sim.Vec2{}, sim.Vec2{X: 50, Y: 50}, false)
+
+	if !editor.MassSelected(1) || !editor.MassSelected(2) || !editor.SpringSelected(3) {
+		t.Fatalf("selection = %#v %#v", editor.SelectedMasses, editor.SelectedSprings)
+	}
+}
+
+func TestBoxSelectSelectsPartOfSpringWhenNothingElseIsEnclosed(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 100, Y: 10}, Mass: 1})
+	_ = world.AddSpring(sim.Spring{ID: 3, MassA: 1, MassB: 2, RestLength: 90, SpringConstant: 1})
+	editor := NewEditor(world)
+
+	editor.BoxSelect(sim.Vec2{X: 40, Y: 0}, sim.Vec2{X: 60, Y: 20}, false)
+
+	if editor.MassSelected(1) || editor.MassSelected(2) || !editor.SpringSelected(3) {
+		t.Fatalf("selection = %#v %#v", editor.SelectedMasses, editor.SelectedSprings)
+	}
+}
+
+func TestBoxSelectDoesNotSelectPartialSpringWhenAnythingElseIsEnclosed(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 100, Y: 10}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 4, Position: sim.Vec2{X: 50, Y: 15}, Mass: 1})
+	_ = world.AddSpring(sim.Spring{ID: 3, MassA: 1, MassB: 2, RestLength: 90, SpringConstant: 1})
+	editor := NewEditor(world)
+
+	editor.BoxSelect(sim.Vec2{X: 40, Y: 0}, sim.Vec2{X: 60, Y: 20}, false)
+
+	if !editor.MassSelected(4) || editor.SpringSelected(3) {
+		t.Fatalf("selection = %#v %#v", editor.SelectedMasses, editor.SelectedSprings)
+	}
+}
+
+func TestBoxSelectDoesNotSelectMultiplePartialSprings(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 100, Y: 10}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 4, Position: sim.Vec2{X: 10, Y: 20}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 5, Position: sim.Vec2{X: 100, Y: 20}, Mass: 1})
+	_ = world.AddSpring(sim.Spring{ID: 3, MassA: 1, MassB: 2, RestLength: 90, SpringConstant: 1})
+	_ = world.AddSpring(sim.Spring{ID: 6, MassA: 4, MassB: 5, RestLength: 90, SpringConstant: 1})
+	editor := NewEditor(world)
+
+	editor.BoxSelect(sim.Vec2{X: 40, Y: 0}, sim.Vec2{X: 60, Y: 30}, false)
+
+	if editor.SpringSelected(3) || editor.SpringSelected(6) {
+		t.Fatalf("selection = %#v %#v", editor.SelectedMasses, editor.SelectedSprings)
+	}
+}
+
 func TestReindexSpringsRequiresBothEndpoints(t *testing.T) {
 	world := sim.NewWorld()
 	_ = world.AddMass(sim.Mass{ID: 10, Mass: 1})

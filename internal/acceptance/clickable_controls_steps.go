@@ -7,19 +7,7 @@ import (
 )
 
 func setClickableEditorMode(w *world, example map[string]string) error {
-	mode, err := stringValue(example, "old_mode")
-	if err != nil {
-		return err
-	}
-	if !supportedClickableMode(mode) {
-		return fmt.Errorf("unsupported editor mode %q", mode)
-	}
-	game, err := visibleControlsGame(w)
-	if err != nil {
-		return err
-	}
-	game.SetMode(mode)
-	return nil
+	return fmt.Errorf("editor modes were removed from the app")
 }
 
 func supportedClickableMode(mode string) bool {
@@ -64,10 +52,10 @@ func clickInsideRenderedBoundsOfControl(w *world, control string) error {
 }
 
 func assertClickableEditorMode(w *world, example map[string]string) error {
-	return assertClickableGameValue(w, example, "new_mode", "editor mode", clickableEditorMode)
+	return fmt.Errorf("editor modes were removed from the app")
 }
 
-func clickableEditorMode(game *app.Game) string { return game.Mode() }
+func clickableEditorMode(game *app.Game) string { return "" }
 
 func assertVisibleControlActive(w *world, example map[string]string) error {
 	control, err := stringValue(example, "control")
@@ -239,8 +227,7 @@ func assertClickableSimulationState(w *world, example map[string]string) error {
 func clickableApplicationState(game *app.Game) string {
 	screen := game.EditorScreen()
 	return fmt.Sprintf(
-		"mode=%s paused=%t command=%s path=%s closed=%t file=%s counts=%d/%d",
-		game.Mode(),
+		"paused=%t command=%s path=%s closed=%t file=%s counts=%d/%d",
 		game.Paused(),
 		game.LastCommand(),
 		game.PathEntryCommand(),
