@@ -1295,6 +1295,50 @@ func TestDraggingSelectedMassMovesEntireSelection(t *testing.T) {
 	}
 }
 
+func TestDraggingMassWithThrowKeySetsVelocityFromDragVector(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 500, Y: 300}, Mass: 1})
+	game.ReplaceWorld(world)
+
+	game.handlePointer(true, 500, 300)
+	game.handlePointer(true, 540, 340)
+	game.throwDown = true
+	game.handlePointer(false, 540, 340)
+
+	mass, _ := game.World().MassByID(1)
+	if mass.Velocity != (sim.Vec2{X: 40, Y: 40}) {
+		t.Fatalf("thrown mass velocity = %#v, want 40,40", mass.Velocity)
+	}
+}
+
+func TestDraggingSelectedMassesWithThrowKeySetsSelectionVelocity(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 500, Y: 300}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 600, Y: 350}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 3, Position: sim.Vec2{X: 700, Y: 500}, Mass: 1})
+	game.ReplaceWorld(world)
+	_ = game.editing().SelectMass(1)
+	game.editing().SelectedMasses[2] = true
+	game.syncSelectionState()
+
+	game.handlePointer(true, 500, 300)
+	game.handlePointer(true, 540, 340)
+	game.throwDown = true
+	game.handlePointer(false, 540, 340)
+
+	mass1, _ := game.World().MassByID(1)
+	mass2, _ := game.World().MassByID(2)
+	mass3, _ := game.World().MassByID(3)
+	if mass1.Velocity != (sim.Vec2{X: 40, Y: 40}) || mass2.Velocity != (sim.Vec2{X: 40, Y: 40}) {
+		t.Fatalf("selected throw velocities = %#v %#v, want 40,40", mass1.Velocity, mass2.Velocity)
+	}
+	if mass3.Velocity != (sim.Vec2{}) {
+		t.Fatalf("unselected mass velocity = %#v, want zero", mass3.Velocity)
+	}
+}
+
 func TestDraggingMassPinsItToCursorWhileSimulationRuns(t *testing.T) {
 	game := NewGame()
 	world := sim.NewWorld()

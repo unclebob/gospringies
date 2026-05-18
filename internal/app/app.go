@@ -64,6 +64,7 @@ type Game struct {
 	selectionAdd      bool
 	shiftDown         bool
 	controlDown       bool
+	throwDown         bool
 	activeSlider      string
 	massMenu          massContextMenu
 	valueDialog       valueDialog
@@ -202,6 +203,10 @@ func (g *Game) controlKeyPressed() bool {
 	return g.controlDown || controlKeyPressed()
 }
 
+func (g *Game) throwKeyPressed() bool {
+	return g.throwDown || ebiten.IsKeyPressed(ebiten.KeyT)
+}
+
 func (g *Game) handleRightPointer(pressed bool, x int, y int) {
 	if pressed && !g.rightMousePressed {
 		g.openContextAt(x, y)
@@ -297,12 +302,35 @@ func (g *Game) finishWorldPointer(position sim.Vec2) {
 }
 
 func (g *Game) finishMassDrag(position sim.Vec2) {
+	if g.dragMoved && g.throwKeyPressed() {
+		g.throwDraggedMasses(position.Sub(g.draggingStart))
+		return
+	}
 	if g.dragMoved || g.selectionAdd {
 		return
 	}
 	if selectionClick(g.draggingStart, position) {
 		_ = g.editing().SelectMass(g.draggingMassID)
 		g.syncSelectionState()
+	}
+}
+
+func (g *Game) throwDraggedMasses(velocity sim.Vec2) {
+	if len(g.draggingOffsets) > 0 {
+		for i := range g.simulation.Masses {
+			if _, ok := g.draggingOffsets[g.simulation.Masses[i].ID]; ok {
+				g.simulation.Masses[i].Velocity = velocity
+			}
+		}
+		g.dirty = true
+		return
+	}
+	for i := range g.simulation.Masses {
+		if g.simulation.Masses[i].ID == g.draggingMassID {
+			g.simulation.Masses[i].Velocity = velocity
+			g.dirty = true
+			return
+		}
 	}
 }
 
