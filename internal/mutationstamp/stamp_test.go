@@ -18,6 +18,9 @@ func TestStampWritesValidStampForUnstampedContent(t *testing.T) {
 	if !strings.HasPrefix(content, Prefix) {
 		t.Fatalf("content was not stamped:\n%s", content)
 	}
+	if !strings.HasPrefix(strings.TrimPrefix(content, Prefix), HashKey) {
+		t.Fatalf("stamp did not include hash key:\n%s", content)
+	}
 	if !Valid(path) {
 		t.Fatal("stamp should be valid")
 	}
@@ -65,10 +68,37 @@ func TestValidRejectsMissingAndStaleStamps(t *testing.T) {
 	}
 }
 
-func TestSplitReturnsStampAndUnstampedContent(t *testing.T) {
-	stamp, unstamped := Split("Feature: Smoke\r\n" + Prefix + "abc\r\nScenario: one\r\n")
+func TestValidRejectsStampAfterFeatureContentChanges(t *testing.T) {
+	path := writeTempFeature(t, "Feature: Smoke\n")
+	if err := Stamp(path); err != nil {
+		t.Fatal(err)
+	}
+	if !Valid(path) {
+		t.Fatal("fresh stamp should be valid")
+	}
 
-	if stamp != "abc" {
+	if err := os.WriteFile(path, []byte(readTempFeature(t, path)+"Scenario: changed\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if Valid(path) {
+		t.Fatal("stamp should be invalid after content changes")
+	}
+}
+
+func TestValidAcceptsLegacyRawHashStamp(t *testing.T) {
+	feature := "Feature: Smoke\n"
+	path := writeTempFeature(t, Prefix+Hash(feature)+"\n"+feature)
+
+	if !Valid(path) {
+		t.Fatal("legacy raw hash stamp should remain valid")
+	}
+}
+
+func TestSplitReturnsStampAndUnstampedContent(t *testing.T) {
+	stamp, unstamped := Split("Feature: Smoke\r\n" + Prefix + HashKey + "abc\r\nScenario: one\r\n")
+
+	if stamp != HashKey+"abc" {
 		t.Fatalf("stamp = %q", stamp)
 	}
 	if unstamped != "Feature: Smoke\r\nScenario: one\r\n" {

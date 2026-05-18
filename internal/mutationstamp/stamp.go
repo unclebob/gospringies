@@ -3,11 +3,13 @@ package mutationstamp
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"strings"
 )
 
 const Prefix = "# mutation-stamp: "
+const HashKey = "sha256="
 
 func Valid(path string) bool {
 	content, err := os.ReadFile(path)
@@ -15,7 +17,7 @@ func Valid(path string) bool {
 		return false
 	}
 	stamp, unstamped := Split(string(content))
-	return stamp != "" && stamp == Hash(unstamped)
+	return stampHash(stamp) == Hash(unstamped)
 }
 
 func Stamp(path string) error {
@@ -24,7 +26,7 @@ func Stamp(path string) error {
 		return err
 	}
 	_, unstamped := Split(string(content))
-	return os.WriteFile(path, []byte(Prefix+Hash(unstamped)+"\n"+unstamped), 0o644)
+	return os.WriteFile(path, []byte(Prefix+formatStamp(Hash(unstamped))+"\n"+unstamped), 0o644)
 }
 
 func Remove(path string) error {
@@ -57,4 +59,19 @@ func Split(content string) (string, string) {
 func Hash(content string) string {
 	sum := sha256.Sum256([]byte(content))
 	return hex.EncodeToString(sum[:])
+}
+
+func formatStamp(hash string) string {
+	return fmt.Sprintf("%s%s", HashKey, hash)
+}
+
+func stampHash(stamp string) string {
+	if value, ok := strings.CutPrefix(stamp, HashKey); ok {
+		fields := strings.Fields(value)
+		if len(fields) == 0 {
+			return ""
+		}
+		return fields[0]
+	}
+	return stamp
 }
