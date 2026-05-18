@@ -26,7 +26,7 @@ func TestNewWorldStartsWithEditableDefaults(t *testing.T) {
 func TestNewWorldStartsWithEditableForceAndWallConfiguration(t *testing.T) {
 	world := NewWorld()
 
-	for _, name := range []string{"gravity", "center attraction", "center of mass attraction", "wall repulsion"} {
+	for _, name := range []string{"gravity", "center attraction", "center of mass attraction", "wall repulsion", "mass collision"} {
 		force, ok := world.Parameters.Force(name)
 		if !ok {
 			t.Fatalf("missing force %q", name)
@@ -34,7 +34,7 @@ func TestNewWorldStartsWithEditableForceAndWallConfiguration(t *testing.T) {
 		if force.Enabled != "false" {
 			t.Fatalf("force %q enabled by default: %#v", name, force)
 		}
-		if len(force.Values) == 0 {
+		if name != "mass collision" && len(force.Values) == 0 {
 			t.Fatalf("force %q has no editable values", name)
 		}
 	}

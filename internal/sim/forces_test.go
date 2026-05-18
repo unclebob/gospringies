@@ -91,17 +91,17 @@ func TestFixedMassesDoNotAccumulateAcceleration(t *testing.T) {
 	}
 }
 
-func TestWallForcePushesMassBackInside(t *testing.T) {
+func TestWallForcePushesMassAwayFromInsideWalls(t *testing.T) {
 	cases := []struct {
 		wall string
 		id   int
 		pos  Vec2
 		want Vec2
 	}{
-		{"bottom", 1, Vec2{X: 50, Y: -5}, Vec2{Y: 1}},
-		{"left", 2, Vec2{X: -5, Y: 50}, Vec2{X: 1}},
-		{"right", 3, Vec2{X: 105, Y: 50}, Vec2{X: -1}},
-		{"top", 4, Vec2{X: 50, Y: 105}, Vec2{Y: -1}},
+		{"bottom", 1, Vec2{X: 50, Y: 5}, Vec2{Y: 1}},
+		{"left", 2, Vec2{X: 5, Y: 50}, Vec2{X: 1}},
+		{"right", 3, Vec2{X: 95, Y: 50}, Vec2{X: -1}},
+		{"top", 4, Vec2{X: 50, Y: 95}, Vec2{Y: -1}},
 	}
 	for _, tc := range cases {
 		world := NewWorld()
@@ -228,25 +228,23 @@ func TestForceCenterAndCenterOfMassFallbacks(t *testing.T) {
 }
 
 func TestWallForceBoundariesAndHelpers(t *testing.T) {
-	world := NewWorld()
-	world.Bounds = Bounds{Width: 100, Height: 100}
-	world.Parameters.EnableForce("wall repulsion", map[string]string{"magnitude": "8", "exponent": "1"})
-	for _, wall := range []string{"top", "left", "right", "bottom"} {
-		world.Parameters.EnableWall(wall)
+	outsideCases := []struct {
+		wall string
+		pos  Vec2
+	}{
+		{"bottom", Vec2{X: 10, Y: -1}},
+		{"left", Vec2{X: -1, Y: 10}},
+		{"right", Vec2{X: 101, Y: 10}},
+		{"top", Vec2{X: 10, Y: 101}},
 	}
-	for _, mass := range []Mass{
-		{ID: 1, Position: Vec2{X: 10, Y: 0}, Mass: 1},
-		{ID: 2, Position: Vec2{X: 0, Y: 10}, Mass: 1},
-		{ID: 3, Position: Vec2{X: 100, Y: 10}, Mass: 1},
-		{ID: 4, Position: Vec2{X: 10, Y: 100}, Mass: 1},
-	} {
-		_ = world.AddMass(mass)
-	}
-
-	forces := world.EvaluateForces()
-	for id := 1; id <= 4; id++ {
-		if force := forces.ByMassID[id].Force; force != (Vec2{}) {
-			t.Fatalf("boundary mass %d force = %#v", id, force)
+	for _, tc := range outsideCases {
+		world := NewWorld()
+		world.Bounds = Bounds{Width: 100, Height: 100}
+		world.Parameters.EnableForce("wall repulsion", map[string]string{"magnitude": "8", "exponent": "1"})
+		world.Parameters.EnableWall(tc.wall)
+		_ = world.AddMass(Mass{ID: 1, Position: tc.pos, Mass: 1})
+		if force := world.EvaluateForces().ByMassID[1].Force; force != (Vec2{}) {
+			t.Fatalf("outside %s force = %#v", tc.wall, force)
 		}
 	}
 	if got := wallMagnitude(8, 0, 2); got != 8 {
@@ -255,7 +253,7 @@ func TestWallForceBoundariesAndHelpers(t *testing.T) {
 	if got := wallMagnitude(8, 1, 2); got != 8 {
 		t.Fatalf("unit-distance wall magnitude = %v", got)
 	}
-	if got := wallMagnitude(8, 0.5, 1); got != 16 {
+	if got := wallMagnitude(8, 0.5, 1); got != 8 {
 		t.Fatalf("fractional-distance wall magnitude = %v", got)
 	}
 	if got := wallMagnitude(8, 2, 1); got != 4 {
@@ -272,16 +270,33 @@ func TestWallForceBoundariesAndHelpers(t *testing.T) {
 		t.Fatalf("disabled wall force = %#v", force)
 	}
 
-	outside := NewWorld()
-	outside.Bounds = Bounds{Width: 100, Height: 100}
-	outside.Parameters.EnableForce("wall repulsion", map[string]string{"magnitude": "8", "exponent": "1"})
-	outside.Parameters.EnableWall("right")
-	outside.Parameters.EnableWall("bottom")
-	_ = outside.AddMass(Mass{ID: 1, Position: Vec2{X: 101, Y: 50}, Mass: 1})
-	_ = outside.AddMass(Mass{ID: 2, Position: Vec2{X: 50, Y: -1}, Mass: 1})
-	forces = outside.EvaluateForces()
-	assertVecEqual(t, forces.ByMassID[1].Force, Vec2{X: -8})
-	assertVecEqual(t, forces.ByMassID[2].Force, Vec2{Y: 8})
+	nearRight := NewWorld()
+	nearRight.Bounds = Bounds{Width: 100, Height: 100}
+	nearRight.Parameters.EnableForce("wall repulsion", map[string]string{"magnitude": "8", "exponent": "1"})
+	nearRight.Parameters.EnableWall("right")
+	_ = nearRight.AddMass(Mass{ID: 1, Position: Vec2{X: 98, Y: 50}, Mass: 1})
+	assertVecEqual(t, nearRight.EvaluateForces().ByMassID[1].Force, Vec2{X: -4})
+
+	nearBottom := NewWorld()
+	nearBottom.Bounds = Bounds{Width: 100, Height: 100}
+	nearBottom.Parameters.EnableForce("wall repulsion", map[string]string{"magnitude": "8", "exponent": "1"})
+	nearBottom.Parameters.EnableWall("bottom")
+	_ = nearBottom.AddMass(Mass{ID: 2, Position: Vec2{X: 50, Y: 2}, Mass: 1})
+	assertVecEqual(t, nearBottom.EvaluateForces().ByMassID[2].Force, Vec2{Y: 4})
+
+	outsideRight := NewWorld()
+	outsideRight.Bounds = Bounds{Width: 100, Height: 100}
+	outsideRight.Parameters.EnableForce("wall repulsion", map[string]string{"magnitude": "8", "exponent": "1"})
+	outsideRight.Parameters.EnableWall("right")
+	_ = outsideRight.AddMass(Mass{ID: 1, Position: Vec2{X: 101, Y: 50}, Mass: 1})
+	assertVecEqual(t, outsideRight.EvaluateForces().ByMassID[1].Force, Vec2{})
+
+	outsideBottom := NewWorld()
+	outsideBottom.Bounds = Bounds{Width: 100, Height: 100}
+	outsideBottom.Parameters.EnableForce("wall repulsion", map[string]string{"magnitude": "8", "exponent": "1"})
+	outsideBottom.Parameters.EnableWall("bottom")
+	_ = outsideBottom.AddMass(Mass{ID: 2, Position: Vec2{X: 50, Y: -1}, Mass: 1})
+	assertVecEqual(t, outsideBottom.EvaluateForces().ByMassID[2].Force, Vec2{})
 }
 
 func TestCenterMassAndEnabledForceHelpers(t *testing.T) {
@@ -326,7 +341,11 @@ func TestForceParametersAndCenterSelection(t *testing.T) {
 func worldWithEnvironmentalForce(forceName string) *Simulation {
 	world := NewWorld()
 	world.Bounds = Bounds{Width: 100, Height: 100}
-	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: -1, Y: 50}, Velocity: Vec2{X: 2, Y: 0}, Mass: 1})
+	position := Vec2{X: -1, Y: 50}
+	if forceName == "wall repulsion" {
+		position = Vec2{X: 1, Y: 50}
+	}
+	_ = world.AddMass(Mass{ID: 1, Position: position, Velocity: Vec2{X: 2, Y: 0}, Mass: 1})
 	if forceName == "center of mass attraction" {
 		_ = world.AddMass(Mass{ID: 2, Position: Vec2{X: 50, Y: 50}, Mass: 1})
 	}

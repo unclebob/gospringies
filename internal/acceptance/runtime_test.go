@@ -854,6 +854,10 @@ func TestRunFeatureExecutesOriginalDemoCorpusFeature(t *testing.T) {
 	runFeatureFile(t, "features/025_original_demo_corpus.feature")
 }
 
+func TestRunFeatureExecutesMassCollisionFeature(t *testing.T) {
+	runFeatureFile(t, "features/026_mass_collision.feature")
+}
+
 func TestRenderWorldHelpersValidateInputs(t *testing.T) {
 	if err := createApplicationWorldState(&world{}, map[string]string{}); err == nil {
 		t.Fatal("expected missing world state")
@@ -2226,7 +2230,7 @@ func TestForceEvaluationHandlerHelpers(t *testing.T) {
 		if err := enableWall(w, example); err != nil {
 			t.Fatal(err)
 		}
-		if err := createMassOutsideWall(w, example); err != nil {
+		if err := createMassNearInsideWall(w, example); err != nil {
 			t.Fatal(err)
 		}
 		if err := evaluateForces(w, nil); err != nil {

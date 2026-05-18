@@ -597,7 +597,9 @@ func selectionRectangleLines(start sim.Vec2, end sim.Vec2) []selectionLine {
 func (g *Game) drawMasses(screen *ebiten.Image) {
 	for _, mass := range g.simulation.Masses {
 		screenPosition := g.worldToScreen(mass.Position)
-		x, y, radius := massDrawCircle(sim.Mass{Position: screenPosition})
+		screenMass := mass
+		screenMass.Position = screenPosition
+		x, y, radius := massDrawCircle(screenMass)
 		vector.DrawFilledCircle(screen, x, y, radius, massDrawColor(mass), massDrawAntiAlias())
 	}
 }
@@ -607,7 +609,7 @@ func massDrawAntiAlias() bool {
 }
 
 func massDrawCircle(mass sim.Mass) (float32, float32, float32) {
-	return float32(mass.Position.X), float32(mass.Position.Y), 5
+	return float32(mass.Position.X), float32(mass.Position.Y), float32(sim.MassRadius(mass))
 }
 
 func massDrawColor(mass sim.Mass) color.RGBA {
@@ -705,11 +707,12 @@ func selectedMassOutline(masses []sim.Mass) []selectionLine {
 func selectionOutline(mass sim.Mass) []selectionLine {
 	x := mass.Position.X
 	y := mass.Position.Y
+	radius := sim.MassRadius(mass) + 3
 	return []selectionLine{
-		{x - 8, y - 8, x + 8, y - 8},
-		{x + 8, y - 8, x + 8, y + 8},
-		{x + 8, y + 8, x - 8, y + 8},
-		{x - 8, y + 8, x - 8, y - 8},
+		{x - radius, y - radius, x + radius, y - radius},
+		{x + radius, y - radius, x + radius, y + radius},
+		{x + radius, y + radius, x - radius, y + radius},
+		{x - radius, y + radius, x - radius, y - radius},
 	}
 }
 

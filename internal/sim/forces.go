@@ -19,6 +19,7 @@ var forceParameterNames = map[string][]string{
 	"center of mass attraction": {"Magnitude", "Damping"},
 	"center attraction":         {"Magnitude", "Exponent"},
 	"wall repulsion":            {"Magnitude", "Exponent"},
+	"mass collision":            {},
 }
 
 func (s *Simulation) EvaluateForces() ForceEvaluation {
@@ -126,7 +127,7 @@ func (s *Simulation) wallForce(mass Mass) Vec2 {
 	magnitude := forceFloat(force, "magnitude")
 	var total Vec2
 	for _, wall := range s.wallChecks(mass, magnitude) {
-		if enabled, _ := s.Parameters.WallEnabled(wall.name); enabled && wall.outside {
+		if enabled, _ := s.Parameters.WallEnabled(wall.name); enabled && wall.inside {
 			total = total.Add(wall.force)
 		}
 	}
@@ -134,18 +135,18 @@ func (s *Simulation) wallForce(mass Mass) Vec2 {
 }
 
 type wallCheck struct {
-	name    string
-	outside bool
-	force   Vec2
+	name   string
+	inside bool
+	force  Vec2
 }
 
 func (s *Simulation) wallChecks(mass Mass, magnitude float64) []wallCheck {
 	exponent := forceExponent(s.Parameters.Forces["wall repulsion"])
 	return []wallCheck{
-		{name: "bottom", outside: mass.Position.Y < 0, force: Vec2{Y: wallMagnitude(magnitude, -mass.Position.Y, exponent)}},
-		{name: "left", outside: mass.Position.X < 0, force: Vec2{X: wallMagnitude(magnitude, -mass.Position.X, exponent)}},
-		{name: "right", outside: mass.Position.X > s.Bounds.Width, force: Vec2{X: -wallMagnitude(magnitude, mass.Position.X-s.Bounds.Width, exponent)}},
-		{name: "top", outside: mass.Position.Y > s.Bounds.Height, force: Vec2{Y: -wallMagnitude(magnitude, mass.Position.Y-s.Bounds.Height, exponent)}},
+		{name: "bottom", inside: mass.Position.Y >= 0, force: Vec2{Y: wallMagnitude(magnitude, mass.Position.Y, exponent)}},
+		{name: "left", inside: mass.Position.X >= 0, force: Vec2{X: wallMagnitude(magnitude, mass.Position.X, exponent)}},
+		{name: "right", inside: mass.Position.X <= s.Bounds.Width, force: Vec2{X: -wallMagnitude(magnitude, s.Bounds.Width-mass.Position.X, exponent)}},
+		{name: "top", inside: mass.Position.Y <= s.Bounds.Height, force: Vec2{Y: -wallMagnitude(magnitude, s.Bounds.Height-mass.Position.Y, exponent)}},
 	}
 }
 
@@ -233,8 +234,8 @@ func forceExponent(force ForceConfig) float64 {
 }
 
 func wallMagnitude(magnitude, distance, exponent float64) float64 {
-	if distance <= 0 {
-		return magnitude
+	if distance < 1 {
+		distance = 1
 	}
 	return magnitude / math.Pow(distance, exponent)
 }

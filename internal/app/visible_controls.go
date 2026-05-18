@@ -129,6 +129,7 @@ func (g *Game) activeControl(name string) bool {
 		(name == "center attraction force" && g.forceEnabled("center attraction")) ||
 		(name == "center mass force" && g.forceEnabled("center of mass attraction")) ||
 		(name == "wall repulsion force" && g.forceEnabled("wall repulsion")) ||
+		(name == "mass collision force" && g.forceEnabled("mass collision")) ||
 		(name == "fixed mass toggle" && g.parameterEnabled("fixed mass")) ||
 		(name == "show springs toggle" && g.parameterEnabled("show springs")) ||
 		(name == "adaptive timestep toggle" && g.parameterEnabled("adaptive timestep")) ||
@@ -199,7 +200,8 @@ func inspectorControls() []controlBox {
 		{Name: "gravity slider", Label: "Gravity", Region: "right inspector", Rect: image.Rect(x, 256, right, 286)},
 		{Name: "center attraction force", Label: "Center", Region: "right inspector", Rect: image.Rect(x, 292, x+half, 312)},
 		{Name: "center mass force", Label: "CMass", Region: "right inspector", Rect: image.Rect(x+half+8, 292, right, 312)},
-		{Name: "wall repulsion force", Label: "WallRep", Region: "right inspector", Rect: image.Rect(x, 318, right, 338)},
+		{Name: "wall repulsion force", Label: "WallRep", Region: "right inspector", Rect: image.Rect(x, 318, x+half, 338)},
+		{Name: "mass collision force", Label: "Collide", Region: "right inspector", Rect: image.Rect(x+half+8, 318, right, 338)},
 		{Name: "set center command", Label: "SetCtr", Region: "right inspector", Rect: image.Rect(x, 344, right, 364)},
 		{Name: "top wall toggle", Label: "Top", Region: "right inspector", Rect: image.Rect(x, 414, x+half, 434)},
 		{Name: "bottom wall toggle", Label: "Bot", Region: "right inspector", Rect: image.Rect(x+half+8, 414, right, 434)},

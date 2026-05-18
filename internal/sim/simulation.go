@@ -265,6 +265,7 @@ func (s *Simulation) stepRK4(dt float64) {
 		s.Masses[i].Velocity = start[i].Velocity.Add(weightedDerivative(k1[i].Acceleration, k2[i].Acceleration, k3[i].Acceleration, k4[i].Acceleration, dt))
 		s.applyWallCollision(&s.Masses[i])
 	}
+	s.applyMassCollisions()
 }
 
 func (s *Simulation) activeMasses() []bool {

@@ -151,6 +151,7 @@ func TestDrawFrameRendersReadableControlLabels(t *testing.T) {
 		"center attraction force": "Center",
 		"center mass force":       "CMass",
 		"wall repulsion force":    "WallRep",
+		"mass collision force":    "Collide",
 		"grid snap toggle":        "Grid",
 		"show springs toggle":     "Springs",
 		"viscosity slider":        "Viscosity",
@@ -260,10 +261,14 @@ func TestRenderWorldCompletesForEmptyAndNonEmptyWorlds(t *testing.T) {
 }
 
 func TestMassDrawCircleCentersOnMassPosition(t *testing.T) {
-	x, y, radius := massDrawCircle(sim.Mass{Position: sim.Vec2{X: 30, Y: 40}})
+	x, y, radius := massDrawCircle(sim.Mass{Position: sim.Vec2{X: 30, Y: 40}, Mass: 1})
 
-	if x != 30 || y != 40 || radius != 5 {
+	if x != 30 || y != 40 || radius != 3 {
 		t.Fatalf("draw circle = %f,%f radius %f", x, y, radius)
+	}
+	_, _, fixedRadius := massDrawCircle(sim.Mass{Position: sim.Vec2{X: 30, Y: 40}, Mass: 1, Fixed: true})
+	if fixedRadius != 4 {
+		t.Fatalf("fixed draw radius = %f", fixedRadius)
 	}
 }
 
@@ -274,12 +279,12 @@ func TestMassDrawingUsesAntialiasing(t *testing.T) {
 }
 
 func TestSelectionOutlineSurroundsMassPosition(t *testing.T) {
-	lines := selectionOutline(sim.Mass{Position: sim.Vec2{X: 30, Y: 40}})
+	lines := selectionOutline(sim.Mass{Position: sim.Vec2{X: 30, Y: 40}, Mass: 1})
 	expected := []selectionLine{
-		{22, 32, 38, 32},
-		{38, 32, 38, 48},
-		{38, 48, 22, 48},
-		{22, 48, 22, 32},
+		{24, 34, 36, 34},
+		{36, 34, 36, 46},
+		{36, 46, 24, 46},
+		{24, 46, 24, 34},
 	}
 
 	if len(lines) != len(expected) {
@@ -851,6 +856,30 @@ func TestClickVisibleGravityControlEnablesGravity(t *testing.T) {
 	}
 	if !game.VisibleControlActive("Gravity") {
 		t.Fatal("expected Gravity control to show active state")
+	}
+}
+
+func TestClickVisibleMassCollisionControlTogglesCollision(t *testing.T) {
+	game := NewGame()
+
+	if !game.ClickVisibleControl("Collide") {
+		t.Fatal("Collide control click was not handled")
+	}
+
+	force, _ := game.World().Parameters.Force("mass collision")
+	if force.Enabled != "true" {
+		t.Fatalf("mass collision force = %#v", force)
+	}
+	if !game.VisibleControlActive("Collide") {
+		t.Fatal("expected Collide control to show active state")
+	}
+
+	if !game.ClickVisibleControl("Collide") {
+		t.Fatal("second Collide control click was not handled")
+	}
+	force, _ = game.World().Parameters.Force("mass collision")
+	if force.Enabled != "false" {
+		t.Fatalf("mass collision force after toggle = %#v", force)
 	}
 }
 

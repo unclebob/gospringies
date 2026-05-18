@@ -34,6 +34,7 @@ func DefaultParameters() Parameters {
 			"center attraction":         {Enabled: "false", Values: map[string]string{"magnitude": "0", "exponent": "2"}},
 			"center of mass attraction": {Enabled: "false", Values: map[string]string{"magnitude": "0", "damping": "0"}},
 			"wall repulsion":            {Enabled: "false", Values: map[string]string{"magnitude": "0", "exponent": "2"}},
+			"mass collision":            {Enabled: "false", Values: map[string]string{}},
 		},
 		Walls: map[string]bool{
 			"top":    false,

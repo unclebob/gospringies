@@ -111,6 +111,8 @@ func (g *Game) activateInspectorControl(name string) bool {
 		g.toggleForce("center of mass attraction", map[string]string{"magnitude": "5", "damping": "2"})
 	case "wall repulsion force":
 		g.toggleForce("wall repulsion", map[string]string{"magnitude": "10000", "exponent": "1"})
+	case "mass collision force":
+		g.toggleForce("mass collision", map[string]string{})
 	case "set center command":
 		g.simulation.SetForceCenter(g.selectedMassIDs())
 	case "top wall toggle":

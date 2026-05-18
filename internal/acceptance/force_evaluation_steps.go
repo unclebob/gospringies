@@ -186,6 +186,9 @@ func forceMassPosition(force string) sim.Vec2 {
 	if force == "center attraction" || force == "center of mass attraction" {
 		return sim.Vec2{X: 0, Y: 0}
 	}
+	if force == "wall repulsion" {
+		return sim.Vec2{X: 1, Y: 50}
+	}
 	return sim.Vec2{X: -1, Y: 50}
 }
 
@@ -263,7 +266,7 @@ func enableWall(w *world, example map[string]string) error {
 	return nil
 }
 
-func createMassOutsideWall(w *world, example map[string]string) error {
+func createMassNearInsideWall(w *world, example map[string]string) error {
 	world := ensureDomainWorld(w)
 	id, err := intValue(example, "mass_id")
 	if err != nil {
@@ -273,7 +276,7 @@ func createMassOutsideWall(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	return world.AddMass(sim.Mass{ID: id, Position: outsideWallPosition(wall), Mass: 1})
+	return world.AddMass(sim.Mass{ID: id, Position: insideWallPosition(wall), Mass: 1})
 }
 
 func assertWallForceTowardInside(w *world, example map[string]string) error {
@@ -313,16 +316,16 @@ func namedVelocity(value string) (sim.Vec2, error) {
 	return sim.Vec2{}, fmt.Errorf("unsupported velocity %q", value)
 }
 
-func outsideWallPosition(wall string) sim.Vec2 {
+func insideWallPosition(wall string) sim.Vec2 {
 	switch wall {
 	case "top":
-		return sim.Vec2{X: 50, Y: 105}
+		return sim.Vec2{X: 50, Y: 95}
 	case "left":
-		return sim.Vec2{X: -5, Y: 50}
+		return sim.Vec2{X: 5, Y: 50}
 	case "right":
-		return sim.Vec2{X: 105, Y: 50}
+		return sim.Vec2{X: 95, Y: 50}
 	default:
-		return sim.Vec2{X: 50, Y: -5}
+		return sim.Vec2{X: 50, Y: 5}
 	}
 }
 

@@ -50,9 +50,9 @@ Examples:
   | mass_id | fixed | force   | acceleration |
   | 1       | true  | gravity | zero         |
 
-Scenario Outline: wall force pushes masses back into bounds
+Scenario Outline: wall force repels masses from inside boundaries
   Given wall <wall> is enabled
-  And mass <mass_id> is outside the <wall> boundary
+  And mass <mass_id> is near the inside of the <wall> boundary
   When the coder evaluates forces without advancing time
   Then mass <mass_id> should receive force toward the inside of the world
 

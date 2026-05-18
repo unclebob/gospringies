@@ -36,7 +36,7 @@ var xspParameterLines = []struct {
 	{"gsnp", "grid snap"},
 }
 
-var xspForceNames = []string{"gravity", "center attraction", "center of mass attraction", "wall repulsion"}
+var xspForceNames = []string{"gravity", "center attraction", "center of mass attraction", "wall repulsion", "mass collision"}
 var xspForceValueKeys = []string{"magnitude", "direction", "exponent", "damping"}
 var xspWallNames = []string{"top", "left", "right", "bottom"}
 
