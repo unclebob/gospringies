@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	screenWidth     = 1920
-	screenHeight    = 1080
+	screenWidth     = 1700
+	screenHeight    = 1000
 	toolbarWidth    = 72
 	inspectorWidth  = 360
 	topBarHeight    = 36

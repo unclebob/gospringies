@@ -117,6 +117,8 @@ func startupDemoWorld(path string) (*sim.Simulation, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load startup demo %s: %w", path, err)
 	}
+	config := app.DefaultWindowConfig()
+	world.Bounds = sim.Bounds{Width: float64(config.Width), Height: float64(config.Height)}
 	return world, nil
 }
 

@@ -35,6 +35,7 @@ func loadDefaultStartupWorld() (*sim.Simulation, error) {
 			lastErr = err
 			continue
 		}
+		setAppBounds(world)
 		return world, nil
 	}
 	return nil, lastErr

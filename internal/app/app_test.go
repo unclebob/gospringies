@@ -51,6 +51,7 @@ func loadAppTestXSP(t *testing.T, path string) *sim.Simulation {
 	if err != nil {
 		t.Fatalf("load %s: %v", path, err)
 	}
+	setAppBounds(world)
 	return world
 }
 
@@ -59,6 +60,27 @@ func TestGameLayoutUsesWindowSize(t *testing.T) {
 	width, height := game.Layout(1, 1)
 	if width != screenWidth || height != screenHeight {
 		t.Fatalf("layout = %d, %d", width, height)
+	}
+}
+
+func TestAppWorldBoundsUseWindowSize(t *testing.T) {
+	game := NewGame()
+	want := sim.Bounds{Width: screenWidth, Height: screenHeight}
+	if game.World().Bounds != want {
+		t.Fatalf("startup bounds = %#v, want %#v", game.World().Bounds, want)
+	}
+
+	if err := game.LoadXSP("#1.0\nmass 1 10 20 1 0\n"); err != nil {
+		t.Fatal(err)
+	}
+	if game.World().Bounds != want {
+		t.Fatalf("loaded bounds = %#v, want %#v", game.World().Bounds, want)
+	}
+
+	replacement := sim.NewWorld()
+	game.ReplaceWorld(replacement)
+	if game.World().Bounds != want {
+		t.Fatalf("replacement bounds = %#v, want %#v", game.World().Bounds, want)
 	}
 }
 
