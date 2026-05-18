@@ -121,17 +121,22 @@ func (g *Game) Update() error {
 	if !g.valueDialog.Open {
 		g.pollKeyboardControls()
 	}
-	if g.demoPickerOpen {
-		_, wheelY := ebiten.Wheel()
-		if wheelY != 0 {
-			g.scrollDemoPicker(int(-wheelY))
-		}
-	}
+	g.pollDemoPickerScroll()
 	if g.closed {
 		return ebiten.Termination
 	}
 	g.advanceSimulationFrame()
 	return nil
+}
+
+func (g *Game) pollDemoPickerScroll() {
+	if !g.demoPickerOpen {
+		return
+	}
+	_, wheelY := ebiten.Wheel()
+	if wheelY != 0 {
+		g.scrollDemoPicker(int(-wheelY))
+	}
 }
 
 func (g *Game) advanceSimulationFrame() {
@@ -170,12 +175,31 @@ func (g *Game) pollEscapeShortcut() {
 }
 
 func (g *Game) pollControlShortcuts() {
-	for _, binding := range controlShortcutBindings {
-		if inpututil.IsKeyJustPressed(binding.key) {
-			g.HandleShortcut(binding.shortcut)
-			return
-		}
+	g.handlePressedShortcut(pressedControlShortcut())
+}
+
+func (g *Game) handlePressedShortcut(shortcut string) {
+	if shortcut != "" {
+		g.HandleShortcut(shortcut)
 	}
+}
+
+func pressedControlShortcut() string {
+	return pressedControlShortcutFrom(controlShortcutBindings)
+}
+
+func pressedControlShortcutFrom(bindings []keyShortcutBinding) string {
+	if len(bindings) == 0 {
+		return ""
+	}
+	return firstPressedShortcut(bindings[0], bindings[1:])
+}
+
+func firstPressedShortcut(binding keyShortcutBinding, remaining []keyShortcutBinding) string {
+	if inpututil.IsKeyJustPressed(binding.key) {
+		return binding.shortcut
+	}
+	return pressedControlShortcutFrom(remaining)
 }
 
 type keyShortcutBinding struct {
@@ -485,17 +509,24 @@ func (g *Game) beginMassDrag(position sim.Vec2) {
 
 func (g *Game) captureDraggingOffsets(cursor sim.Vec2) {
 	g.draggingOffsets = map[int]sim.Vec2{}
-	if len(g.editing().SelectedMasses) > 0 && g.editing().MassSelected(g.draggingMassID) {
-		for _, mass := range g.simulation.Masses {
-			if g.editing().MassSelected(mass.ID) {
-				g.draggingOffsets[mass.ID] = mass.Position.Sub(cursor)
-			}
-		}
+	if g.captureSelectedDraggingOffsets(cursor) {
 		return
 	}
 	if mass, ok := g.simulation.MassByID(g.draggingMassID); ok {
 		g.draggingOffsets[g.draggingMassID] = mass.Position.Sub(cursor)
 	}
+}
+
+func (g *Game) captureSelectedDraggingOffsets(cursor sim.Vec2) bool {
+	if len(g.editing().SelectedMasses) == 0 || !g.editing().MassSelected(g.draggingMassID) {
+		return false
+	}
+	for _, mass := range g.simulation.Masses {
+		if g.editing().MassSelected(mass.ID) {
+			g.draggingOffsets[mass.ID] = mass.Position.Sub(cursor)
+		}
+	}
+	return true
 }
 
 func (g *Game) pinDraggingMasses(cursor sim.Vec2) {
@@ -738,16 +769,25 @@ func (g *Game) drawSelectionLine(screen *ebiten.Image, line selectionLine, color
 }
 
 func (g *Game) selectedMasses() []sim.Mass {
+	selected := g.explicitSelectedMasses()
+	if len(selected) == 0 && g.allMassesImplicitlySelected() {
+		return g.simulation.Masses
+	}
+	return selected
+}
+
+func (g *Game) explicitSelectedMasses() []sim.Mass {
 	var selected []sim.Mass
 	for _, mass := range g.simulation.Masses {
 		if g.editing().SelectedMasses[mass.ID] {
 			selected = append(selected, mass)
 		}
 	}
-	if len(selected) == 0 && g.selected && len(g.selectedSpringLines()) == 0 {
-		return g.simulation.Masses
-	}
 	return selected
+}
+
+func (g *Game) allMassesImplicitlySelected() bool {
+	return g.selected && len(g.selectedSpringLines()) == 0
 }
 
 func (g *Game) selectedSpringLines() []selectionLine {

@@ -322,32 +322,39 @@ func (g *Game) VisibleControlActive(label string) bool {
 
 func (g *Game) DragMass(id int, position sim.Vec2) bool {
 	if g.editing().MassSelected(id) {
-		if len(g.draggingOffsets) > 0 {
-			g.applyDraggingOffsets(position)
-		} else {
-			delta := position.Sub(g.draggingLast)
-			g.moveSelectedMasses(delta)
-		}
-		g.draggingLast = position
-		if !selectionClick(g.draggingStart, position) {
-			g.dragMoved = true
-		}
-		g.dirty = true
-		return true
+		return g.dragSelectedMasses(position)
 	}
+	return g.dragSingleMass(id, position)
+}
+
+func (g *Game) dragSelectedMasses(position sim.Vec2) bool {
+	if len(g.draggingOffsets) > 0 {
+		g.applyDraggingOffsets(position)
+	} else {
+		g.moveSelectedMasses(position.Sub(g.draggingLast))
+	}
+	g.finishMassDragStep(position)
+	return true
+}
+
+func (g *Game) dragSingleMass(id int, position sim.Vec2) bool {
 	for i := range g.simulation.Masses {
 		if g.simulation.Masses[i].ID == id {
 			g.simulation.Masses[i].Position = position
 			g.simulation.Masses[i].Velocity = sim.Vec2{}
-			g.draggingLast = position
-			if !selectionClick(g.draggingStart, position) {
-				g.dragMoved = true
-			}
-			g.dirty = true
+			g.finishMassDragStep(position)
 			return true
 		}
 	}
 	return false
+}
+
+func (g *Game) finishMassDragStep(position sim.Vec2) {
+	g.draggingLast = position
+	if !selectionClick(g.draggingStart, position) {
+		g.dragMoved = true
+	}
+	g.dirty = true
 }
 
 func (g *Game) moveSelectedMasses(delta sim.Vec2) {

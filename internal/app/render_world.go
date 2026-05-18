@@ -79,14 +79,26 @@ func (g *Game) validSpring(spring sim.Spring) bool {
 
 func (g *Game) springEndpoints(spring sim.Spring) (sim.Mass, sim.Mass, bool) {
 	if spring.MassA != 0 || spring.MassB != 0 {
-		a, okA := g.simulation.MassByID(spring.MassA)
-		b, okB := g.simulation.MassByID(spring.MassB)
-		return a, b, okA && okB
+		return g.springIDEndpoints(spring)
 	}
-	if spring.A >= 0 && spring.B >= 0 && spring.A < len(g.simulation.Masses) && spring.B < len(g.simulation.Masses) {
+	return g.springIndexEndpoints(spring)
+}
+
+func (g *Game) springIDEndpoints(spring sim.Spring) (sim.Mass, sim.Mass, bool) {
+	a, okA := g.simulation.MassByID(spring.MassA)
+	b, okB := g.simulation.MassByID(spring.MassB)
+	return a, b, okA && okB
+}
+
+func (g *Game) springIndexEndpoints(spring sim.Spring) (sim.Mass, sim.Mass, bool) {
+	if validSpringIndex(spring.A, g.simulation.Masses) && validSpringIndex(spring.B, g.simulation.Masses) {
 		return g.simulation.Masses[spring.A], g.simulation.Masses[spring.B], true
 	}
 	return sim.Mass{}, sim.Mass{}, false
+}
+
+func validSpringIndex(index int, masses []sim.Mass) bool {
+	return index >= 0 && index < len(masses)
 }
 
 func (g *Game) massRepresentations(representations map[string]string) {

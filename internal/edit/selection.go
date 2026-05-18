@@ -95,6 +95,13 @@ func (e *Editor) selectFullyEnclosedSprings(min sim.Vec2, max sim.Vec2) int {
 }
 
 func (e *Editor) selectSinglePartiallyEnclosedSpring(min sim.Vec2, max sim.Vec2) {
+	selectedID := e.singlePartiallyEnclosedSpringID(min, max)
+	if selectedID != 0 {
+		e.SelectedSprings[selectedID] = true
+	}
+}
+
+func (e *Editor) singlePartiallyEnclosedSpringID(min sim.Vec2, max sim.Vec2) int {
 	selectedID := 0
 	for _, spring := range e.World.Springs {
 		a, okA := e.World.MassByID(spring.MassA)
@@ -103,13 +110,11 @@ func (e *Editor) selectSinglePartiallyEnclosedSpring(min sim.Vec2, max sim.Vec2)
 			continue
 		}
 		if selectedID != 0 {
-			return
+			return 0
 		}
 		selectedID = spring.ID
 	}
-	if selectedID != 0 {
-		e.SelectedSprings[selectedID] = true
-	}
+	return selectedID
 }
 
 func (e *Editor) MoveSelected(delta sim.Vec2) {
@@ -321,19 +326,17 @@ func segmentsIntersect(a sim.Vec2, b sim.Vec2, c sim.Vec2, d sim.Vec2) bool {
 	o2 := orientation(a, b, d)
 	o3 := orientation(c, d, a)
 	o4 := orientation(c, d, b)
-	if collinearEndpointOnSegment(a, b, c, o1) {
-		return true
-	}
-	if collinearEndpointOnSegment(a, b, d, o2) {
-		return true
-	}
-	if collinearEndpointOnSegment(c, d, a, o3) {
-		return true
-	}
-	if collinearEndpointOnSegment(c, d, b, o4) {
+	if hasCollinearEndpoint(a, b, c, d, o1, o2, o3, o4) {
 		return true
 	}
 	return (o1 > 0) != (o2 > 0) && (o3 > 0) != (o4 > 0)
+}
+
+func hasCollinearEndpoint(a sim.Vec2, b sim.Vec2, c sim.Vec2, d sim.Vec2, o1, o2, o3, o4 float64) bool {
+	return collinearEndpointOnSegment(a, b, c, o1) ||
+		collinearEndpointOnSegment(a, b, d, o2) ||
+		collinearEndpointOnSegment(c, d, a, o3) ||
+		collinearEndpointOnSegment(c, d, b, o4)
 }
 
 func collinearEndpointOnSegment(start sim.Vec2, end sim.Vec2, point sim.Vec2, orientation float64) bool {

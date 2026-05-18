@@ -6,6 +6,13 @@ import (
 	"springs/internal/sim"
 )
 
+type collisionMassProperties struct {
+	id         int
+	mass       float64
+	elasticity float64
+	fixed      bool
+}
+
 func createCollisionMassA(w *world, example map[string]string) error {
 	return createCollisionMass(w, example, "mass_a", "x_a", "y_a", "vx_a", "vy_a")
 }
@@ -40,32 +47,43 @@ func setCollisionMassBProperties(w *world, example map[string]string) error {
 }
 
 func setCollisionMassProperties(w *world, example map[string]string, idKey, massKey, elasticityKey, fixedKey string) error {
-	id, err := intValue(example, idKey)
+	properties, err := collisionMassPropertiesFromExample(example, idKey, massKey, elasticityKey, fixedKey)
 	if err != nil {
 		return err
+	}
+	return applyCollisionMassProperties(ensureDomainWorld(w), properties)
+}
+
+func collisionMassPropertiesFromExample(example map[string]string, idKey, massKey, elasticityKey, fixedKey string) (collisionMassProperties, error) {
+	id, err := intValue(example, idKey)
+	if err != nil {
+		return collisionMassProperties{}, err
 	}
 	massValue, err := floatValue(example, massKey)
 	if err != nil {
-		return err
+		return collisionMassProperties{}, err
 	}
 	elasticity, err := floatValue(example, elasticityKey)
 	if err != nil {
-		return err
+		return collisionMassProperties{}, err
 	}
 	fixed, err := boolValue(example, fixedKey)
 	if err != nil {
-		return err
+		return collisionMassProperties{}, err
 	}
-	world := ensureDomainWorld(w)
+	return collisionMassProperties{id: id, mass: massValue, elasticity: elasticity, fixed: fixed}, nil
+}
+
+func applyCollisionMassProperties(world *sim.Simulation, properties collisionMassProperties) error {
 	for i := range world.Masses {
-		if world.Masses[i].ID == id {
-			world.Masses[i].Mass = massValue
-			world.Masses[i].Elasticity = elasticity
-			world.Masses[i].Fixed = fixed
+		if world.Masses[i].ID == properties.id {
+			world.Masses[i].Mass = properties.mass
+			world.Masses[i].Elasticity = properties.elasticity
+			world.Masses[i].Fixed = properties.fixed
 			return nil
 		}
 	}
-	return fmt.Errorf("mass %d not found", id)
+	return fmt.Errorf("mass %d not found", properties.id)
 }
 
 func enableMassCollision(w *world, _ map[string]string) error {

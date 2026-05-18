@@ -141,20 +141,16 @@ func (g *Game) activeRunControl(name string) bool {
 }
 
 func (g *Game) activeForceControl(name string) bool {
-	switch name {
-	case "gravity force":
-		return g.forceEnabled("gravity")
-	case "center attraction force":
-		return g.forceEnabled("center attraction")
-	case "center mass force":
-		return g.forceEnabled("center of mass attraction")
-	case "wall repulsion force":
-		return g.forceEnabled("wall repulsion")
-	case "mass collision force":
-		return g.forceEnabled("mass collision")
-	default:
-		return false
-	}
+	forceName, ok := activeForceControls[name]
+	return ok && g.forceEnabled(forceName)
+}
+
+var activeForceControls = map[string]string{
+	"gravity force":           "gravity",
+	"center attraction force": "center attraction",
+	"center mass force":       "center of mass attraction",
+	"wall repulsion force":    "wall repulsion",
+	"mass collision force":    "mass collision",
 }
 
 func (g *Game) activeParameterControl(name string) bool {
