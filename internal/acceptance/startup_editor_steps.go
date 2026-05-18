@@ -17,12 +17,19 @@ func assertStartupEditorChrome(w *world, _ map[string]string) error {
 		return err
 	}
 	screen := game.EditorScreen()
+	if err := assertStartupRegions(screen); err != nil {
+		return err
+	}
+	return requirePrerequisite(screen.Editor && screen.CanvasVisible && screen.ControlsUsable, "startup editor chrome was not visible")
+}
+
+func assertStartupRegions(screen app.EditorScreen) error {
 	for _, region := range startupRegions() {
 		if _, ok := screen.RegionPurpose(region); !ok {
 			return fmt.Errorf("startup region %q was not visible", region)
 		}
 	}
-	return requirePrerequisite(screen.Editor && screen.CanvasVisible && screen.ControlsUsable, "startup editor chrome was not visible")
+	return nil
 }
 
 func assertStartupWorldContent(w *world, _ map[string]string) error {

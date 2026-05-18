@@ -123,21 +123,68 @@ func (g *Game) sliderLabel(control controlBox) string {
 }
 
 func (g *Game) activeControl(name string) bool {
-	return (name == "pause command" && g.paused) ||
-		(name == "run command" && !g.paused) ||
-		(name == "gravity force" && g.forceEnabled("gravity")) ||
-		(name == "center attraction force" && g.forceEnabled("center attraction")) ||
-		(name == "center mass force" && g.forceEnabled("center of mass attraction")) ||
-		(name == "wall repulsion force" && g.forceEnabled("wall repulsion")) ||
-		(name == "mass collision force" && g.forceEnabled("mass collision")) ||
-		(name == "fixed mass toggle" && g.parameterEnabled("fixed mass")) ||
-		(name == "show springs toggle" && g.parameterEnabled("show springs")) ||
-		(name == "adaptive timestep toggle" && g.parameterEnabled("adaptive timestep")) ||
-		(name == "grid snap toggle" && g.gridSnapEnabled()) ||
-		(name == "top wall toggle" && g.wallEnabled("top")) ||
-		(name == "left wall toggle" && g.wallEnabled("left")) ||
-		(name == "right wall toggle" && g.wallEnabled("right")) ||
-		(name == "bottom wall toggle" && g.wallEnabled("bottom"))
+	return g.activeRunControl(name) ||
+		g.activeForceControl(name) ||
+		g.activeParameterControl(name) ||
+		g.activeWallControl(name)
+}
+
+func (g *Game) activeRunControl(name string) bool {
+	switch name {
+	case "pause command":
+		return g.paused
+	case "run command":
+		return !g.paused
+	default:
+		return false
+	}
+}
+
+func (g *Game) activeForceControl(name string) bool {
+	switch name {
+	case "gravity force":
+		return g.forceEnabled("gravity")
+	case "center attraction force":
+		return g.forceEnabled("center attraction")
+	case "center mass force":
+		return g.forceEnabled("center of mass attraction")
+	case "wall repulsion force":
+		return g.forceEnabled("wall repulsion")
+	case "mass collision force":
+		return g.forceEnabled("mass collision")
+	default:
+		return false
+	}
+}
+
+func (g *Game) activeParameterControl(name string) bool {
+	switch name {
+	case "fixed mass toggle":
+		return g.parameterEnabled("fixed mass")
+	case "show springs toggle":
+		return g.parameterEnabled("show springs")
+	case "adaptive timestep toggle":
+		return g.parameterEnabled("adaptive timestep")
+	case "grid snap toggle":
+		return g.gridSnapEnabled()
+	default:
+		return false
+	}
+}
+
+func (g *Game) activeWallControl(name string) bool {
+	switch name {
+	case "top wall toggle":
+		return g.wallEnabled("top")
+	case "left wall toggle":
+		return g.wallEnabled("left")
+	case "right wall toggle":
+		return g.wallEnabled("right")
+	case "bottom wall toggle":
+		return g.wallEnabled("bottom")
+	default:
+		return false
+	}
 }
 
 func visibleControls() []controlBox {
@@ -385,26 +432,38 @@ func visibleRegionRects() map[string]image.Rectangle {
 }
 
 func (g *Game) visibleRegionPixels(region string) int {
-	count := 0
-	for _, control := range visibleControls() {
-		if control.Region == region {
-			count += control.Rect.Dx() * control.Rect.Dy()
-		}
-	}
-	for _, section := range inspectorSections() {
-		if section.Region == region {
-			count += section.Rect.Dx() * section.Rect.Dy()
-		}
-	}
-	if region == "status line" {
-		for _, field := range g.statusFields() {
-			count += field.Rect.Dx() * field.Rect.Dy()
-		}
-	}
+	count := regionControlPixels(visibleControls(), region) +
+		regionControlPixels(inspectorSections(), region) +
+		g.regionStatusPixels(region)
 	if count == 0 && region == "canvas" {
-		return visibleRegionRects()[region].Dx() * visibleRegionRects()[region].Dy()
+		return rectPixels(visibleRegionRects()[region])
 	}
 	return count
+}
+
+func regionControlPixels(controls []controlBox, region string) int {
+	count := 0
+	for _, control := range controls {
+		if control.Region == region {
+			count += rectPixels(control.Rect)
+		}
+	}
+	return count
+}
+
+func (g *Game) regionStatusPixels(region string) int {
+	if region != "status line" {
+		return 0
+	}
+	count := 0
+	for _, field := range g.statusFields() {
+		count += rectPixels(field.Rect)
+	}
+	return count
+}
+
+func rectPixels(rect image.Rectangle) int {
+	return rect.Dx() * rect.Dy()
 }
 
 func visibleWorldPixels(game *Game) int {

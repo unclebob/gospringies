@@ -1,3 +1,4 @@
+# mutation-stamp: 6f9772a7acefccea4402711d6d16e34409718d53c1a87c7c26dd0b5afff58d27
 Feature: Clickable visible controls
 
 Background:

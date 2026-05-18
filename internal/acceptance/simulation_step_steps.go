@@ -34,30 +34,17 @@ func setTimeStep(w *world, example map[string]string) error {
 }
 
 func assertRK4DeterministicAdvance(_ *world, example map[string]string) error {
-	first := rk4AcceptanceWorld()
-	second := rk4AcceptanceWorld()
-	if err := applyNumericsSettings(first, example); err != nil {
-		return err
-	}
-	if err := applyNumericsSettings(second, example); err != nil {
-		return err
-	}
 	duration, err := durationValue(example, "duration")
+	if err != nil {
+		return err
+	}
+	first, second, err := matchingRK4Worlds(example)
 	if err != nil {
 		return err
 	}
 	first.AdvanceDuration(duration)
 	second.AdvanceDuration(duration)
-	if !sameWorldState(first, second) {
-		return fmt.Errorf("RK4 advancement differed between runs")
-	}
-	if first.LastAdvanceSteps <= 1 {
-		return fmt.Errorf("fixed timestep used %d steps", first.LastAdvanceSteps)
-	}
-	if math.Abs(first.Time-duration) > 0.000001 {
-		return fmt.Errorf("time = %f, want %f", first.Time, duration)
-	}
-	return nil
+	return assertDeterministicAdvance(first, second, duration)
 }
 
 func applyNumericsSettings(world *sim.Simulation, example map[string]string) error {
@@ -75,6 +62,31 @@ func rk4AcceptanceWorld() *sim.Simulation {
 	world.Parameters.EnableForce("gravity", map[string]string{"magnitude": "10", "direction": "0"})
 	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{}, Mass: 1})
 	return world
+}
+
+func matchingRK4Worlds(example map[string]string) (*sim.Simulation, *sim.Simulation, error) {
+	first := rk4AcceptanceWorld()
+	second := rk4AcceptanceWorld()
+	if err := applyNumericsSettings(first, example); err != nil {
+		return nil, nil, err
+	}
+	if err := applyNumericsSettings(second, example); err != nil {
+		return nil, nil, err
+	}
+	return first, second, nil
+}
+
+func assertDeterministicAdvance(first *sim.Simulation, second *sim.Simulation, duration float64) error {
+	if !sameWorldState(first, second) {
+		return fmt.Errorf("RK4 advancement differed between runs")
+	}
+	if first.LastAdvanceSteps <= 1 {
+		return fmt.Errorf("fixed timestep used %d steps", first.LastAdvanceSteps)
+	}
+	if math.Abs(first.Time-duration) > 0.000001 {
+		return fmt.Errorf("time = %f, want %f", first.Time, duration)
+	}
+	return nil
 }
 
 func setPrecision(w *world, example map[string]string) error {
@@ -117,20 +129,23 @@ func assertAdaptiveStepBehavior(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	steps := w.resultingWorld.LastAdvanceSteps
-	switch behavior {
-	case "smaller steps":
-		if steps <= 10 {
-			return fmt.Errorf("adaptive step count = %d, want smaller steps", steps)
-		}
-	case "larger steps":
-		if steps > 10 {
-			return fmt.Errorf("adaptive step count = %d, want larger steps", steps)
-		}
-	default:
+	check, ok := adaptiveStepChecks[behavior]
+	if !ok {
 		return fmt.Errorf("unsupported step behavior %q", behavior)
 	}
+	return requireAdaptiveSteps(w.resultingWorld.LastAdvanceSteps, behavior, check(w.resultingWorld.LastAdvanceSteps))
+}
+
+func requireAdaptiveSteps(steps int, want string, matches bool) error {
+	if !matches {
+		return fmt.Errorf("adaptive step count = %d, want %s", steps, want)
+	}
 	return nil
+}
+
+var adaptiveStepChecks = map[string]func(int) bool{
+	"smaller steps": func(steps int) bool { return steps > 10 },
+	"larger steps":  func(steps int) bool { return steps <= 10 },
 }
 
 func assertSimulationTimeAdvanced(w *world, example map[string]string) error {
@@ -152,12 +167,8 @@ func assertStateIndependentOfFrameRate(_ *world, example map[string]string) erro
 	if err != nil {
 		return err
 	}
-	byDuration := rk4AcceptanceWorld()
-	byFrames := rk4AcceptanceWorld()
-	if err := applyNumericsSettings(byDuration, example); err != nil {
-		return err
-	}
-	if err := applyNumericsSettings(byFrames, example); err != nil {
+	byDuration, byFrames, err := matchingRK4Worlds(example)
+	if err != nil {
 		return err
 	}
 	byDuration.AdvanceDuration(duration)
