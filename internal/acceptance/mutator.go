@@ -292,22 +292,36 @@ func runMutationJobs(feature gherkin.Feature, mutations []Mutation, workDir stri
 	if len(mutations) == 0 {
 		return results
 	}
-	workerCount := mutationWorkerCount(options.Workers, len(mutations))
 	jobs := make(chan mutationJob)
 	completed := make(chan indexedMutationResult)
 	var workers sync.WaitGroup
-	for range workerCount {
-		workers.Add(1)
-		go runMutationWorker(feature, workDir, jobs, completed, &workers)
-	}
+	startMutationWorkers(feature, workDir, jobs, completed, &workers, mutationWorkerCount(options.Workers, len(mutations)))
 	go enqueueMutationJobs(mutations, jobs)
 	go closeCompletedWhenDone(completed, &workers)
-	progress := mutationProgressTracker{total: len(mutations), every: options.ProgressEvery, report: options.Progress}
+	collectMutationResults(completed, results, options)
+	return results
+}
+
+func startMutationWorkers(
+	feature gherkin.Feature,
+	workDir string,
+	jobs <-chan mutationJob,
+	completed chan<- indexedMutationResult,
+	workers *sync.WaitGroup,
+	count int,
+) {
+	for range count {
+		workers.Add(1)
+		go runMutationWorker(feature, workDir, jobs, completed, workers)
+	}
+}
+
+func collectMutationResults(completed <-chan indexedMutationResult, results []MutationResult, options RunMutationOptions) {
+	progress := mutationProgressTracker{total: len(results), every: options.ProgressEvery, report: options.Progress}
 	for completedResult := range completed {
 		results[completedResult.index] = completedResult.result
 		progress.record(completedResult.result)
 	}
-	return results
 }
 
 func mutationWorkerCount(requested int, mutationCount int) int {
