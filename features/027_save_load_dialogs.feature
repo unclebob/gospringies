@@ -25,6 +25,19 @@ Examples:
   | world_state   | filename_prefix | saved_path             |
   | simple masses | lab_scene       | saves/lab_scene.xsp    |
 
+Scenario Outline: saved files load back from the picker
+  Given the current world contains <world_state>
+  When the coder enters save filename prefix <filename_prefix>
+  And the coder submits the save filename dialog
+  And the coder opens the load picker
+  And the coder chooses load picker entry <save_file>
+  Then loaded world should include <world_state>
+  And current file path should be <saved_path>
+
+Examples:
+  | world_state   | filename_prefix | save_file      | saved_path             |
+  | simple masses | simple hex      | simple hex.xsp | saves/simple hex.xsp   |
+
 Scenario Outline: load picker groups saved files before packaged files
   Given saved XSP file <save_file> exists in saves
   And demo XSP file <demo_file> exists in demos
