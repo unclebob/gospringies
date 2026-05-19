@@ -245,9 +245,19 @@ func assertLoadPickerEntryBefore(w *world, example map[string]string, firstKey s
 		return err
 	}
 	entries := game.LoadPickerEntries()
+	return requireLoadPickerEntryOrder(entries, first, second)
+}
+
+func requireLoadPickerEntryOrder(entries []string, first string, second string) error {
 	firstIndex := loadPickerEntryIndex(entries, first)
 	secondIndex := loadPickerEntryIndex(entries, second)
-	if firstIndex < 0 || secondIndex < 0 || firstIndex >= secondIndex {
+	if firstIndex < 0 {
+		return fmt.Errorf("load picker entry %q not found in %#v", first, entries)
+	}
+	if secondIndex < 0 {
+		return fmt.Errorf("load picker entry %q not found in %#v", second, entries)
+	}
+	if firstIndex >= secondIndex {
 		return fmt.Errorf("load picker order %q before %q not found in %#v", first, second, entries)
 	}
 	return nil

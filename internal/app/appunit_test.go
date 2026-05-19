@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"springs/internal/sim"
@@ -800,6 +801,141 @@ func TestAppUnitDemoPickerSelection(t *testing.T) {
 	if game.demoPickerOpen {
 		t.Fatal("outside click should close demo picker")
 	}
+}
+
+func TestAppUnitSaveFilenameDialogEditsAndWritesFile(t *testing.T) {
+	root := t.TempDir()
+	withAppUnitWorkingDirectory(t, root)
+	game := appUnitGameWithMasses(sim.Mass{ID: 7, Position: sim.Vec2{X: 10, Y: 20}, Mass: 1})
+
+	game.openSaveFilenameDialog()
+	if !game.SaveFilenameDialogOpen() || game.SaveFilenameText() != ".xsp" || game.SaveFilenameCursor() != 0 {
+		t.Fatalf("save dialog = open:%t text:%q cursor:%d", game.SaveFilenameDialogOpen(), game.SaveFilenameText(), game.SaveFilenameCursor())
+	}
+
+	game.EnterSaveFilenamePrefix("lab_scene")
+	game.deleteSaveFilenameCharacter()
+	game.EnterSaveFilenamePrefix("e")
+	if err := game.SubmitSaveFilenameDialog(); err != nil {
+		t.Fatal(err)
+	}
+
+	path := filepath.Join("saves", "lab_scene.xsp")
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(content), "\nmass 7 ") {
+		t.Fatalf("saved content missing mass 7:\n%s", string(content))
+	}
+	if game.CurrentFilePath() != path || game.SaveFilenameDialogOpen() {
+		t.Fatalf("current path = %q open = %t", game.CurrentFilePath(), game.SaveFilenameDialogOpen())
+	}
+
+	game.openSaveFilenameDialog()
+	game.clickSaveFilenameDialog(saveFilenameDialogRect().Max.X+1, saveFilenameDialogRect().Max.Y+1)
+	if game.SaveFilenameDialogOpen() {
+		t.Fatal("outside click should close save dialog")
+	}
+
+	game.openSaveFilenameDialog()
+	game.EnterSaveFilenamePrefix("clicked")
+	ok := game.saveFilenameDialogOKRect()
+	game.clickSaveFilenameDialog(ok.Min.X+1, ok.Min.Y+1)
+	if game.SaveFilenameDialogOpen() || game.CurrentFilePath() != filepath.Join("saves", "clicked.xsp") {
+		t.Fatalf("ok click left dialog open=%t path=%q", game.SaveFilenameDialogOpen(), game.CurrentFilePath())
+	}
+}
+
+func TestAppUnitSaveFilenamePathNormalizesInput(t *testing.T) {
+	for _, tc := range []struct {
+		input string
+		path  string
+		ok    bool
+	}{
+		{input: " lab_scene.xsp ", path: filepath.Join("saves", "lab_scene.xsp"), ok: true},
+		{input: filepath.Join("nested", "scene"), path: filepath.Join("saves", "scene.xsp"), ok: true},
+		{input: ".xsp", ok: false},
+	} {
+		path, err := saveFilenamePath(tc.input)
+		if tc.ok && (err != nil || path != tc.path) {
+			t.Fatalf("saveFilenamePath(%q) = %q, %v; want %q", tc.input, path, err, tc.path)
+		}
+		if !tc.ok && err == nil {
+			t.Fatalf("saveFilenamePath(%q) unexpectedly succeeded with %q", tc.input, path)
+		}
+	}
+}
+
+func TestAppUnitLoadPickerEntriesAndSelectionByName(t *testing.T) {
+	root := t.TempDir()
+	withAppUnitWorkingDirectory(t, root)
+	savePath := filepath.Join("saves", "lab_scene.xsp")
+	demoPath := filepath.Join("demos", "pendulum.xsp")
+	originalPath := filepath.Join("demos", "original", "pend.xsp")
+	for path, content := range map[string]string{
+		savePath:     "#1.0\nmass 9 10 20 1 0\n",
+		demoPath:     "#1.0\nmass 2 10 20 1 0\n",
+		originalPath: "#1.0\nmass 3 10 20 1 0\n",
+	} {
+		appUnitWriteFile(t, path, content)
+	}
+
+	game := NewGame()
+	want := []string{savePath, loadPickerSeparator, demoPath, originalPath}
+	if got := game.LoadPickerEntries(); !sameStrings(got, want) {
+		t.Fatalf("load picker entries = %#v, want %#v", got, want)
+	}
+	if game.ChooseLoadPickerEntry(loadPickerSeparator) {
+		t.Fatal("separator should not load")
+	}
+	if !game.ChooseLoadPickerEntry("lab_scene.xsp") {
+		t.Fatalf("saved file did not load: %s", game.LastFileError())
+	}
+	if _, ok := game.World().MassByID(9); !ok || game.CurrentFilePath() != savePath {
+		t.Fatalf("loaded masses = %#v current path = %q", game.World().Masses, game.CurrentFilePath())
+	}
+	if game.ChooseLoadPickerEntry("missing.xsp") {
+		t.Fatal("missing picker entry should not load")
+	}
+}
+
+func withAppUnitWorkingDirectory(t *testing.T, dir string) {
+	t.Helper()
+	previous, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(previous); err != nil {
+			t.Fatalf("restore working directory: %v", err)
+		}
+	})
+}
+
+func appUnitWriteFile(t *testing.T, path string, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func sameStrings(left []string, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for i := range left {
+		if left[i] != right[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func TestAppUnitDemoPickerGeometryAndBounds(t *testing.T) {
