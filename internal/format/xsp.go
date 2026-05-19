@@ -154,15 +154,11 @@ func loadForceLine(world *sim.Simulation, fields []string) error {
 	if len(fields) < 3 {
 		return fmt.Errorf("frce expects name and enabled state")
 	}
-	enabledIndex, err := forceEnabledFieldIndex(fields)
+	enabledIndex, enabled, err := forceEnabledField(fields)
 	if err != nil {
 		return err
 	}
 	name := strings.Join(fields[1:enabledIndex], " ")
-	enabled, err := booleanField(fields[enabledIndex], "frce enabled")
-	if err != nil {
-		return err
-	}
 	values, err := forceValues(fields[enabledIndex+1:])
 	if err != nil {
 		return err
@@ -171,14 +167,15 @@ func loadForceLine(world *sim.Simulation, fields []string) error {
 	return nil
 }
 
-func forceEnabledFieldIndex(fields []string) (int, error) {
+func forceEnabledField(fields []string) (int, string, error) {
 	for i := 2; i < len(fields); i++ {
-		if _, err := booleanField(fields[i], "frce enabled"); err == nil {
-			return i, nil
+		enabled, err := booleanField(fields[i], "frce enabled")
+		if err == nil {
+			return i, enabled, nil
 		}
 	}
 	_, err := booleanField(fields[2], "frce enabled")
-	return 0, err
+	return 0, "", err
 }
 
 func legacyForceLine(fields []string) bool {
