@@ -4,10 +4,6 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-
-	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
 const (
@@ -43,47 +39,6 @@ type DrawFrameReport struct {
 	CanvasWorldPixels   int
 	ControlLabelsFit    bool
 	RegionControlCounts map[string]int
-}
-
-func (g *Game) drawVisibleControls(screen *ebiten.Image) {
-	for _, control := range visibleControls() {
-		g.drawControl(screen, control)
-	}
-	for _, control := range g.editMenuControls() {
-		g.drawControl(screen, control)
-	}
-	for _, section := range inspectorSections() {
-		drawLabeledRect(screen, section.Rect, sectionColor, section.Label)
-	}
-	for _, field := range g.statusFields() {
-		drawLabeledRect(screen, field.Rect, controlColor, field.Label)
-	}
-}
-
-func (g *Game) drawControl(screen *ebiten.Image, control controlBox) {
-	if isSliderControl(control.Name) {
-		g.drawSlider(screen, control)
-		return
-	}
-	fill := controlColor
-	if g.activeControl(control.Name) {
-		fill = activeControlColor
-	}
-	drawLabeledRect(screen, control.Rect, fill, control.Label)
-}
-
-func (g *Game) drawSlider(screen *ebiten.Image, control controlBox) {
-	drawLabeledRect(screen, control.Rect, controlColor, g.sliderLabel(control))
-	track := sliderTrack(control)
-	vector.DrawFilledRect(screen, float32(track.Min.X), float32(track.Min.Y), float32(track.Dx()), float32(track.Dy()), sectionColor, false)
-	fill := track
-	fill.Max.X = track.Min.X + int(g.sliderFraction(control.Name)*float64(track.Dx()))
-	vector.DrawFilledRect(screen, float32(fill.Min.X), float32(fill.Min.Y), float32(fill.Dx()), float32(fill.Dy()), activeControlColor, false)
-}
-
-func drawLabeledRect(screen *ebiten.Image, rect image.Rectangle, fill color.RGBA, label string) {
-	vector.DrawFilledRect(screen, float32(rect.Min.X), float32(rect.Min.Y), float32(rect.Dx()), float32(rect.Dy()), fill, false)
-	ebitenutil.DebugPrintAt(screen, label, rect.Min.X+4, rect.Min.Y+4)
 }
 
 func isSliderControl(name string) bool {
@@ -431,8 +386,11 @@ func (g *Game) visibleRegionPixels(region string) int {
 	count := regionControlPixels(visibleControls(), region) +
 		regionControlPixels(inspectorSections(), region) +
 		g.regionStatusPixels(region)
-	if count == 0 && region == "canvas" {
-		return rectPixels(visibleRegionRects()[region])
+	if region != "canvas" {
+		return count
+	}
+	if count == 0 {
+		return rectPixels(visibleRegionRects()["canvas"])
 	}
 	return count
 }
@@ -479,3 +437,7 @@ func visibleWorldPixels(game *Game) int {
 	}
 	return count
 }
+
+// mutate4go-manifest-begin
+// {"version":1,"tested_at":"2026-05-19T12:27:13-05:00","module_hash":"c0cf4e54683868cce9965971629c7ff4a0f8d5548484e216bb031cc9a6cea8c0","functions":[{"id":"func/isSliderControl","name":"isSliderControl","line":44,"end_line":46,"hash":"3732aebb9cc30f2b4fe05fb4cf1ac9327b1dfbc31521f3e1a3c6c9adaa2a8e2d"},{"id":"func/sliderTrack","name":"sliderTrack","line":48,"end_line":50,"hash":"cc5079771830a307eab4bb5eb1b33e63fa5819b994dde7c843e350f028c28471"},{"id":"func/Game.sliderFraction","name":"Game.sliderFraction","line":52,"end_line":64,"hash":"487c69697c7f1e9982809551dfdc38c25a119e65dbf06f08b1ba9e5792c67877"},{"id":"func/Game.sliderLabel","name":"Game.sliderLabel","line":66,"end_line":78,"hash":"a7b99076f669ab2dbbd6172d698a913a8ae06cb31509b411aec9a4d1499fbed9"},{"id":"func/Game.activeControl","name":"Game.activeControl","line":80,"end_line":85,"hash":"3eed94f83cd14347182b84c107b64c4f0c19de813cd00cb638c34d347ef6c16e"},{"id":"func/Game.activeRunControl","name":"Game.activeRunControl","line":87,"end_line":96,"hash":"a74f7cf31e2e9e64f2f6721614dee596a37e20131db80b533046b8ca93933446"},{"id":"func/Game.activeForceControl","name":"Game.activeForceControl","line":98,"end_line":101,"hash":"c325d1b27113b9be28ff09d2864a00e4267a652e4dc43dcdc1ee04b7a8f1560c"},{"id":"func/Game.activeParameterControl","name":"Game.activeParameterControl","line":111,"end_line":124,"hash":"64fe357ad27032dcee16ee76a6e733f85c8d1980d883d16d53c0cda31477cf6f"},{"id":"func/Game.activeWallControl","name":"Game.activeWallControl","line":126,"end_line":139,"hash":"70c0328208760cb2a63cb5074d116acfbe989380d2df61cbb2e3940ea1e2c3cd"},{"id":"func/visibleControls","name":"visibleControls","line":141,"end_line":145,"hash":"14e0313a1743b30c30268cf867272f99ac5a1880ef27fab3ac7641592af5459a"},{"id":"func/menuControls","name":"menuControls","line":147,"end_line":151,"hash":"7a632b167f77d172b422b42ab30311786f673b77fab82640220ac77b25e4fb31"},{"id":"func/Game.editMenuControls","name":"Game.editMenuControls","line":153,"end_line":162,"hash":"def493ef01ca37219a140b40fdc37d17ca821523d597ad4dad819ec2aaed486f"},{"id":"func/toolbarControls","name":"toolbarControls","line":164,"end_line":170,"hash":"ef6b992b59a86bfa58646d326682f9037168e35bbd2e8227951454a59975feee"},{"id":"func/commandControls","name":"commandControls","line":172,"end_line":184,"hash":"c8d380a126ca7b6b48433d0da82dcfce7908127eeda183a70ddce75a823d43f9"},{"id":"func/inspectorControls","name":"inspectorControls","line":186,"end_line":217,"hash":"3ca2ed7ef59ce7ce1d5834f30265b1180ac1f67f53e2be99c0ee76bfe6d68b6e"},{"id":"func/inspectorSections","name":"inspectorSections","line":219,"end_line":229,"hash":"5fdf15504029b40f9cd06bb7d711ab503fd2eef07e034797e07ab8e06552c120"},{"id":"func/inspectorLeft","name":"inspectorLeft","line":231,"end_line":233,"hash":"93e0ad43c5e22d7ec07af829c3f7383f3367334e90967f03635e5f28b8609df6"},{"id":"func/Game.forceEnabled","name":"Game.forceEnabled","line":235,"end_line":238,"hash":"56fb34648f486f07d22bfd46863fc1f92c7bd6b6e5c72769a1eb80e546ae49f7"},{"id":"func/Game.parameterEnabled","name":"Game.parameterEnabled","line":240,"end_line":242,"hash":"f418f5472049db1d0662156c0b97168f97de2048ae03ff6a5460834c55e2cc2c"},{"id":"func/Game.wallEnabled","name":"Game.wallEnabled","line":244,"end_line":247,"hash":"95636da6c99db771737f08d1638b66cd7b667ee7a3a1b5fbf23c23bca91629bf"},{"id":"func/Game.gridSnapEnabled","name":"Game.gridSnapEnabled","line":249,"end_line":251,"hash":"fe4c82bb8c4f8c739d9a9752b22185bebeccc822495ba9cf97444b77cb24008b"},{"id":"func/Game.statusFields","name":"Game.statusFields","line":253,"end_line":263,"hash":"bc12718557a80b85225052a0ec5890470eed24bc531abab8eec4e23fe811c9e1"},{"id":"func/Game.selectedObjectCount","name":"Game.selectedObjectCount","line":265,"end_line":278,"hash":"37228a151a2c37a8334e0743e75e66c4035294b511f5b8142948fd3fb0b2671b"},{"id":"func/Game.DrawFrameReport","name":"Game.DrawFrameReport","line":280,"end_line":282,"hash":"21457be3cb4856c4bb131972199ad58004071195dbfef0cb1500d22d228c9ad7"},{"id":"func/analyzeDrawnFrame","name":"analyzeDrawnFrame","line":284,"end_line":299,"hash":"d0700ff4f457c7c1e070bbfcb65b482f3218d571f25faf66f60670612ad08822"},{"id":"func/Game.visibleActiveControls","name":"Game.visibleActiveControls","line":301,"end_line":309,"hash":"a5dc9fa130f937bef9431d0f108f159dcded3984e1decb5c9ef5bda78d1a5cbc"},{"id":"func/visibleControlLabels","name":"visibleControlLabels","line":311,"end_line":317,"hash":"afac7bcb5fc0d6d4c034c1af2c507c9bbd31f7830feed44a0c4813e9016d77c2"},{"id":"func/visibleInspectorSections","name":"visibleInspectorSections","line":319,"end_line":325,"hash":"ae27149a3bf3e13945c3a1fe67e87d42d1929718201b50499740d6a243b046b9"},{"id":"func/Game.visibleStatusFields","name":"Game.visibleStatusFields","line":327,"end_line":333,"hash":"38815d71e80400a37fa2e84f2abcbd950d1814697f03bc89239fd64a0b12fcd8"},{"id":"func/Game.visibleRegionControlCounts","name":"Game.visibleRegionControlCounts","line":335,"end_line":345,"hash":"0e874837f3da80aa8aba265ae4a5e4b6ceae779a13512ddcf5804b91eb092ac4"},{"id":"func/visibleLabelsFit","name":"visibleLabelsFit","line":347,"end_line":351,"hash":"0fd4cb254764943e007f36732d9aa1d7ad707a59746a9cca2e31aab766226f88"},{"id":"func/controlLabelsFit","name":"controlLabelsFit","line":353,"end_line":355,"hash":"6cb92c088807face5a2162c78d338eb1278ed8774354b8b1d9ea884286f97a42"},{"id":"func/statusLabelsFit","name":"statusLabelsFit","line":357,"end_line":359,"hash":"9786f63a658af2dce883ca37f2fac1b7365902b152510d13c9787f1d5bdd412b"},{"id":"func/labelsFitItems","name":"labelsFitItems","line":361,"end_line":369,"hash":"dde06934ee8b31db69fe38357ce4bd6c6b73d991ef5d6f3f389e012fc3965dae"},{"id":"func/labelFits","name":"labelFits","line":371,"end_line":373,"hash":"60447d380d9ed2d8710772539abc4bc8e5a7bf62719fc471d97c16bb3ae7b3b3"},{"id":"func/visibleRegionRects","name":"visibleRegionRects","line":375,"end_line":383,"hash":"3b404313058f4f3c7f18cdbe0dad285f1fd85c8210a4de1b3f4f8eb272eda4b8"},{"id":"func/Game.visibleRegionPixels","name":"Game.visibleRegionPixels","line":385,"end_line":396,"hash":"d6393cc85bc819f0606076cc4256b5d8d14dc8bb4f0dbdd03b4d5b701bc636dc"},{"id":"func/regionControlPixels","name":"regionControlPixels","line":398,"end_line":406,"hash":"09baade91c8b970cf2ec8ce4dd168c323ca63cf59170b8f129019bedef0ea743"},{"id":"func/Game.regionStatusPixels","name":"Game.regionStatusPixels","line":408,"end_line":417,"hash":"06db0a8e72e4a78fe3bc2316755c0e94a6a9249933e36bfd46789da7ab09742e"},{"id":"func/rectPixels","name":"rectPixels","line":419,"end_line":421,"hash":"be91e5c34925744d4284c9bb7111688f4f62eef60f40d9b92c77353a60433f83"},{"id":"func/visibleWorldPixels","name":"visibleWorldPixels","line":423,"end_line":439,"hash":"ba9902c2e580234ff3188d18afd2e517404988a22ad8ef20dd544fae9f51866c"}]}
+// mutate4go-manifest-end
