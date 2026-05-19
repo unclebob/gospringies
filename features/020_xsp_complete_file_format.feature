@@ -1,4 +1,4 @@
-# mutation-stamp: sha256=2b9c194317d01f60dfe6cd5e36da60ad29482801a2226871133d93a7fd4c65f8
+# mutation-stamp: sha256=960edd8de70b5cb4c4a6ba1827c218453f4db40c278cca2d5e1d2de5109a31be
 Feature: XSP complete file format
 
 Background:

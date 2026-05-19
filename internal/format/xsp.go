@@ -39,6 +39,13 @@ var xspParameterLines = []struct {
 var xspForceNames = []string{"gravity", "center attraction", "center of mass attraction", "wall repulsion", "mass collision"}
 var xspForceValueKeys = []string{"magnitude", "direction", "exponent", "damping"}
 var xspWallNames = []string{"top", "left", "right", "bottom"}
+var xspForceTokens = map[string]string{
+	"center attraction":         "center-attraction",
+	"center of mass attraction": "center-of-mass-attraction",
+	"wall repulsion":            "wall-repulsion",
+	"mass collision":            "mass-collision",
+}
+var xspForceNamesByToken = invertForceTokenMap(xspForceTokens)
 
 const originalXSpringiesMarker = "#1.0 *** XSpringies data file"
 
@@ -158,7 +165,7 @@ func loadForceLine(world *sim.Simulation, fields []string) error {
 	if err != nil {
 		return err
 	}
-	name := strings.Join(fields[1:enabledIndex], " ")
+	name := forceNameFromToken(strings.Join(fields[1:enabledIndex], " "))
 	values, err := forceValues(fields[enabledIndex+1:])
 	if err != nil {
 		return err
@@ -196,6 +203,28 @@ func setForceValues(world *sim.Simulation, name string, enabled string, values m
 		force.Values[key] = value
 	}
 	world.Parameters.Forces[name] = force
+}
+
+func forceTokenForName(name string) string {
+	if token, ok := xspForceTokens[name]; ok {
+		return token
+	}
+	return name
+}
+
+func forceNameFromToken(token string) string {
+	if name, ok := xspForceNamesByToken[token]; ok {
+		return name
+	}
+	return token
+}
+
+func invertForceTokenMap(tokens map[string]string) map[string]string {
+	inverted := map[string]string{}
+	for name, token := range tokens {
+		inverted[token] = name
+	}
+	return inverted
 }
 
 func loadLegacyForceLine(world *sim.Simulation, fields []string) error {
@@ -478,7 +507,7 @@ func writeForceLines(builder *strings.Builder, world *sim.Simulation) {
 		if !ok {
 			continue
 		}
-		builder.WriteString(fmt.Sprintf("frce %s %s%s\n", name, force.Enabled, forceValueSuffix(force.Values)))
+		builder.WriteString(fmt.Sprintf("frce %s %s%s\n", forceTokenForName(name), force.Enabled, forceValueSuffix(force.Values)))
 	}
 }
 

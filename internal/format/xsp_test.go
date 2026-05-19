@@ -216,6 +216,61 @@ func TestLoadXSPAcceptsMultiWordForceNames(t *testing.T) {
 	}
 }
 
+func TestLoadXSPMapsStableForceTokens(t *testing.T) {
+	input := strings.Join([]string{
+		"#1.0",
+		"frce center-attraction false magnitude=10 exponent=0",
+		"frce center-of-mass-attraction false magnitude=5 damping=2",
+		"frce wall-repulsion false magnitude=10000 exponent=1",
+		"frce mass-collision false",
+	}, "\n") + "\n"
+
+	world, err := LoadXSP(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, name := range []string{"center attraction", "center of mass attraction", "wall repulsion", "mass collision"} {
+		force, ok := world.Parameters.Force(name)
+		if !ok || force.Enabled != "false" {
+			t.Fatalf("force %q = %#v, %t", name, force, ok)
+		}
+	}
+	if _, ok := world.Parameters.Force("center-attraction"); ok {
+		t.Fatal("hyphenated force token was stored as an internal force name")
+	}
+	if force, _ := world.Parameters.Force("wall repulsion"); force.Values["magnitude"] != "10000" || force.Values["exponent"] != "1" {
+		t.Fatalf("wall repulsion values = %#v", force)
+	}
+	if force, _ := world.Parameters.Force("center of mass attraction"); force.Values["magnitude"] != "5" || force.Values["damping"] != "2" {
+		t.Fatalf("center of mass values = %#v", force)
+	}
+}
+
+func TestSaveXSPWritesStableForceTokens(t *testing.T) {
+	world := sim.NewWorld()
+	world.Parameters.Forces["center attraction"] = sim.ForceConfig{Enabled: "false", Values: map[string]string{"magnitude": "0", "exponent": "2"}}
+	world.Parameters.Forces["center of mass attraction"] = sim.ForceConfig{Enabled: "false", Values: map[string]string{"magnitude": "0", "damping": "0"}}
+	world.Parameters.Forces["wall repulsion"] = sim.ForceConfig{Enabled: "false", Values: map[string]string{"magnitude": "0", "exponent": "2"}}
+	world.Parameters.Forces["mass collision"] = sim.ForceConfig{Enabled: "false", Values: map[string]string{}}
+
+	output := SaveXSP(world)
+
+	for _, line := range []string{
+		"frce center-attraction false magnitude=0 exponent=2\n",
+		"frce center-of-mass-attraction false magnitude=0 damping=0\n",
+		"frce wall-repulsion false magnitude=0 exponent=2\n",
+		"frce mass-collision false\n",
+	} {
+		if !strings.Contains(output, "\n"+line) {
+			t.Fatalf("saved output missing %q:\n%s", line, output)
+		}
+	}
+	if strings.Contains(output, "\nfrce center attraction ") {
+		t.Fatalf("saved output used spaced force name:\n%s", output)
+	}
+}
+
 func TestLoadXSPHandlesForcesWithoutValues(t *testing.T) {
 	world, err := LoadXSP("#1.0\nfrce gravity true\n")
 	if err != nil {

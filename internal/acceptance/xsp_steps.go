@@ -90,6 +90,122 @@ func xspInputForCommand(command string) (string, error) {
 	return "", fmt.Errorf("unsupported command %q", command)
 }
 
+func configureWorldForce(w *world, example map[string]string) error {
+	forceName, enabled, err := stringPair(example, "force_name", "enabled_state")
+	if err != nil {
+		return err
+	}
+	parameters, err := stringValue(example, "force_parameters")
+	if err != nil {
+		return err
+	}
+	values, err := forceParameterValues(parameters)
+	if err != nil {
+		return err
+	}
+	w.xspWorld = sim.NewWorld()
+	w.xspWorld.Parameters.Forces[forceName] = sim.ForceConfig{Enabled: enabled, Values: values}
+	return nil
+}
+
+func saveXSPWorld(w *world, _ map[string]string) error {
+	w.xspSavedFirst = xspfmt.SaveXSP(w.xspWorld)
+	return nil
+}
+
+func assertSavedXSPIncludesForceToken(w *world, example map[string]string) error {
+	token, err := stringValue(example, "force_token")
+	if err != nil {
+		return err
+	}
+	if !strings.Contains(w.xspSavedFirst, "\nfrce "+token+" ") {
+		return fmt.Errorf("saved XSP missing force token %q:\n%s", token, w.xspSavedFirst)
+	}
+	return nil
+}
+
+func loadXSPInputWithForceToken(w *world, example map[string]string) error {
+	token, enabled, err := stringPair(example, "force_token", "enabled_state")
+	if err != nil {
+		return err
+	}
+	parameters, err := stringValue(example, "force_parameters")
+	if err != nil {
+		return err
+	}
+	line := fmt.Sprintf("frce %s %s", token, enabled)
+	if parameters != "none" {
+		line += " " + parameters
+	}
+	w.xspInput = "#1.0\n" + line + "\n"
+	return loadXSPInput(w, example)
+}
+
+func assertLoadedForceTokenMapsToForce(w *world, example map[string]string) error {
+	token, forceName, err := stringPair(example, "force_token", "force_name")
+	if err != nil {
+		return err
+	}
+	if w.xspLoadErr != nil {
+		return w.xspLoadErr
+	}
+	if _, ok := w.xspWorld.Parameters.Force(forceName); !ok {
+		return fmt.Errorf("force %q not loaded from token %q", forceName, token)
+	}
+	if token != forceName {
+		if _, ok := w.xspWorld.Parameters.Force(token); ok {
+			return fmt.Errorf("token %q was stored as a force name", token)
+		}
+	}
+	return nil
+}
+
+func assertLoadedForceConfigured(w *world, example map[string]string) error {
+	forceName, enabled, err := stringPair(example, "force_name", "enabled_state")
+	if err != nil {
+		return err
+	}
+	parameters, err := stringValue(example, "force_parameters")
+	if err != nil {
+		return err
+	}
+	if w.xspLoadErr != nil {
+		return w.xspLoadErr
+	}
+	values, err := forceParameterValues(parameters)
+	if err != nil {
+		return err
+	}
+	force, ok := w.xspWorld.Parameters.Force(forceName)
+	if !ok {
+		return fmt.Errorf("force %q not found", forceName)
+	}
+	if force.Enabled != enabled {
+		return fmt.Errorf("%s enabled = %q, want %q", forceName, force.Enabled, enabled)
+	}
+	for key, value := range values {
+		if force.Values[key] != value {
+			return fmt.Errorf("%s %s = %q, want %q", forceName, key, force.Values[key], value)
+		}
+	}
+	return nil
+}
+
+func forceParameterValues(text string) (map[string]string, error) {
+	values := map[string]string{}
+	if text == "none" {
+		return values, nil
+	}
+	for _, field := range strings.Fields(text) {
+		key, value, ok := strings.Cut(field, "=")
+		if !ok {
+			return nil, fmt.Errorf("force parameter %q must be key=value", field)
+		}
+		values[key] = value
+	}
+	return values, nil
+}
+
 func assertXSPLoadedState(w *world, example map[string]string) error {
 	state, err := stringValue(example, "loaded_state")
 	if err != nil {
