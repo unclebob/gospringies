@@ -20,7 +20,7 @@ func TestPrintTextIncludesSurvivorDetails(t *testing.T) {
 		&output,
 		acceptancemutation.MutationSummary{Total: 1, Survived: 1},
 		[]acceptancemutation.MutationResult{{
-			Status: "survived",
+			Status: acceptancemutation.MutationSurvived,
 			Mutation: acceptancemutation.Mutation{
 				Description: "$.path: old -> new",
 			},
@@ -42,7 +42,7 @@ func TestPrintTextOmitsKilledDetails(t *testing.T) {
 		&output,
 		acceptancemutation.MutationSummary{Total: 1, Killed: 1},
 		[]acceptancemutation.MutationResult{{
-			Status: "killed",
+			Status: acceptancemutation.MutationKilled,
 			Mutation: acceptancemutation.Mutation{
 				Description: "$.path: old -> new",
 			},

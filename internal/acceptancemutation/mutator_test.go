@@ -512,9 +512,9 @@ func TestMutationProgressTrackerReportsEveryIntervalAndAtEnd(t *testing.T) {
 		report: func(progress MutationProgress) { reports = append(reports, progress) },
 	}
 
-	tracker.record(MutationResult{Status: "killed"})
-	tracker.record(MutationResult{Status: "survived"})
-	tracker.record(MutationResult{Status: "error"})
+	tracker.record(MutationResult{Status: MutationKilled})
+	tracker.record(MutationResult{Status: MutationSurvived})
+	tracker.record(MutationResult{Status: MutationError})
 
 	if len(reports) != 2 {
 		t.Fatalf("reports = %#v", reports)
@@ -529,7 +529,7 @@ func TestMutationProgressTrackerReportsEveryIntervalAndAtEnd(t *testing.T) {
 
 func TestCollectMutationResultsRecordsCompletionAndProgress(t *testing.T) {
 	completed := make(chan indexedMutationResult, 1)
-	completed <- indexedMutationResult{index: 0, result: MutationResult{Status: "killed"}}
+	completed <- indexedMutationResult{index: 0, result: MutationResult{Status: MutationKilled}}
 	close(completed)
 	var reports []MutationProgress
 
@@ -541,7 +541,7 @@ func TestCollectMutationResultsRecordsCompletionAndProgress(t *testing.T) {
 	if err != nil {
 		t.Fatalf("collectMutationResults returned error: %v", err)
 	}
-	if results[0].Status != "killed" {
+	if results[0].Status != MutationKilled {
 		t.Fatalf("results = %#v", results)
 	}
 	if len(reports) != 1 || reports[0].Killed != 1 {
@@ -583,9 +583,9 @@ func TestStartMutationWorkersStopsCanceledWorkers(t *testing.T) {
 
 func TestSummarizeCountsMutationStatuses(t *testing.T) {
 	summary := Summarize([]MutationResult{
-		{Status: "killed"},
-		{Status: "survived"},
-		{Status: "error"},
+		{Status: MutationKilled},
+		{Status: MutationSurvived},
+		{Status: MutationError},
 	})
 
 	if summary.Total != 3 || summary.Killed != 1 || summary.Survived != 1 || summary.Errors != 1 {
@@ -645,20 +645,69 @@ func TestWriteMutationTestCreatesTaggedGeneratedTest(t *testing.T) {
 }
 
 func TestMutationStatus(t *testing.T) {
-	if status, message := mutationStatus(context.Background(), context.Background(), nil); status != "survived" || message != "" {
-		t.Fatal("nil error should survive")
+	cases := []struct {
+		name       string
+		runCtx     context.Context
+		commandCtx context.Context
+		err        error
+		status     string
+		hasMessage bool
+	}{
+		{
+			name:       "nil error survives",
+			runCtx:     context.Background(),
+			commandCtx: context.Background(),
+			status:     MutationSurvived,
+		},
+		{
+			name:       "test failure kills",
+			runCtx:     context.Background(),
+			commandCtx: context.Background(),
+			err:        os.ErrNotExist,
+			status:     MutationKilled,
+		},
+		{
+			name:       "command cancellation errors",
+			runCtx:     context.Background(),
+			commandCtx: context.Background(),
+			err:        context.Canceled,
+			status:     MutationError,
+			hasMessage: true,
+		},
+		{
+			name:       "command deadline errors",
+			runCtx:     context.Background(),
+			commandCtx: context.Background(),
+			err:        context.DeadlineExceeded,
+			status:     MutationError,
+			hasMessage: true,
+		},
 	}
-	if status, message := mutationStatus(context.Background(), context.Background(), os.ErrNotExist); status != "killed" || message != "" {
-		t.Fatal("non-nil error should be killed")
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			status, message := mutationStatus(tc.runCtx, tc.commandCtx, tc.err)
+			if status != tc.status {
+				t.Fatalf("status = %q, want %q", status, tc.status)
+			}
+			if tc.hasMessage && message == "" {
+				t.Fatal("expected error message")
+			}
+			if !tc.hasMessage && message != "" {
+				t.Fatalf("message = %q, want empty", message)
+			}
+		})
 	}
+
 	runCtx, cancelRun := context.WithCancel(context.Background())
 	cancelRun()
-	if status, message := mutationStatus(runCtx, runCtx, nil); status != "error" || message == "" {
+	if status, message := mutationStatus(runCtx, runCtx, nil); status != MutationError || message == "" {
 		t.Fatal("canceled context should be an error")
 	}
+
 	commandCtx, cancelCommand := context.WithCancel(context.Background())
 	cancelCommand()
-	if status, message := mutationStatus(context.Background(), commandCtx, nil); status != "killed" || message != "" {
+	if status, message := mutationStatus(context.Background(), commandCtx, nil); status != MutationKilled || message != "" {
 		t.Fatal("timed-out mutant command should be killed")
 	}
 }

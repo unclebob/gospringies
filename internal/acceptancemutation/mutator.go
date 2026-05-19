@@ -41,6 +41,12 @@ type MutationResult struct {
 	Duration time.Duration
 }
 
+const (
+	MutationKilled   = "killed"
+	MutationSurvived = "survived"
+	MutationError    = "error"
+)
+
 type MutationSummary struct {
 	Total    int
 	Killed   int
@@ -432,9 +438,9 @@ func (p *mutationProgressTracker) record(result MutationResult) {
 
 func (p *mutationProgressTracker) add(result MutationResult) {
 	switch result.Status {
-	case "killed":
+	case MutationKilled:
 		p.summary.Killed++
-	case "survived":
+	case MutationSurvived:
 		p.summary.Survived++
 	default:
 		p.summary.Errors++
@@ -454,7 +460,7 @@ func runMutation(ctx context.Context, feature gherkin.Feature, mutation Mutation
 	result := MutationResult{Mutation: mutation}
 	generated, ir := mutationPaths(workDir, mutation)
 	if err := writeMutationTest(feature, mutation, generated, ir); err != nil {
-		result.Status = "error"
+		result.Status = MutationError
 		result.Error = err.Error()
 		return result
 	}
@@ -494,18 +500,18 @@ func writeMutationTest(feature gherkin.Feature, mutation Mutation, generated, ir
 
 func mutationStatus(runCtx, commandCtx context.Context, err error) (string, string) {
 	if mutationCommandTimedOut(runCtx, commandCtx) {
-		return "killed", ""
+		return MutationKilled, ""
 	}
 	if ctxErr := runCtx.Err(); ctxErr != nil {
-		return "error", ctxErr.Error()
+		return MutationError, ctxErr.Error()
 	}
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-		return "error", err.Error()
+		return MutationError, err.Error()
 	}
 	if err != nil {
-		return "killed", ""
+		return MutationKilled, ""
 	}
-	return "survived", ""
+	return MutationSurvived, ""
 }
 
 func mutationCommandTimedOut(runCtx, commandCtx context.Context) bool {
@@ -516,9 +522,9 @@ func Summarize(results []MutationResult) MutationSummary {
 	summary := MutationSummary{Total: len(results)}
 	for _, result := range results {
 		switch result.Status {
-		case "killed":
+		case MutationKilled:
 			summary.Killed++
-		case "survived":
+		case MutationSurvived:
 			summary.Survived++
 		default:
 			summary.Errors++
