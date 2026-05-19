@@ -29,6 +29,20 @@ Examples:
   | mass    |
   | spng    |
 
+Scenario Outline: named force tokens are stable in saved XSP
+  Given world force <force_name> is configured with <enabled_state> and <force_parameters>
+  When the coder saves the world as XSP
+  Then saved XSP output should include force token <force_token>
+  When the coder loads XSP input with force token <force_token>
+  Then loaded force <force_name> should be configured with <enabled_state> and <force_parameters>
+
+Examples:
+  | force_name                | force_token               | enabled_state | force_parameters       |
+  | center attraction         | center-attraction         | false         | magnitude=0 exponent=2 |
+  | center of mass attraction | center-of-mass-attraction | false         | magnitude=0 damping=0  |
+  | wall repulsion            | wall-repulsion            | false         | magnitude=0 exponent=2 |
+  | mass collision            | mass-collision            | false         | none                   |
+
 Scenario Outline: file format validation rejects documented invalid structure
   Given XSP input has problem <problem>
   When the coder loads the XSP input
