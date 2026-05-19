@@ -2,6 +2,7 @@ package acceptance
 
 import (
 	"fmt"
+	"os"
 
 	"springs/internal/edit"
 	"springs/internal/gherkin"
@@ -61,6 +62,8 @@ type world struct {
 	documentedCommandErr error
 	mutationOutput       string
 	handoffVerification  map[string]string
+	workDir              string
+	previousWorkDir      string
 }
 
 type stepHandler func(*world, map[string]string) error
@@ -77,12 +80,23 @@ func RunFeature(feature gherkin.Feature) error {
 			steps = append(steps, scenario.Steps...)
 			for _, step := range steps {
 				if err := runStep(w, step, example); err != nil {
+					w.cleanup()
 					return fmt.Errorf("%s/example_%d: %w", scenario.Name, i+1, err)
 				}
 			}
+			w.cleanup()
 		}
 	}
 	return nil
+}
+
+func (w *world) cleanup() {
+	if w.previousWorkDir != "" {
+		_ = os.Chdir(w.previousWorkDir)
+	}
+	if w.workDir != "" {
+		_ = os.RemoveAll(w.workDir)
+	}
 }
 
 func runStep(w *world, step gherkin.Step, example map[string]string) error {
@@ -479,10 +493,31 @@ var stepHandlers = map[string]stepHandler{
 	"the coder draws the application frame at the default window size":                                      drawApplicationFrameDefaultSize,
 	"visible control labels should fit inside their regions":                                                assertVisibleControlLabelsFit,
 	"the clickable visible controls task is accepted":                                                       acceptStep,
+	"the save and load dialogs task is accepted":                                                            acceptStep,
 	"the editor mode is <old_mode>":                                                                         setClickableEditorMode,
 	"the coder clicks inside rendered bounds of visible control <control>":                                  clickInsideRenderedVisibleControlBounds,
 	"the coder clicks inside rendered bounds of visible control Drag":                                       clickInsideRenderedControl("Drag"),
 	"the coder clicks inside rendered bounds of visible control Load":                                       clickInsideRenderedControl("Load"),
+	"the coder clicks inside rendered bounds of visible control Save":                                       clickInsideRenderedControl("Save"),
+	"save filename dialog should open":                                                                      assertSaveFilenameDialogOpen,
+	"save filename field should contain <field_text>":                                                       assertSaveFilenameFieldText,
+	"save filename cursor should be positioned <cursor_position>":                                           assertSaveFilenameCursorPosition,
+	"the current world contains <world_state>":                                                              createCurrentWorldWithState,
+	"the coder enters save filename prefix <filename_prefix>":                                               enterSaveFilenamePrefix,
+	"the coder submits the save filename dialog":                                                            submitSaveFilenameDialog,
+	"saved XSP file should exist at <saved_path>":                                                           assertSavedXSPFileExists,
+	"saved XSP file <saved_path> should contain <world_state>":                                              assertSavedXSPFileContainsState,
+	"saved XSP file <save_file> exists in saves":                                                            createSavedXSPFile,
+	"demo XSP file <demo_file> exists in demos":                                                             createDemoXSPFile,
+	"original XSP file <original_file> exists in demos/original":                                            createOriginalXSPFile,
+	"load picker should show <save_file> before <separator>":                                                assertSaveFileBeforeSeparator,
+	"load picker should show <separator> before <demo_file>":                                                assertSeparatorBeforeDemoFile,
+	"load picker should show <demo_file> before <original_file>":                                            assertDemoFileBeforeOriginalFile,
+	"saved XSP file <save_file> exists in saves with <world_state>":                                         createSavedXSPFileWithState,
+	"the coder opens the load picker":                                                                       openLoadPicker,
+	"the coder chooses load picker entry <save_file>":                                                       chooseLoadPickerEntry,
+	"loaded world should include <world_state>":                                                             assertLoadedWorldIncludesState,
+	"current file path should be <saved_path>":                                                              assertCurrentFilePath,
 	"the editor mode should be <new_mode>":                                                                  assertClickableEditorMode,
 	"visible control <control> should show active state":                                                    assertVisibleControlActive,
 	"keyboard path entry should open for <command>":                                                         assertKeyboardPathEntryOpen,

@@ -24,7 +24,7 @@ var commandActions = map[string]func(*Game, string){
 	"restore state":   func(g *Game, _ string) { g.restoreWorldState() },
 	"load":            func(g *Game, _ string) { g.openDemoPicker() },
 	"insert":          func(g *Game, command string) { g.pathEntryCommand = pathEntryLabel(command) },
-	"save":            func(g *Game, command string) { g.pathEntryCommand = pathEntryLabel(command) },
+	"save":            func(g *Game, _ string) { g.openSaveFilenameDialog() },
 	"select all":      func(g *Game, _ string) { g.selectAllObjects() },
 	"clear selection": func(g *Game, _ string) { g.clearSelection() },
 	"delete":          func(g *Game, _ string) { g.deleteSelection() },
@@ -119,6 +119,14 @@ func (g *Game) LoadXSP(input string) error {
 	}
 	g.selected = false
 	g.dirty = false
+	return nil
+}
+
+func (g *Game) LoadXSPFromFile(path string, input string) error {
+	if err := g.LoadXSP(input); err != nil {
+		return err
+	}
+	g.currentFilePath = path
 	return nil
 }
 

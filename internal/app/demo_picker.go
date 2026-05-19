@@ -3,9 +3,12 @@ package app
 import (
 	"image"
 	"os"
+	"path/filepath"
+	"sort"
 )
 
 const demoPickerRowHeight = 24
+const loadPickerSeparator = "separator"
 
 func demoPickerRect() image.Rectangle {
 	return image.Rect(240, 96, screenWidth-240, screenHeight-96)
@@ -16,6 +19,22 @@ func (g *Game) visibleDemoPaths() []string {
 	start := clampInt(g.demoPickerScroll, 0, len(files))
 	end := clampInt(start+demoPickerVisibleRows(), start, len(files))
 	return files[start:end]
+}
+
+func (g *Game) LoadPickerEntries() []string {
+	return append([]string{}, g.demoList()...)
+}
+
+func (g *Game) ChooseLoadPickerEntry(name string) bool {
+	for i, path := range g.demoList() {
+		if path == loadPickerSeparator {
+			continue
+		}
+		if path == name || filepath.Base(path) == name {
+			return g.loadDemoAt(i)
+		}
+	}
+	return false
 }
 
 func demoPickerVisibleRows() int {
@@ -44,20 +63,62 @@ func (g *Game) clickDemoPicker(x int, y int) {
 	}
 }
 
-func (g *Game) loadDemoAt(index int) {
+func (g *Game) loadDemoAt(index int) bool {
 	files := g.demoList()
 	if index < 0 || index >= len(files) {
-		return
+		return false
 	}
-	content, err := os.ReadFile(files[index])
+	path := files[index]
+	if path == loadPickerSeparator {
+		return false
+	}
+	content, err := os.ReadFile(path)
 	if err == nil {
-		_ = g.LoadXSP(string(content))
+		err = g.LoadXSPFromFile(path, string(content))
+	}
+	if err != nil {
+		g.lastFileError = err.Error()
+	} else {
+		g.lastFileError = ""
 	}
 	g.demoPickerOpen = false
+	return err == nil
+}
+
+func (g *Game) buildDemoList() []string {
+	var saves, starters, originals []string
+	for _, root := range []string{".", filepath.Join("..", "..")} {
+		saves = append(saves, globXSP(filepath.Join(root, "saves"))...)
+		starters = append(starters, globXSP(filepath.Join(root, "demos"))...)
+		originals = append(originals, globXSP(filepath.Join(root, "demos", "original"))...)
+	}
+	sort.Strings(saves)
+	sort.Strings(starters)
+	sort.Strings(originals)
+	return groupedLoadPickerEntries(saves, starters, originals)
+}
+
+func globXSP(dir string) []string {
+	matches, _ := filepath.Glob(filepath.Join(dir, "*.xsp"))
+	return matches
+}
+
+func groupedLoadPickerEntries(saves []string, starters []string, originals []string) []string {
+	var entries []string
+	entries = append(entries, saves...)
+	if len(saves) > 0 && len(starters)+len(originals) > 0 {
+		entries = append(entries, loadPickerSeparator)
+	}
+	entries = append(entries, starters...)
+	return append(entries, originals...)
 }
 
 func clampInt(value int, lower int, upper int) int {
 	return min(max(value, lower), upper)
+}
+
+func (g *Game) LastFileError() string {
+	return g.lastFileError
 }
 
 // mutate4go-manifest-begin

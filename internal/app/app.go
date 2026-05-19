@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"image/color"
 	"math"
-	"path/filepath"
-	"sort"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -70,12 +68,15 @@ type Game struct {
 	activeSlider      string
 	massMenu          massContextMenu
 	valueDialog       valueDialog
+	saveDialog        saveFilenameDialog
 	editMenuOpen      bool
 	editClipboard     editClipboard
 	lastCursor        sim.Vec2
 	demoPickerOpen    bool
 	demoPickerScroll  int
 	demoFiles         []string
+	currentFilePath   string
+	lastFileError     string
 	simulationSpeed   float64
 	canvasYUp         bool
 	editor            *edit.Editor
@@ -118,9 +119,10 @@ func (g *Game) Update() error {
 	}
 	g.inputActive = true
 	g.pollMouseControls()
+	g.pollSaveFilenameDialogKeyboard()
 	g.pollValueDialogKeyboard()
 	g.tickValueDialog()
-	if !g.valueDialog.Open {
+	if !g.valueDialog.Open && !g.saveDialog.Open {
 		g.pollKeyboardControls()
 	}
 	g.pollDemoPickerScroll()
@@ -321,6 +323,10 @@ func (g *Game) beginPointerPress(position sim.Vec2, x int, y int) {
 }
 
 func (g *Game) clickOpenOverlay(x int, y int) bool {
+	if g.saveDialog.Open {
+		g.clickSaveFilenameDialog(x, y)
+		return true
+	}
 	if g.valueDialog.Open {
 		g.clickValueDialog(x, y)
 		return true
@@ -354,15 +360,7 @@ func (g *Game) demoList() []string {
 	if g.demoFiles != nil {
 		return g.demoFiles
 	}
-	var matches []string
-	for _, root := range []string{"demos", filepath.Join("..", "..", "demos")} {
-		original, _ := filepath.Glob(filepath.Join(root, "original", "*.xsp"))
-		starter, _ := filepath.Glob(filepath.Join(root, "*.xsp"))
-		matches = append(matches, original...)
-		matches = append(matches, starter...)
-	}
-	sort.Strings(matches)
-	g.demoFiles = matches
+	g.demoFiles = g.buildDemoList()
 	return g.demoFiles
 }
 
@@ -609,6 +607,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 	if g.valueDialog.Open {
 		g.drawValueDialog(screen)
+	}
+	if g.saveDialog.Open {
+		g.drawSaveFilenameDialog(screen)
 	}
 	ebitenutil.DebugPrint(screen, fmt.Sprintf("TPS %.0f", ebiten.ActualTPS()))
 }

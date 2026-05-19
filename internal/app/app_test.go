@@ -1095,7 +1095,7 @@ func TestClickEditMenuRunsCutCopyPasteCommands(t *testing.T) {
 }
 
 func TestClickVisibleFileControlsOpenPathEntry(t *testing.T) {
-	tests := map[string]string{"Insert": "Insert", "Save": "Save"}
+	tests := map[string]string{"Insert": "Insert"}
 	for label, command := range tests {
 		game := NewGame()
 
@@ -1105,6 +1105,49 @@ func TestClickVisibleFileControlsOpenPathEntry(t *testing.T) {
 		if game.PathEntryCommand() != command {
 			t.Fatalf("path entry after %q = %q, want %q", label, game.PathEntryCommand(), command)
 		}
+	}
+}
+
+func TestSaveControlOpensFilenameDialogBeforeExtension(t *testing.T) {
+	game := NewGame()
+
+	if !game.ClickVisibleControl("Save") {
+		t.Fatal("Save control click was not handled")
+	}
+
+	if !game.SaveFilenameDialogOpen() {
+		t.Fatal("save filename dialog was not opened")
+	}
+	if game.SaveFilenameText() != ".xsp" {
+		t.Fatalf("save filename text = %q, want .xsp", game.SaveFilenameText())
+	}
+	if game.SaveFilenameCursor() != 0 {
+		t.Fatalf("save filename cursor = %d, want before extension", game.SaveFilenameCursor())
+	}
+}
+
+func TestSaveFilenameDialogWritesNamedFileUnderSaves(t *testing.T) {
+	withWorkingDirectory(t, t.TempDir())
+	game := gameWithMasses(sim.Mass{ID: 7, Position: sim.Vec2{X: 10, Y: 20}, Mass: 1})
+	game.openSaveFilenameDialog()
+
+	game.EnterSaveFilenamePrefix("lab_scene")
+	if err := game.SubmitSaveFilenameDialog(); err != nil {
+		t.Fatal(err)
+	}
+
+	content, err := os.ReadFile(filepath.Join("saves", "lab_scene.xsp"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(content), "\nmass 7 ") {
+		t.Fatalf("saved content missing mass 7:\n%s", string(content))
+	}
+	if game.CurrentFilePath() != filepath.Join("saves", "lab_scene.xsp") {
+		t.Fatalf("current file path = %q", game.CurrentFilePath())
+	}
+	if game.SaveFilenameDialogOpen() {
+		t.Fatal("save dialog stayed open after submit")
 	}
 }
 
@@ -1124,6 +1167,44 @@ func TestLoadControlOpensDemoPicker(t *testing.T) {
 	}
 	if game.demoPickerScroll != 0 {
 		t.Fatalf("demo picker scroll = %d, want reset to 0", game.demoPickerScroll)
+	}
+}
+
+func TestLoadPickerOrdersSavesThenSeparatorThenDemosAndOriginals(t *testing.T) {
+	root := t.TempDir()
+	withWorkingDirectory(t, root)
+	mustWriteFile(t, filepath.Join(root, "saves", "lab_scene.xsp"), "#1.0\nmass 1 10 20 1 0\n")
+	mustWriteFile(t, filepath.Join(root, "demos", "pendulum.xsp"), "#1.0\nmass 2 10 20 1 0\n")
+	mustWriteFile(t, filepath.Join(root, "demos", "original", "pend.xsp"), "#1.0\nmass 3 10 20 1 0\n")
+
+	game := NewGame()
+	got := game.demoList()
+	want := []string{
+		filepath.Join("saves", "lab_scene.xsp"),
+		loadPickerSeparator,
+		filepath.Join("demos", "pendulum.xsp"),
+		filepath.Join("demos", "original", "pend.xsp"),
+	}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("load picker list = %#v, want %#v", got, want)
+	}
+}
+
+func TestLoadPickerLoadsSavedFileAndTracksCurrentPath(t *testing.T) {
+	root := t.TempDir()
+	withWorkingDirectory(t, root)
+	mustWriteFile(t, filepath.Join(root, "saves", "lab_scene.xsp"), "#1.0\nmass 9 10 20 1 0\n")
+
+	game := NewGame()
+	game.demoPickerOpen = true
+	game.loadDemoAt(0)
+
+	if _, ok := game.World().MassByID(9); !ok {
+		t.Fatalf("saved world was not loaded: %#v", game.World().Masses)
+	}
+	if game.CurrentFilePath() != filepath.Join("saves", "lab_scene.xsp") {
+		t.Fatalf("current file path = %q", game.CurrentFilePath())
 	}
 }
 
@@ -2677,6 +2758,32 @@ func assertStarterObjects(t *testing.T, world *sim.Simulation) {
 	}
 	if fixed < 1 || movable < 1 || len(world.Springs) < 1 {
 		t.Fatalf("starter world fixed=%d movable=%d springs=%d: %#v", fixed, movable, len(world.Springs), world)
+	}
+}
+
+func withWorkingDirectory(t *testing.T, dir string) {
+	t.Helper()
+	previous, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(previous); err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
+func mustWriteFile(t *testing.T, path string, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
 	}
 }
 

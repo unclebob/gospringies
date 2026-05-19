@@ -1,3 +1,4 @@
+# mutation-stamp: sha256=52316ddb5abab707efbb5494406e0367cd648ed4db75cb332073266dbfd54a18
 Feature: Save and load dialogs
 
 Background:

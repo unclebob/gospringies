@@ -255,11 +255,18 @@ func (g *Game) statusFields() []statusField {
 		{Name: "run state", Label: g.simulationState(), Rect: image.Rect(8, screenHeight-22, 104, screenHeight-2)},
 		{Name: "object counts", Label: "object counts", Rect: image.Rect(112, screenHeight-22, 212, screenHeight-2)},
 		{Name: "selected object count", Label: fmt.Sprintf("%d sel", g.selectedObjectCount()), Rect: image.Rect(220, screenHeight-22, 290, screenHeight-2)},
-		{Name: "current file", Label: g.pathEntryCommand, Rect: image.Rect(298, screenHeight-22, 412, screenHeight-2)},
+		{Name: "current file", Label: g.currentFileStatusLabel(), Rect: image.Rect(298, screenHeight-22, 412, screenHeight-2)},
 		{Name: "dirty state", Label: g.fileState(), Rect: image.Rect(420, screenHeight-22, 512, screenHeight-2)},
 		{Name: "file state", Label: g.fileState(), Rect: image.Rect(520, screenHeight-22, 612, screenHeight-2)},
 		{Name: "last error", Label: "", Rect: image.Rect(620, screenHeight-22, 872, screenHeight-2)},
 	}
+}
+
+func (g *Game) currentFileStatusLabel() string {
+	if g.pathEntryCommand != "" {
+		return g.pathEntryCommand
+	}
+	return g.currentFilePath
 }
 
 func (g *Game) selectedObjectCount() int {

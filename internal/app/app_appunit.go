@@ -5,8 +5,6 @@ package app
 import (
 	"image/color"
 	"math"
-	"path/filepath"
-	"sort"
 
 	"springs/internal/edit"
 	"springs/internal/sim"
@@ -64,12 +62,15 @@ type Game struct {
 	activeSlider      string
 	massMenu          massContextMenu
 	valueDialog       valueDialog
+	saveDialog        saveFilenameDialog
 	editMenuOpen      bool
 	editClipboard     editClipboard
 	lastCursor        sim.Vec2
 	demoPickerOpen    bool
 	demoPickerScroll  int
 	demoFiles         []string
+	currentFilePath   string
+	lastFileError     string
 	simulationSpeed   float64
 	canvasYUp         bool
 	editor            *edit.Editor
@@ -223,15 +224,7 @@ func (g *Game) demoList() []string {
 	if g.demoFiles != nil {
 		return g.demoFiles
 	}
-	var matches []string
-	for _, root := range []string{"demos", filepath.Join("..", "..", "demos")} {
-		original, _ := filepath.Glob(filepath.Join(root, "original", "*.xsp"))
-		starter, _ := filepath.Glob(filepath.Join(root, "*.xsp"))
-		matches = append(matches, original...)
-		matches = append(matches, starter...)
-	}
-	sort.Strings(matches)
-	g.demoFiles = matches
+	g.demoFiles = g.buildDemoList()
 	return g.demoFiles
 }
 
