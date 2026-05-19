@@ -150,7 +150,7 @@ func printText(w io.Writer, summary acceptancemutation.MutationSummary, results 
 
 func printResult(w io.Writer, result acceptancemutation.MutationResult) {
 	fmt.Fprintf(w, "%-8s %s\n", result.Status, result.Mutation.Description)
-	if result.Status != "survived" && result.Status != "error" {
+	if result.Status != acceptancemutation.MutationSurvived && result.Status != acceptancemutation.MutationError {
 		return
 	}
 	printError(w, result.Error)

@@ -42,9 +42,9 @@ type MutationResult struct {
 }
 
 const (
-	mutationKilled   = "killed"
-	mutationSurvived = "survived"
-	mutationError    = "error"
+	MutationKilled   = "killed"
+	MutationSurvived = "survived"
+	MutationError    = "error"
 )
 
 type MutationSummary struct {
@@ -438,9 +438,9 @@ func (p *mutationProgressTracker) record(result MutationResult) {
 
 func (p *mutationProgressTracker) add(result MutationResult) {
 	switch result.Status {
-	case mutationKilled:
+	case MutationKilled:
 		p.summary.Killed++
-	case mutationSurvived:
+	case MutationSurvived:
 		p.summary.Survived++
 	default:
 		p.summary.Errors++
@@ -460,7 +460,7 @@ func runMutation(ctx context.Context, feature gherkin.Feature, mutation Mutation
 	result := MutationResult{Mutation: mutation}
 	generated, ir := mutationPaths(workDir, mutation)
 	if err := writeMutationTest(feature, mutation, generated, ir); err != nil {
-		result.Status = mutationError
+		result.Status = MutationError
 		result.Error = err.Error()
 		return result
 	}
@@ -500,18 +500,18 @@ func writeMutationTest(feature gherkin.Feature, mutation Mutation, generated, ir
 
 func mutationStatus(runCtx, commandCtx context.Context, err error) (string, string) {
 	if mutationCommandTimedOut(runCtx, commandCtx) {
-		return mutationKilled, ""
+		return MutationKilled, ""
 	}
 	if ctxErr := runCtx.Err(); ctxErr != nil {
-		return mutationError, ctxErr.Error()
+		return MutationError, ctxErr.Error()
 	}
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-		return mutationError, err.Error()
+		return MutationError, err.Error()
 	}
 	if err != nil {
-		return mutationKilled, ""
+		return MutationKilled, ""
 	}
-	return mutationSurvived, ""
+	return MutationSurvived, ""
 }
 
 func mutationCommandTimedOut(runCtx, commandCtx context.Context) bool {
@@ -522,9 +522,9 @@ func Summarize(results []MutationResult) MutationSummary {
 	summary := MutationSummary{Total: len(results)}
 	for _, result := range results {
 		switch result.Status {
-		case mutationKilled:
+		case MutationKilled:
 			summary.Killed++
-		case mutationSurvived:
+		case MutationSurvived:
 			summary.Survived++
 		default:
 			summary.Errors++

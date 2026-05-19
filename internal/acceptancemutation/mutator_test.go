@@ -512,9 +512,9 @@ func TestMutationProgressTrackerReportsEveryIntervalAndAtEnd(t *testing.T) {
 		report: func(progress MutationProgress) { reports = append(reports, progress) },
 	}
 
-	tracker.record(MutationResult{Status: mutationKilled})
-	tracker.record(MutationResult{Status: mutationSurvived})
-	tracker.record(MutationResult{Status: mutationError})
+	tracker.record(MutationResult{Status: MutationKilled})
+	tracker.record(MutationResult{Status: MutationSurvived})
+	tracker.record(MutationResult{Status: MutationError})
 
 	if len(reports) != 2 {
 		t.Fatalf("reports = %#v", reports)
@@ -529,7 +529,7 @@ func TestMutationProgressTrackerReportsEveryIntervalAndAtEnd(t *testing.T) {
 
 func TestCollectMutationResultsRecordsCompletionAndProgress(t *testing.T) {
 	completed := make(chan indexedMutationResult, 1)
-	completed <- indexedMutationResult{index: 0, result: MutationResult{Status: mutationKilled}}
+	completed <- indexedMutationResult{index: 0, result: MutationResult{Status: MutationKilled}}
 	close(completed)
 	var reports []MutationProgress
 
@@ -541,7 +541,7 @@ func TestCollectMutationResultsRecordsCompletionAndProgress(t *testing.T) {
 	if err != nil {
 		t.Fatalf("collectMutationResults returned error: %v", err)
 	}
-	if results[0].Status != mutationKilled {
+	if results[0].Status != MutationKilled {
 		t.Fatalf("results = %#v", results)
 	}
 	if len(reports) != 1 || reports[0].Killed != 1 {
@@ -583,9 +583,9 @@ func TestStartMutationWorkersStopsCanceledWorkers(t *testing.T) {
 
 func TestSummarizeCountsMutationStatuses(t *testing.T) {
 	summary := Summarize([]MutationResult{
-		{Status: mutationKilled},
-		{Status: mutationSurvived},
-		{Status: mutationError},
+		{Status: MutationKilled},
+		{Status: MutationSurvived},
+		{Status: MutationError},
 	})
 
 	if summary.Total != 3 || summary.Killed != 1 || summary.Survived != 1 || summary.Errors != 1 {
@@ -657,21 +657,21 @@ func TestMutationStatus(t *testing.T) {
 			name:       "nil error survives",
 			runCtx:     context.Background(),
 			commandCtx: context.Background(),
-			status:     mutationSurvived,
+			status:     MutationSurvived,
 		},
 		{
 			name:       "test failure kills",
 			runCtx:     context.Background(),
 			commandCtx: context.Background(),
 			err:        os.ErrNotExist,
-			status:     mutationKilled,
+			status:     MutationKilled,
 		},
 		{
 			name:       "command cancellation errors",
 			runCtx:     context.Background(),
 			commandCtx: context.Background(),
 			err:        context.Canceled,
-			status:     mutationError,
+			status:     MutationError,
 			hasMessage: true,
 		},
 		{
@@ -679,7 +679,7 @@ func TestMutationStatus(t *testing.T) {
 			runCtx:     context.Background(),
 			commandCtx: context.Background(),
 			err:        context.DeadlineExceeded,
-			status:     mutationError,
+			status:     MutationError,
 			hasMessage: true,
 		},
 	}
@@ -701,13 +701,13 @@ func TestMutationStatus(t *testing.T) {
 
 	runCtx, cancelRun := context.WithCancel(context.Background())
 	cancelRun()
-	if status, message := mutationStatus(runCtx, runCtx, nil); status != mutationError || message == "" {
+	if status, message := mutationStatus(runCtx, runCtx, nil); status != MutationError || message == "" {
 		t.Fatal("canceled context should be an error")
 	}
 
 	commandCtx, cancelCommand := context.WithCancel(context.Background())
 	cancelCommand()
-	if status, message := mutationStatus(context.Background(), commandCtx, nil); status != mutationKilled || message != "" {
+	if status, message := mutationStatus(context.Background(), commandCtx, nil); status != MutationKilled || message != "" {
 		t.Fatal("timed-out mutant command should be killed")
 	}
 }
