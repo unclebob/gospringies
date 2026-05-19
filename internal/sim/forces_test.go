@@ -32,6 +32,29 @@ func TestSpringForcesUseEndpointIDsWhenIndexesAreStale(t *testing.T) {
 	}
 }
 
+func TestSpringEndpointResolutionCoversIDAndIndexContracts(t *testing.T) {
+	world := NewWorld()
+	_ = world.AddMass(Mass{ID: 10, Position: Vec2{X: 0, Y: 0}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 20, Position: Vec2{X: 12, Y: 0}, Mass: 1})
+
+	a, b, ok := world.springEndpointMasses(Spring{A: 0, B: 1})
+	if !ok || a.ID != 10 || b.ID != 20 {
+		t.Fatalf("index endpoints = %#v, %#v, %v", a, b, ok)
+	}
+	if _, _, ok := world.springEndpointMasses(Spring{A: -1, B: 1}); ok {
+		t.Fatal("negative index should not resolve")
+	}
+	if _, _, ok := world.springEndpointMasses(Spring{A: 0, B: len(world.Masses)}); ok {
+		t.Fatal("past-end index should not resolve")
+	}
+	if _, _, ok := world.springEndpointMasses(Spring{A: 0, B: 1, MassA: 10}); ok {
+		t.Fatal("partial ID endpoints should not fall back to indexes")
+	}
+	if _, _, ok := world.springEndpointMasses(Spring{A: 0, B: 1, MassA: 10, MassB: 99}); ok {
+		t.Fatal("missing ID endpoint should not resolve")
+	}
+}
+
 func TestSpringDampingActsAlongSpringDirection(t *testing.T) {
 	world := NewWorld()
 	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: 0, Y: 0}, Velocity: Vec2{X: 1, Y: 5}, Mass: 1})
@@ -284,6 +307,20 @@ func TestWallForceBoundariesAndHelpers(t *testing.T) {
 	_ = nearBottom.AddMass(Mass{ID: 2, Position: Vec2{X: 50, Y: 2}, Mass: 1})
 	assertVecEqual(t, nearBottom.EvaluateForces().ByMassID[2].Force, Vec2{Y: 4})
 
+	nearLeft := NewWorld()
+	nearLeft.Bounds = Bounds{Width: 100, Height: 100}
+	nearLeft.Parameters.EnableForce("wall repulsion", map[string]string{"magnitude": "8", "exponent": "1"})
+	nearLeft.Parameters.EnableWall("left")
+	_ = nearLeft.AddMass(Mass{ID: 3, Position: Vec2{X: 2, Y: 50}, Mass: 1})
+	assertVecEqual(t, nearLeft.EvaluateForces().ByMassID[3].Force, Vec2{X: 4})
+
+	nearTop := NewWorld()
+	nearTop.Bounds = Bounds{Width: 100, Height: 100}
+	nearTop.Parameters.EnableForce("wall repulsion", map[string]string{"magnitude": "8", "exponent": "1"})
+	nearTop.Parameters.EnableWall("top")
+	_ = nearTop.AddMass(Mass{ID: 4, Position: Vec2{X: 50, Y: 98}, Mass: 1})
+	assertVecEqual(t, nearTop.EvaluateForces().ByMassID[4].Force, Vec2{Y: -4})
+
 	outsideRight := NewWorld()
 	outsideRight.Bounds = Bounds{Width: 100, Height: 100}
 	outsideRight.Parameters.EnableForce("wall repulsion", map[string]string{"magnitude": "8", "exponent": "1"})
@@ -297,6 +334,22 @@ func TestWallForceBoundariesAndHelpers(t *testing.T) {
 	outsideBottom.Parameters.EnableWall("bottom")
 	_ = outsideBottom.AddMass(Mass{ID: 2, Position: Vec2{X: 50, Y: -1}, Mass: 1})
 	assertVecEqual(t, outsideBottom.EvaluateForces().ByMassID[2].Force, Vec2{})
+}
+
+func TestWallChecksIncludeExactSimulationBoundaries(t *testing.T) {
+	world := NewWorld()
+	world.Bounds = Bounds{Width: 100, Height: 80}
+
+	for _, check := range world.wallChecks(Mass{Position: Vec2{X: 0, Y: 0}}, 8) {
+		if (check.name == "bottom" || check.name == "left") && !check.inside {
+			t.Fatalf("%s boundary should be inside", check.name)
+		}
+	}
+	for _, check := range world.wallChecks(Mass{Position: Vec2{X: 100, Y: 80}}, 8) {
+		if (check.name == "right" || check.name == "top") && !check.inside {
+			t.Fatalf("%s boundary should be inside", check.name)
+		}
+	}
 }
 
 func TestCenterMassAndEnabledForceHelpers(t *testing.T) {

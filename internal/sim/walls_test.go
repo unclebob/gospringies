@@ -135,6 +135,64 @@ func TestWallCollisionActivationBoundaries(t *testing.T) {
 	}
 }
 
+func TestAllWallCollisionActivationBoundaries(t *testing.T) {
+	world := NewWorld()
+	for _, wall := range []string{"right", "bottom", "top"} {
+		world.Parameters.EnableWall(wall)
+	}
+
+	cases := []struct {
+		name         string
+		wall         string
+		position     Vec2
+		velocity     Vec2
+		active       bool
+		boundaryAxis float64
+	}{
+		{name: "right at boundary", wall: "right", position: Vec2{X: world.Bounds.Width}, velocity: Vec2{X: 1}},
+		{name: "right outside moving outward", wall: "right", position: Vec2{X: world.Bounds.Width + 1}, velocity: Vec2{X: 1}, active: true, boundaryAxis: world.Bounds.Width},
+		{name: "right outside with zero normal velocity", wall: "right", position: Vec2{X: world.Bounds.Width + 1}, velocity: Vec2{}},
+		{name: "right outside moving inward", wall: "right", position: Vec2{X: world.Bounds.Width + 1}, velocity: Vec2{X: -1}},
+		{name: "bottom at boundary", wall: "bottom", position: Vec2{Y: 0}, velocity: Vec2{Y: -1}},
+		{name: "bottom outside moving outward", wall: "bottom", position: Vec2{Y: -1}, velocity: Vec2{Y: -1}, active: true},
+		{name: "bottom outside with zero normal velocity", wall: "bottom", position: Vec2{Y: -1}, velocity: Vec2{}},
+		{name: "bottom outside moving inward", wall: "bottom", position: Vec2{Y: -1}, velocity: Vec2{Y: 1}},
+		{name: "top at boundary", wall: "top", position: Vec2{Y: world.Bounds.Height}, velocity: Vec2{Y: 1}},
+		{name: "top outside moving outward", wall: "top", position: Vec2{Y: world.Bounds.Height + 1}, velocity: Vec2{Y: 1}, active: true, boundaryAxis: world.Bounds.Height},
+		{name: "top outside with zero normal velocity", wall: "top", position: Vec2{Y: world.Bounds.Height + 1}, velocity: Vec2{}},
+		{name: "top outside moving inward", wall: "top", position: Vec2{Y: world.Bounds.Height + 1}, velocity: Vec2{Y: -1}},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			mass := Mass{ID: 1, Position: tt.position, Velocity: tt.velocity}
+			wall := namedCollisionWall(t, world, &mass, tt.wall)
+			if active := world.wallCollisionActive(wall); active != tt.active {
+				t.Fatalf("active = %t, want %t", active, tt.active)
+			}
+			if tt.active && wall.boundary != tt.boundaryAxis {
+				t.Fatalf("boundary = %v, want %v", wall.boundary, tt.boundaryAxis)
+			}
+		})
+	}
+}
+
+func TestBottomWallCollisionContract(t *testing.T) {
+	world := NewWorld()
+	world.Parameters.EnableWall("bottom")
+	mass := Mass{ID: 1, Position: Vec2{Y: -1}, Velocity: Vec2{Y: -2}}
+
+	wall := namedCollisionWall(t, world, &mass, "bottom")
+	if wall.name != "bottom" || wall.boundary != 0 {
+		t.Fatalf("bottom wall = %#v", wall)
+	}
+	if !wall.outside(mass.Position.Y) || !wall.movingOutward(mass.Velocity.Y) {
+		t.Fatal("bottom wall should be active for mass below the boundary and moving downward")
+	}
+	if wall.releaseForce(Vec2{Y: 3}) != 3 {
+		t.Fatal("bottom wall release force should use positive Y force")
+	}
+}
+
 func TestStuckWallContracts(t *testing.T) {
 	world := NewWorld()
 	world.Parameters.Set("stickiness", "10")
@@ -165,6 +223,32 @@ func TestStuckWallContracts(t *testing.T) {
 	}
 	if invalid.StuckWall != "" {
 		t.Fatalf("invalid stuck wall was not cleared: %#v", invalid)
+	}
+}
+
+func TestStuckWallKeepsOnlyNormalVelocityZero(t *testing.T) {
+	world := NewWorld()
+	world.Parameters.Set("stickiness", "10")
+	cases := []struct {
+		wall     string
+		position Vec2
+		velocity Vec2
+		want     Vec2
+	}{
+		{wall: "right", position: Vec2{X: world.Bounds.Width, Y: 2}, velocity: Vec2{X: 3, Y: 4}, want: Vec2{Y: 4}},
+		{wall: "bottom", position: Vec2{X: 2, Y: 0}, velocity: Vec2{X: 3, Y: -4}, want: Vec2{X: 3}},
+		{wall: "top", position: Vec2{X: 2, Y: world.Bounds.Height}, velocity: Vec2{X: 3, Y: 4}, want: Vec2{X: 3}},
+	}
+	for _, tt := range cases {
+		t.Run(tt.wall, func(t *testing.T) {
+			mass := Mass{ID: 1, Position: tt.position, Velocity: tt.velocity, StuckWall: tt.wall}
+			if !world.keepStuck(&mass, Vec2{}) {
+				t.Fatal("mass should remain stuck")
+			}
+			if mass.Velocity != tt.want {
+				t.Fatalf("velocity = %#v, want %#v", mass.Velocity, tt.want)
+			}
+		})
 	}
 }
 

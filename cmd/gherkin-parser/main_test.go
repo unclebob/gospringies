@@ -26,6 +26,13 @@ func TestRunRejectsWrongArgumentCount(t *testing.T) {
 	}
 }
 
+func TestRunReturnsFailureForMissingFeature(t *testing.T) {
+	outputPath := filepath.Join(t.TempDir(), "out", "project.json")
+	if code := run([]string{"gherkin-parser", "missing.feature", outputPath}); code != 1 {
+		t.Fatalf("exit code = %d", code)
+	}
+}
+
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {

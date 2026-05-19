@@ -23,6 +23,17 @@ func TestRunRejectsWrongArgumentCount(t *testing.T) {
 	}
 }
 
+func TestRunReturnsFailureForInvalidInput(t *testing.T) {
+	dir := t.TempDir()
+	irPath := filepath.Join(dir, "feature.json")
+	outputPath := filepath.Join(dir, "generated", "feature_acceptance_test.go")
+	writeFile(t, irPath, "{")
+
+	if code := run([]string{"acceptance-generator", irPath, outputPath}); code != 1 {
+		t.Fatalf("exit code = %d", code)
+	}
+}
+
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {

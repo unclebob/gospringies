@@ -38,3 +38,7 @@ func FromSimulation(s *sim.Simulation) Document {
 	}
 	return document
 }
+
+// mutate4go-manifest-begin
+// {"version":1,"tested_at":"2026-05-19T10:14:03-05:00","module_hash":"73b2505868e8218c4384ccc2ed5ff529c9df18dbe9d0dd9d2de1733a5e1ffab2","functions":[{"id":"func/FromSimulation","name":"FromSimulation","line":23,"end_line":40,"hash":"bdeb8ace35512f1a1ed273e489d778b331d24ce34b5a8a7315c5eda6c8ff916b"}]}
+// mutate4go-manifest-end

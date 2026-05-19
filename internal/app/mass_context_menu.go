@@ -1,12 +1,7 @@
 package app
 
 import (
-	"fmt"
 	"image"
-
-	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"springs/internal/sim"
 )
@@ -57,21 +52,6 @@ func (g *Game) openMassContextMenu(x int, y int) bool {
 
 func simVec(x int, y int) sim.Vec2 {
 	return sim.Vec2{X: float64(x), Y: float64(y)}
-}
-
-func (g *Game) drawMassContextMenu(screen *ebiten.Image) {
-	rect := g.massContextMenuRect()
-	vector.DrawFilledRect(screen, float32(rect.Min.X), float32(rect.Min.Y), float32(rect.Dx()), float32(rect.Dy()), panelColor, false)
-	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("Mass #%d", g.massMenu.MassID), rect.Min.X+8, rect.Min.Y+4)
-	for i, item := range g.massContextMenuItems() {
-		row := g.massContextMenuRowRect(i)
-		fill := controlColor
-		if i%2 == 1 {
-			fill = sectionColor
-		}
-		vector.DrawFilledRect(screen, float32(row.Min.X), float32(row.Min.Y), float32(row.Dx()), float32(row.Dy()), fill, false)
-		ebitenutil.DebugPrintAt(screen, item.Label, row.Min.X+8, row.Min.Y+4)
-	}
 }
 
 func (g *Game) clickMassContextMenu(x int, y int) {
@@ -148,3 +128,7 @@ func (g *Game) setMassValue(id int, value float64) {
 		}
 	}
 }
+
+// mutate4go-manifest-begin
+// {"version":1,"tested_at":"2026-05-19T12:09:07-05:00","module_hash":"d3ff9193e239f8a82f492e1e2480bf4826cba929e7c3ce8d0faafa9c2efb03b3","functions":[{"id":"func/Game.openContextAt","name":"Game.openContextAt","line":27,"end_line":40,"hash":"94918b44c6841c4bf14bfeed0f6362959d223736b5d7af011448857d719115d4"},{"id":"func/Game.openMassContextMenu","name":"Game.openMassContextMenu","line":42,"end_line":51,"hash":"41ac01d73377c3e206abb5c9f995a95e24c3c14c271b38461f1e867ef4717b25"},{"id":"func/simVec","name":"simVec","line":53,"end_line":55,"hash":"426903adf9b98bd88fe3ce99be2ed5d79a1e7d37fe60d041fa024fd87aedf7a2"},{"id":"func/Game.clickMassContextMenu","name":"Game.clickMassContextMenu","line":57,"end_line":70,"hash":"6f1b40d173852eb8b35137cfbb6e86b255a41459b720f31cf39a0c76228cb02a"},{"id":"func/Game.massContextMenuItems","name":"Game.massContextMenuItems","line":72,"end_line":89,"hash":"b03e27ff56b8ef73bbf3d30181bce8f484f69ed54cd70b3275789c56beaefa04"},{"id":"func/fixedToggleLabel","name":"fixedToggleLabel","line":91,"end_line":96,"hash":"669d646e0a581346a37342be0e36584c8af9f3cdd2188461bfaf351aa7c0d106"},{"id":"func/Game.massContextMenuRect","name":"Game.massContextMenuRect","line":98,"end_line":104,"hash":"4cc0c0824b67af7b0a70ded622c21e56807942174026db3bd0ed2e38c2667cc5"},{"id":"func/Game.massContextMenuRowRect","name":"Game.massContextMenuRowRect","line":106,"end_line":110,"hash":"7ce70e9244fc1795f00682621e6fdba6a2ba4a22bd7fecc2fef90257400aaad6"},{"id":"func/Game.setMassFixed","name":"Game.setMassFixed","line":112,"end_line":120,"hash":"af5459d5e85a813382383f4536d5b17e5e59f62c690e628c1d0716c5f6fdc985"},{"id":"func/Game.setMassValue","name":"Game.setMassValue","line":122,"end_line":130,"hash":"03ba2eb968b5090cfde01ff8c4230032a0fe639bb48732a32a9ae434393e1d97"}]}
+// mutate4go-manifest-end

@@ -171,8 +171,71 @@ func TestDomainModelHelpersReportFailures(t *testing.T) {
 	if err := assertValidationReason(sim.ErrDuplicateID, "missing spring endpoint"); err == nil {
 		t.Fatal("expected validation reason mismatch")
 	}
-	if _, _, _, err := massFields(map[string]string{}, "id", "x", "y"); err == nil {
-		t.Fatal("expected missing mass fields error")
+	if objectType, id, err := objectTypeAndID(map[string]string{"id": "1"}); err == nil {
+		t.Fatal("expected missing object type error")
+	} else if objectType != "" || id != 0 {
+		t.Fatalf("expected zero values on missing object type, got %q %d", objectType, id)
+	}
+	if objectType, id, err := objectTypeAndID(map[string]string{"object_type": "mass"}); err == nil {
+		t.Fatal("expected missing object id error")
+	} else if objectType != "" || id != 0 {
+		t.Fatalf("expected zero values on missing object id, got %q %d", objectType, id)
+	}
+	for _, tt := range []struct {
+		name   string
+		fields map[string]string
+	}{
+		{name: "missing id", fields: map[string]string{"x": "1", "y": "2"}},
+		{name: "missing x", fields: map[string]string{"id": "1", "y": "2"}},
+		{name: "missing y", fields: map[string]string{"id": "1", "x": "2"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			id, x, y, err := massFields(tt.fields, "id", "x", "y")
+			if err == nil {
+				t.Fatal("expected missing mass fields error")
+			}
+			if id != 0 || x != 0 || y != 0 {
+				t.Fatalf("expected zero values on missing mass fields, got %d %f %f", id, x, y)
+			}
+		})
+	}
+	if err := assertVec("point", sim.Vec2{X: 0.000001, Y: 0}, 0, 0); err != nil {
+		t.Fatalf("expected exact x tolerance to pass: %v", err)
+	}
+	if err := assertVec("point", sim.Vec2{X: 0, Y: 0.000001}, 0, 0); err != nil {
+		t.Fatalf("expected exact y tolerance to pass: %v", err)
+	}
+	if err := assertFloat("value", 0.000001, 0); err != nil {
+		t.Fatalf("expected exact float tolerance to pass: %v", err)
+	}
+	if err := assertDomainCount(&world{domainWorld: sim.NewWorld()}, map[string]string{}, "masses", "mass_count", massCount); err == nil {
+		t.Fatal("expected missing domain count error")
+	}
+	if err := assertVecExample("point", sim.Vec2{}, map[string]string{"x": "1"}, "x", "y"); err == nil {
+		t.Fatal("expected missing vector example error")
+	}
+	if err := assertFloatExample("value", 0, map[string]string{}, "value"); err == nil {
+		t.Fatal("expected missing float example error")
+	}
+	if err := assertDomainMassFixed(&world{}, map[string]string{}); err == nil {
+		t.Fatal("expected missing fixed value error")
+	}
+	if err := assertDomainSpringEndpoints(&world{}, map[string]string{"mass_b": "2"}); err == nil {
+		t.Fatal("expected missing spring mass A error")
+	}
+	if err := assertDomainSpringEndpoints(&world{}, map[string]string{"mass_a": "1"}); err == nil {
+		t.Fatal("expected missing spring mass B error")
+	}
+	if err := assertDomainSpringEndpoints(&world{lookedSpring: sim.Spring{MassA: 9, MassB: 2}}, map[string]string{"mass_a": "1", "mass_b": "2"}); err == nil {
+		t.Fatal("expected spring mass A mismatch")
+	}
+	if err := assertDomainSpringEndpoints(&world{lookedSpring: sim.Spring{MassA: 1, MassB: 9}}, map[string]string{"mass_a": "1", "mass_b": "2"}); err == nil {
+		t.Fatal("expected spring mass B mismatch")
+	}
+	if err := assertDomainValidationReason(&world{validationErr: sim.ErrDuplicateID}, map[string]string{}); err == nil {
+		t.Fatal("expected missing validation reason error")
+	} else if err.Error() != "missing example value reason" {
+		t.Fatalf("expected missing validation reason error, got %v", err)
 	}
 }
 
@@ -192,8 +255,15 @@ func TestDomainModelHandlerHelpers(t *testing.T) {
 		"vx": "3.5", "vy": "4.5",
 		"mass_value": "5.5", "elasticity": "0.8", "fixed": "true",
 	}
+	if err := addDomainMass(w, massExample); err != nil {
+		t.Fatalf("addDomainMass returned error: %v", err)
+	}
+	if mass, ok := w.domainWorld.MassByID(1); !ok {
+		t.Fatal("expected domain mass to be added")
+	} else if mass.Mass != 1 {
+		t.Fatalf("expected default domain mass value 1, got %f", mass.Mass)
+	}
 	for _, fn := range []stepHandler{
-		addDomainMass,
 		setDomainMassVelocity,
 		setDomainMassValue,
 		setDomainMassElasticity,
@@ -208,6 +278,13 @@ func TestDomainModelHandlerHelpers(t *testing.T) {
 		if err := fn(w, massExample); err != nil {
 			t.Fatalf("mass handler returned error: %v", err)
 		}
+	}
+	mass, ok := w.domainWorld.MassByID(1)
+	if !ok {
+		t.Fatal("expected domain mass to be added")
+	}
+	if mass.Mass != 5.5 {
+		t.Fatalf("expected updated mass value 5.5, got %f", mass.Mass)
 	}
 }
 
@@ -246,6 +323,11 @@ func TestDomainValidationHandlers(t *testing.T) {
 	if err := addExistingDomainObject(w, duplicateMass); err != nil {
 		t.Fatal(err)
 	}
+	if mass, ok := w.domainWorld.MassByID(1); !ok {
+		t.Fatal("expected existing duplicate mass")
+	} else if mass.Mass != 1 {
+		t.Fatalf("expected existing duplicate mass value 1, got %f", mass.Mass)
+	}
 	if err := addDuplicateDomainObject(w, duplicateMass); err != nil {
 		t.Fatal(err)
 	}
@@ -258,11 +340,42 @@ func TestDomainValidationHandlers(t *testing.T) {
 	if err := addExistingDomainObject(w, duplicateSpring); err != nil {
 		t.Fatal(err)
 	}
+	if mass, ok := w.domainWorld.MassByID(1); !ok {
+		t.Fatal("expected first endpoint mass")
+	} else if mass.Mass != 1 {
+		t.Fatalf("expected first endpoint mass value 1, got %f", mass.Mass)
+	}
+	if mass, ok := w.domainWorld.MassByID(2); !ok {
+		t.Fatal("expected second endpoint mass")
+	} else if mass.Mass != 1 {
+		t.Fatalf("expected second endpoint mass value 1, got %f", mass.Mass)
+	}
 	if err := addDuplicateDomainObject(w, duplicateSpring); err != nil {
 		t.Fatal(err)
 	}
+	if !errors.Is(w.validationErr, sim.ErrDuplicateID) {
+		t.Fatalf("expected duplicate spring error, got %v", w.validationErr)
+	}
 	if err := assertDomainValidationReason(w, duplicateSpring); err != nil {
 		t.Fatal(err)
+	}
+
+	w = &world{domainWorld: sim.NewWorld()}
+	if err := w.domainWorld.AddMass(sim.Mass{ID: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.domainWorld.AddMass(sim.Mass{ID: 2}); err != nil {
+		t.Fatal(err)
+	}
+	if err := addDuplicateDomainObject(w, map[string]string{"object_type": "spring", "id": "6"}); err != nil {
+		t.Fatal(err)
+	}
+	spring, ok := w.domainWorld.SpringByID(6)
+	if !ok {
+		t.Fatal("expected added spring")
+	}
+	if spring.MassA != 1 || spring.MassB != 2 {
+		t.Fatalf("expected added spring endpoints 1,2 got %d,%d", spring.MassA, spring.MassB)
 	}
 
 	missingEndpoint := map[string]string{"existing_mass": "1", "x": "0", "y": "0", "spring_id": "2", "mass_a": "1", "mass_b": "9", "reason": "missing spring endpoint"}
@@ -1068,6 +1181,25 @@ func TestEditModeDetailsHelpersValidateSetupAndAssertions(t *testing.T) {
 
 func TestEditModeDetailsSelectionHelpersValidateBranches(t *testing.T) {
 	w := &world{}
+	toggle, err := editClickToggle("left clicks")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if toggle {
+		t.Fatal("left clicks should replace selection")
+	}
+	toggle, err = editClickToggle("shift left clicks")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !toggle {
+		t.Fatal("shift left clicks should toggle selection")
+	}
+	if toggle, err := editClickToggle("unsupported"); err == nil {
+		t.Fatal("expected unsupported click action")
+	} else if toggle {
+		t.Fatal("unsupported click action should not toggle selection")
+	}
 	if err := setInitialEditSelection(w, map[string]string{"initial_selection": "1,2"}); err != nil {
 		t.Fatal(err)
 	}
@@ -1106,6 +1238,11 @@ func TestEditModeDetailsSelectionHelpersValidateBranches(t *testing.T) {
 	}
 	if err := dragSelectionBox(boxWorld, map[string]string{"modifier": "unsupported"}); err == nil {
 		t.Fatal("expected unsupported selection-box modifier")
+	}
+	if id, err := parseEditIDPart("bad", "ids", "bad"); err == nil {
+		t.Fatal("expected invalid edit id")
+	} else if id != 0 {
+		t.Fatalf("expected zero id on invalid edit id, got %d", id)
 	}
 }
 
@@ -1945,6 +2082,21 @@ func TestForceEvaluationAndSimulationStepHelperBranches(t *testing.T) {
 	if len(w.domainWorld.Masses) != 2 {
 		t.Fatalf("masses = %#v", w.domainWorld.Masses)
 	}
+	assertSimulationMassPosition(t, w.domainWorld, 1, sim.Vec2{X: 0, Y: 0})
+	assertSimulationMassPosition(t, w.domainWorld, 2, sim.Vec2{X: 50, Y: 50})
+	assertSimulationMassValue(t, w.domainWorld, 1, 1)
+	assertSimulationMassValue(t, w.domainWorld, 2, 1)
+
+	w = &world{}
+	if err := createMovableMassAffectedByForce(w, map[string]string{"force": "wall repulsion"}); err != nil {
+		t.Fatal(err)
+	}
+	assertSimulationMassPosition(t, w.domainWorld, 1, sim.Vec2{X: 1, Y: 50})
+	if velocity := w.domainWorld.Masses[0].Velocity; velocity != (sim.Vec2{X: 2, Y: 0}) {
+		t.Fatalf("movable mass velocity = %#v", velocity)
+	}
+	assertSimulationMassPosition(t, &sim.Simulation{Masses: []sim.Mass{{ID: 1, Position: forceMassPosition("gravity")}}}, 1, sim.Vec2{X: -1, Y: 50})
+
 	if err := createMassStartPosition(&world{}, map[string]string{"mass_id": "7", "start_position": "initial"}); err != nil {
 		t.Fatal(err)
 	}
@@ -1965,6 +2117,70 @@ func TestForceEvaluationAndSimulationStepHelperBranches(t *testing.T) {
 	}
 	if _, err := frameRateValue(map[string]string{"frame_rate": "120 fps"}); err == nil {
 		t.Fatal("expected unsupported frame rate")
+	}
+}
+
+func TestForceEvaluationPureHelpers(t *testing.T) {
+	w := &world{}
+	if err := createSpringForceWorld(w, map[string]string{"mass_a": "3", "mass_b": "4"}); err != nil {
+		t.Fatal(err)
+	}
+	assertSimulationMassPosition(t, w.domainWorld, 3, sim.Vec2{X: 0, Y: 0})
+	assertSimulationMassPosition(t, w.domainWorld, 4, sim.Vec2{X: 12, Y: 0})
+	assertSimulationMassValue(t, w.domainWorld, 3, 1)
+	assertSimulationMassValue(t, w.domainWorld, 4, 1)
+	if spring := w.domainWorld.Springs[0]; spring.ID != 1 || spring.MassA != 3 || spring.MassB != 4 || spring.RestLength != 10 || spring.Stiffness != 1 || spring.SpringConstant != 1 {
+		t.Fatalf("default spring = %#v", spring)
+	}
+
+	massA, massB, err := springForceMassIDs(map[string]string{"mass_a": "3", "mass_b": "4"})
+	if err != nil || massA != 3 || massB != 4 {
+		t.Fatalf("springForceMassIDs = %d, %d, %v", massA, massB, err)
+	}
+	if massA, massB, err := springForceMassIDs(map[string]string{"mass_a": "bad", "mass_b": "4"}); err == nil || massA != 0 || massB != 0 {
+		t.Fatalf("expected bad mass_a zeros, got %d, %d, %v", massA, massB, err)
+	}
+	if massA, massB, err := springForceMassIDs(map[string]string{"mass_a": "3", "mass_b": "bad"}); err == nil || massA != 0 || massB != 0 {
+		t.Fatalf("expected bad mass_b zeros, got %d, %d, %v", massA, massB, err)
+	}
+
+	massID, velocity, err := massVelocityFromExample(map[string]string{"mass": "9", "velocity": "moving"}, "mass", "velocity")
+	if err != nil || massID != 9 || velocity != (sim.Vec2{X: 1, Y: 5}) {
+		t.Fatalf("massVelocityFromExample = %d, %#v, %v", massID, velocity, err)
+	}
+	for _, example := range []map[string]string{
+		{"mass": "bad", "velocity": "moving"},
+		{"mass": "9"},
+		{"mass": "9", "velocity": "fast"},
+	} {
+		if massID, velocity, err := massVelocityFromExample(example, "mass", "velocity"); err == nil || massID != 0 || velocity != (sim.Vec2{}) {
+			t.Fatalf("expected bad velocity example zeros, got %d, %#v, %v", massID, velocity, err)
+		}
+	}
+
+	if velocity, err := namedVelocity("still"); err != nil || velocity != (sim.Vec2{}) {
+		t.Fatalf("still velocity = %#v, %v", velocity, err)
+	}
+	if !vecClose(sim.Vec2{}, sim.Vec2{X: 0.000001, Y: 0.000001}) {
+		t.Fatal("expected vecClose boundary match")
+	}
+	if !vecClose(sim.Vec2{X: 1, Y: 2}, sim.Vec2{X: 0.9999995, Y: 2}) {
+		t.Fatal("expected vecClose lower X tolerance match")
+	}
+	if !vecClose(sim.Vec2{X: 1, Y: 2}, sim.Vec2{X: 1, Y: 1.9999995}) {
+		t.Fatal("expected vecClose lower Y tolerance match")
+	}
+	if vecClose(sim.Vec2{X: 1, Y: 2}, sim.Vec2{X: -0.9999995, Y: 2}) {
+		t.Fatal("expected mirrored X values to differ")
+	}
+	if vecClose(sim.Vec2{X: 1, Y: 2}, sim.Vec2{X: 1, Y: -1.9999995}) {
+		t.Fatal("expected mirrored Y values to differ")
+	}
+	if vecClose(sim.Vec2{X: 3, Y: 2}, sim.Vec2{X: -3, Y: 2}) {
+		t.Fatal("expected opposite X values to differ")
+	}
+	if simDot(sim.Vec2{X: 2, Y: 3}, sim.Vec2{X: 5, Y: 7}) != 31 {
+		t.Fatal("unexpected dot product")
 	}
 }
 
@@ -2191,6 +2407,19 @@ func TestForceEvaluationHandlerHelpers(t *testing.T) {
 			t.Fatalf("force handler returned error: %v", err)
 		}
 	}
+	assertSimulationMassPosition(t, w.domainWorld, 1, sim.Vec2{X: 0, Y: 0})
+	assertSimulationMassPosition(t, w.domainWorld, 2, sim.Vec2{X: 12, Y: 0})
+	assertSimulationMassValue(t, w.domainWorld, 1, 1)
+	assertSimulationMassValue(t, w.domainWorld, 2, 1)
+	if spring := w.domainWorld.Springs[0]; spring.ID != 1 || spring.MassA != 1 || spring.MassB != 2 || spring.RestLength != 10 || spring.SpringConstant != 12 || spring.Damping != 0.5 {
+		t.Fatalf("spring = %#v", spring)
+	}
+	if velocity := w.domainWorld.Masses[0].Velocity; velocity != (sim.Vec2{X: 1, Y: 5}) {
+		t.Fatalf("mass A velocity = %#v", velocity)
+	}
+	if velocity := w.domainWorld.Masses[1].Velocity; velocity != (sim.Vec2{}) {
+		t.Fatalf("mass B velocity = %#v", velocity)
+	}
 
 	for _, force := range []string{"gravity", "viscosity", "wall repulsion", "center attraction", "center of mass attraction"} {
 		w = &world{}
@@ -2214,6 +2443,11 @@ func TestForceEvaluationHandlerHelpers(t *testing.T) {
 	if err := createMassFixedState(w, fixedExample); err != nil {
 		t.Fatal(err)
 	}
+	assertSimulationMassPosition(t, w.domainWorld, 1, sim.Vec2{X: 10, Y: 10})
+	assertSimulationMassValue(t, w.domainWorld, 1, 1)
+	if !w.domainWorld.Masses[0].Fixed {
+		t.Fatal("expected fixed mass")
+	}
 	if err := affectMassByForce(w, fixedExample); err != nil {
 		t.Fatal(err)
 	}
@@ -2233,6 +2467,8 @@ func TestForceEvaluationHandlerHelpers(t *testing.T) {
 		if err := createMassNearInsideWall(w, example); err != nil {
 			t.Fatal(err)
 		}
+		assertSimulationMassPosition(t, w.domainWorld, 1, insideWallPosition(wall))
+		assertSimulationMassValue(t, w.domainWorld, 1, 1)
 		if err := evaluateForces(w, nil); err != nil {
 			t.Fatal(err)
 		}
@@ -2253,6 +2489,38 @@ func TestForceEvaluationHandlersReportFailures(t *testing.T) {
 	if err := setMassNamedVelocity(w, map[string]string{"mass_a": "9", "velocity_a": "moving"}, "mass_a", "velocity_a"); err == nil {
 		t.Fatal("expected missing mass error")
 	}
+	_ = w.domainWorld.AddMass(sim.Mass{ID: 1})
+	_ = w.domainWorld.AddMass(sim.Mass{ID: 2})
+	if err := setMassVelocityByID(w.domainWorld, 2, sim.Vec2{X: 6, Y: 7}); err != nil {
+		t.Fatal(err)
+	}
+	if w.domainWorld.Masses[0].Velocity != (sim.Vec2{}) || w.domainWorld.Masses[1].Velocity != (sim.Vec2{X: 6, Y: 7}) {
+		t.Fatalf("velocities = %#v", w.domainWorld.Masses)
+	}
+	if err := setSpringFloat(&world{domainWorld: sim.NewWorld()}, map[string]string{"rest_length": "bad"}, "rest_length", setSpringRestLength); err == nil {
+		t.Fatal("expected missing spring before float parse")
+	}
+	springWorld := sim.NewWorld()
+	_ = springWorld.AddMass(sim.Mass{ID: 1, Mass: 1})
+	_ = springWorld.AddMass(sim.Mass{ID: 2, Mass: 1})
+	_ = springWorld.AddSpring(sim.Spring{ID: 1, MassA: 1, MassB: 2})
+	if err := setSpringFloat(&world{domainWorld: springWorld}, map[string]string{"rest_length": "bad"}, "rest_length", setSpringRestLength); err == nil {
+		t.Fatal("expected bad spring float")
+	}
+	if err := assertSpringForcesEqualOpposite(&world{}, map[string]string{"mass_a": "bad", "mass_b": "2"}); err == nil {
+		t.Fatal("expected bad mass_a assertion")
+	}
+	if err := assertSpringForcesEqualOpposite(&world{}, map[string]string{"mass_a": "1", "mass_b": "bad"}); err == nil {
+		t.Fatal("expected bad mass_b assertion")
+	}
+	for _, evaluation := range []sim.ForceEvaluation{
+		{ByMassID: map[int]sim.MassForces{1: {Force: sim.Vec2{X: 0, Y: 0}}}},
+		{ByMassID: map[int]sim.MassForces{1: {Force: sim.Vec2{X: 1, Y: 1}}}},
+	} {
+		if err := assertSpringDampingDirection(&world{forceEvaluation: evaluation}, nil); err == nil {
+			t.Fatal("expected bad damping direction")
+		}
+	}
 	if err := affectMassByForce(&world{}, map[string]string{"force": "wind"}); err == nil {
 		t.Fatal("expected unsupported force")
 	}
@@ -2262,6 +2530,20 @@ func TestForceEvaluationHandlersReportFailures(t *testing.T) {
 	}
 	if err := assertMassAcceleration(&world{}, map[string]string{"mass_id": "1", "acceleration": "moving"}); err == nil {
 		t.Fatal("expected unsupported acceleration expectation")
+	}
+	if err := assertWallForceTowardInside(&world{}, map[string]string{"mass_id": "bad", "wall": "top"}); err == nil {
+		t.Fatal("expected bad wall mass id")
+	}
+	if err := assertWallForceTowardInside(&world{}, map[string]string{"mass_id": "1"}); err == nil {
+		t.Fatal("expected missing wall")
+	}
+	w = &world{forceEvaluation: sim.ForceEvaluation{ByMassID: map[int]sim.MassForces{1: {Force: sim.Vec2{X: 1, Y: 0}}}}}
+	if err := assertWallForceTowardInside(w, map[string]string{"mass_id": "1", "wall": "top"}); err == nil {
+		t.Fatal("expected sideways wall force")
+	}
+	w = &world{forceEvaluation: sim.ForceEvaluation{ByMassID: map[int]sim.MassForces{1: {Force: sim.Vec2{Y: -0.5}}}}}
+	if err := assertWallForceTowardInside(w, map[string]string{"mass_id": "1", "wall": "top"}); err != nil {
+		t.Fatal(err)
 	}
 }
 

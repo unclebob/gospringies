@@ -5,17 +5,21 @@ import "math"
 const fixedMassCollisionRadius = 4
 
 func (s *Simulation) applyMassCollisions() {
-	force, ok := s.enabledForce("mass collision")
-	if !ok || force.Enabled != "true" {
+	_, ok := s.enabledForce("mass collision")
+	if !ok {
 		return
 	}
 	for i := range s.Masses {
 		m1 := &s.Masses[i]
-		for j := i + 1; j < len(s.Masses); j++ {
+		for j := firstCollisionPartnerIndex(i); j < len(s.Masses); j++ {
 			m2 := &s.Masses[j]
 			s.applyMassCollision(m1, m2)
 		}
 	}
+}
+
+func firstCollisionPartnerIndex(index int) int {
+	return index + 1
 }
 
 func (s *Simulation) applyMassCollision(m1, m2 *Mass) {
@@ -57,7 +61,19 @@ func collisionGeometryFor(m1, m2 Mass) (collisionGeometry, bool) {
 }
 
 func collisionVelocitiesSeparating(m1Velocity, m2Velocity Vec2, geometry collisionGeometry) bool {
-	return (m1Velocity.X-m2Velocity.X)*geometry.dx <= 0 && (m1Velocity.Y-m2Velocity.Y)*geometry.dy <= 0
+	return axisVelocitiesSeparating(m1Velocity.X-m2Velocity.X, geometry.dx) &&
+		axisVelocitiesSeparating(m1Velocity.Y-m2Velocity.Y, geometry.dy)
+}
+
+func axisVelocitiesSeparating(relativeVelocity, displacement float64) bool {
+	switch {
+	case displacement > 0:
+		return relativeVelocity <= 0
+	case displacement < 0:
+		return relativeVelocity >= 0
+	default:
+		return true
+	}
 }
 
 func (g *collisionGeometry) avoidVerticalDivision() {
@@ -97,11 +113,9 @@ func MassRadius(mass Mass) float64 {
 		return fixedMassCollisionRadius
 	}
 	radius := int(2 * math.Log(4*effectiveCollisionMass(mass)+1))
-	if radius < 1 {
-		radius = 1
-	}
-	if radius > 64 {
-		radius = 64
-	}
-	return float64(radius)
+	return math.Min(64, math.Max(1, float64(radius)))
 }
+
+// mutate4go-manifest-begin
+// {"version":1,"tested_at":"2026-05-19T09:50:45-05:00","module_hash":"8e823fb92e4ced4abdbfe4581caefed1aafae71c9ebe38e4e89c126416b76edf","functions":[{"id":"func/Simulation.applyMassCollisions","name":"Simulation.applyMassCollisions","line":7,"end_line":19,"hash":"5379009637bed15470b5620c7ac9404b7f9365f20d5f79bb612186bc72112cff"},{"id":"func/firstCollisionPartnerIndex","name":"firstCollisionPartnerIndex","line":21,"end_line":23,"hash":"c1b7d5bed0f8810a1fc6b5eff3c2c8e2fe0c00728efb59331a2a798357d75cc7"},{"id":"func/Simulation.applyMassCollision","name":"Simulation.applyMassCollision","line":25,"end_line":38,"hash":"586096d3e011ee19bee0d952e16ac54bdd38a02321ff92dc20c7ab567a5db1c4"},{"id":"func/collisionGeometryFor","name":"collisionGeometryFor","line":48,"end_line":61,"hash":"4aede77bbffb3a3ab973a50e3fd867499c9ddb09ccc28a0622f0061ea6381f72"},{"id":"func/collisionVelocitiesSeparating","name":"collisionVelocitiesSeparating","line":63,"end_line":66,"hash":"f52eae3df0f4825de2a2a3752b1426b6cd90fd6013b578e79d862ac13258adc8"},{"id":"func/axisVelocitiesSeparating","name":"axisVelocitiesSeparating","line":68,"end_line":77,"hash":"b97093dba711234b832aed6df9635b9bfe47361bd9463f57ad1defd61ceb89c8"},{"id":"func/collisionGeometry.avoidVerticalDivision","name":"collisionGeometry.avoidVerticalDivision","line":79,"end_line":83,"hash":"88cccca7591ad7afa29e256d09bfd500d8b8c686cb0ffa3ce77e5ac229a59223"},{"id":"func/applyCollisionVelocity","name":"applyCollisionVelocity","line":85,"end_line":94,"hash":"cf26b30421af198e20ff169771094969463810af774fc1f6d74b3a488f503d7a"},{"id":"func/collisionRatio","name":"collisionRatio","line":96,"end_line":102,"hash":"95d5ae0e55e9f5b6c3190e99f44d99369e80ac845a32f82a654401b73a2e5249"},{"id":"func/effectiveCollisionMass","name":"effectiveCollisionMass","line":104,"end_line":109,"hash":"7e5e2a521ed0f604789ebf8219cc8ea5c730429b3fe678868b30bba111ed9684"},{"id":"func/MassRadius","name":"MassRadius","line":111,"end_line":117,"hash":"3c4415b5dbb666c2192df8b4cd5b580f0565990797c35d6d435ab4f5ccc12bf5"}]}
+// mutate4go-manifest-end
