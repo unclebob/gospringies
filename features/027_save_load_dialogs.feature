@@ -48,3 +48,17 @@ Scenario Outline: load picker reads saved files from saves
 Examples:
   | save_file     | world_state   | saved_path           |
   | lab_scene.xsp | simple masses | saves/lab_scene.xsp  |
+
+Scenario Outline: load picker refreshes saved files each time it opens
+  Given saved XSP file <old_save_file> exists in saves
+  When the coder opens the load picker
+  And saved XSP file <new_save_file> exists in saves with <world_state>
+  And the coder opens the load picker
+  Then load picker should show <new_save_file> before <separator>
+  When the coder chooses load picker entry <new_save_file>
+  Then loaded world should include <world_state>
+  And current file path should be <saved_path>
+
+Examples:
+  | old_save_file | new_save_file  | world_state   | separator | saved_path              |
+  | lab_scene.xsp | simple hex.xsp | simple masses | separator | saves/simple hex.xsp    |
