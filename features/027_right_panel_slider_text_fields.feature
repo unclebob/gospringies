@@ -1,3 +1,4 @@
+# mutation-stamp: sha256=ea8cdbe7035c9c7e8f145eb8a349db1cc621d55d64371b8b14db79ae4764c05b
 Feature: Right panel slider text fields
 
 Background:

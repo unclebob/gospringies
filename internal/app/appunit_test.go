@@ -67,7 +67,7 @@ func TestAppUnitVisibleControlLayoutAndReport(t *testing.T) {
 	if inspectorLeft() != screenWidth-inspectorWidth {
 		t.Fatalf("inspector left = %d", inspectorLeft())
 	}
-	for _, name := range []string{"gravity slider", "speed slider", "viscosity slider"} {
+	for _, name := range []string{"mass slider", "gravity slider", "stick slider", "speed slider", "viscosity slider"} {
 		if !isSliderControl(name) {
 			t.Fatalf("%q should be a slider", name)
 		}
@@ -79,26 +79,24 @@ func TestAppUnitVisibleControlLayoutAndReport(t *testing.T) {
 	x := inspectorLeft() + 16
 	right := screenWidth - 16
 	half := (right - x - 8) / 2
+	label, slider, text := numericSettingRects(68)
 	wantControls := map[string]image.Rectangle{
-		"mass parameter":           image.Rect(x, 68, x+half, 88),
-		"elasticity parameter":     image.Rect(x+half+8, 68, right, 88),
-		"kspring parameter":        image.Rect(x, 148, x+half, 168),
-		"kdamp parameter":          image.Rect(x+half+8, 148, right, 168),
-		"gravity force":            image.Rect(x, 230, right, 250),
-		"gravity slider":           image.Rect(x, 256, right, 286),
-		"center attraction force":  image.Rect(x, 292, x+half, 312),
-		"center mass force":        image.Rect(x+half+8, 292, right, 312),
-		"wall repulsion force":     image.Rect(x, 318, x+half, 338),
-		"mass collision force":     image.Rect(x+half+8, 318, right, 338),
-		"top wall toggle":          image.Rect(x, 414, x+half, 434),
-		"bottom wall toggle":       image.Rect(x+half+8, 414, right, 434),
-		"left wall toggle":         image.Rect(x, 440, x+half, 460),
-		"right wall toggle":        image.Rect(x+half+8, 440, right, 460),
-		"grid snap toggle":         image.Rect(x, 514, x+half, 534),
-		"show springs toggle":      image.Rect(x+half+8, 514, right, 534),
-		"timestep parameter":       image.Rect(x, 638, x+half, 658),
-		"precision parameter":      image.Rect(x+half+8, 638, right, 658),
-		"adaptive timestep toggle": image.Rect(x, 664, right, 684),
+		"mass label":               label,
+		"mass slider":              slider,
+		"mass text field":          text,
+		"gravity force":            image.Rect(x, 382, x+half, 402),
+		"gravity slider":           image.Rect(x+176, 278, right-80, 298),
+		"center attraction force":  image.Rect(x+half+8, 382, right, 402),
+		"center mass force":        image.Rect(x, 408, x+half, 428),
+		"wall repulsion force":     image.Rect(x+half+8, 408, right, 428),
+		"mass collision force":     image.Rect(x, 434, right, 454),
+		"top wall toggle":          image.Rect(x, 510, x+half, 530),
+		"bottom wall toggle":       image.Rect(x+half+8, 510, right, 530),
+		"left wall toggle":         image.Rect(x, 536, x+half, 556),
+		"right wall toggle":        image.Rect(x+half+8, 536, right, 556),
+		"grid snap toggle":         image.Rect(x, 724, x+half, 744),
+		"show springs toggle":      image.Rect(x+half+8, 724, right, 744),
+		"adaptive timestep toggle": image.Rect(x, 750, right, 770),
 	}
 	controls := map[string]image.Rectangle{}
 	for _, control := range inspectorControls() {
@@ -111,7 +109,7 @@ func TestAppUnitVisibleControlLayoutAndReport(t *testing.T) {
 	}
 
 	sections := inspectorSections()
-	if len(sections) != 5 || sections[0].Rect != image.Rect(x, 44, right, 64) || sections[4].Rect != image.Rect(x, 486, right, 508) {
+	if len(sections) != 5 || sections[0].Rect != image.Rect(x, 44, right, 64) || sections[4].Rect != image.Rect(x, 570, right, 590) {
 		t.Fatalf("inspector sections = %#v", sections)
 	}
 

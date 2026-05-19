@@ -60,6 +60,10 @@ type Game struct {
 	controlDown       bool
 	throwDown         bool
 	activeSlider      string
+	focusedNumeric    string
+	numericInputText  string
+	numericInputTicks int
+	numericInputFresh bool
 	massMenu          massContextMenu
 	valueDialog       valueDialog
 	saveDialog        saveFilenameDialog
@@ -101,6 +105,7 @@ func Run() error {
 
 func (g *Game) Update() error {
 	g.inputActive = true
+	g.tickNumericTextField()
 	g.advanceSimulationFrame()
 	return nil
 }

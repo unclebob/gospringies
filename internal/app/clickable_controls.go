@@ -38,7 +38,12 @@ func (g *Game) ClickAt(x int, y int) bool {
 			g.editMenuOpen = false
 			return true
 		}
+		g.focusedNumeric = ""
 		return false
+	}
+	if setting, ok := numericSettingForTextField(control.Name); ok {
+		g.focusNumericSettingTextField(setting)
+		return true
 	}
 	if isSliderControl(control.Name) {
 		g.activeSlider = control.Name
@@ -132,22 +137,11 @@ var inspectorControlActions = map[string]func(*Game){
 }
 
 func (g *Game) setSliderAt(name string, x int) {
-	control, ok := visibleControlWithName(name)
+	setting, ok := numericSettingForSlider(name)
 	if !ok {
 		return
 	}
-	track := sliderTrack(control)
-	fraction := sliderFractionAt(track, x)
-	switch name {
-	case "gravity slider":
-		g.setForceValue("gravity", "magnitude", fraction*50)
-	case "speed slider":
-		g.simulationSpeed = fraction * maxSpeed
-		return
-	case "viscosity slider":
-		g.simulation.Parameters.Set("viscosity", formatControlFloat(fraction*2))
-	}
-	g.dirty = true
+	g.setNumericSettingFromSlider(setting, x)
 }
 
 func sliderFractionAt(track image.Rectangle, x int) float64 {

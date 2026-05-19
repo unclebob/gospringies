@@ -31,6 +31,10 @@ func (g *Game) drawControl(screen *ebiten.Image, control controlBox) {
 		g.drawSlider(screen, control)
 		return
 	}
+	if setting, ok := numericSettingForTextField(control.Name); ok {
+		g.drawNumericTextField(screen, control, setting)
+		return
+	}
 	fill := controlColor
 	if g.activeControl(control.Name) {
 		fill = activeControlColor
@@ -45,6 +49,15 @@ func (g *Game) drawSlider(screen *ebiten.Image, control controlBox) {
 	fill := track
 	fill.Max.X = track.Min.X + int(g.sliderFraction(control.Name)*float64(track.Dx()))
 	vector.DrawFilledRect(screen, float32(fill.Min.X), float32(fill.Min.Y), float32(fill.Dx()), float32(fill.Dy()), activeControlColor, false)
+}
+
+func (g *Game) drawNumericTextField(screen *ebiten.Image, control controlBox, setting numericSetting) {
+	drawLabeledRect(screen, control.Rect, controlColor, g.numericSettingValueText(setting))
+	if !g.numericTextCursorVisible(setting.Name) {
+		return
+	}
+	x := control.Rect.Min.X + 4 + len(g.numericSettingValueText(setting))*debugGlyphWidth
+	vector.DrawFilledRect(screen, float32(x), float32(control.Rect.Min.Y+4), 1, debugGlyphHeight, activeControlColor, false)
 }
 
 func drawLabeledRect(screen *ebiten.Image, rect image.Rectangle, fill color.RGBA, label string) {

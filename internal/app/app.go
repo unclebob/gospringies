@@ -66,6 +66,10 @@ type Game struct {
 	controlDown       bool
 	throwDown         bool
 	activeSlider      string
+	focusedNumeric    string
+	numericInputText  string
+	numericInputTicks int
+	numericInputFresh bool
 	massMenu          massContextMenu
 	valueDialog       valueDialog
 	saveDialog        saveFilenameDialog
@@ -122,8 +126,12 @@ func (g *Game) Update() error {
 	g.pollSaveFilenameDialogKeyboard()
 	g.pollValueDialogKeyboard()
 	g.tickValueDialog()
+	g.tickNumericTextField()
 	if !g.valueDialog.Open && !g.saveDialog.Open {
-		g.pollKeyboardControls()
+		g.pollNumericTextFieldKeyboard()
+		if g.focusedNumeric == "" {
+			g.pollKeyboardControls()
+		}
 	}
 	g.pollDemoPickerScroll()
 	if g.closed {
