@@ -1,3 +1,4 @@
+# mutation-stamp: sha256=09e551b8f5b36fa820271b56c27d3f0843fbc4c64d008b3f683fe7256b3da916
 Feature: Mouse editing
 
 Background:

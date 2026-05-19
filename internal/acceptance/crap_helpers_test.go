@@ -71,6 +71,7 @@ func TestClickableHelpersReportPrerequisiteFailures(t *testing.T) {
 func TestDragAppMassUpdatesWorld(t *testing.T) {
 	game := app.NewGame()
 	domain := sim.NewWorld()
+	domain.Parameters.Set("grid snap", "0")
 	_ = domain.AddMass(sim.Mass{ID: 7, Position: sim.Vec2{}, Mass: 1})
 	w := &world{domainWorld: domain}
 

@@ -1838,6 +1838,23 @@ func TestDragMassWorksWithoutMode(t *testing.T) {
 	}
 }
 
+func TestDragMassSnapsToGridPoint(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	world.Parameters.Set("grid snap", "10")
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
+	game.ReplaceWorld(world)
+
+	if !game.DragMass(1, sim.Vec2{X: 123, Y: 87}) {
+		t.Fatal("drag was not handled")
+	}
+
+	mass, _ := game.World().MassByID(1)
+	if mass.Position != (sim.Vec2{X: 120, Y: 90}) {
+		t.Fatalf("mass position = %#v, want snapped grid point 120,90", mass.Position)
+	}
+}
+
 func TestPointerGestureDragsMass(t *testing.T) {
 	game := NewGame()
 	world := sim.NewWorld()
@@ -1957,6 +1974,7 @@ func TestDragSelectedMassesWithSingleOffsetAppliesOffset(t *testing.T) {
 		sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1},
 		sim.Mass{ID: 2, Position: sim.Vec2{X: 20, Y: 10}, Mass: 1},
 	)
+	game.World().Parameters.Set("grid snap", "0")
 	_ = game.editing().SelectMass(1)
 	game.draggingOffsets = map[int]sim.Vec2{1: {X: 2, Y: 3}}
 	game.draggingStart = sim.Vec2{X: 10, Y: 10}
