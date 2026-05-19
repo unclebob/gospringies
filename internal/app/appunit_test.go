@@ -847,6 +847,47 @@ func TestAppUnitSaveFilenameDialogEditsAndWritesFile(t *testing.T) {
 	}
 }
 
+func TestAppUnitSaveFilenameDeleteEdges(t *testing.T) {
+	game := NewGame()
+	game.saveDialog = saveFilenameDialog{Open: true, Text: ".xsp", Cursor: 0}
+	game.deleteSaveFilenameCharacter()
+	if game.SaveFilenameText() != ".xsp" || game.SaveFilenameCursor() != 0 {
+		t.Fatalf("delete at start changed dialog text=%q cursor=%d", game.SaveFilenameText(), game.SaveFilenameCursor())
+	}
+
+	game.saveDialog = saveFilenameDialog{Open: true, Text: "", Cursor: 1}
+	game.deleteSaveFilenameCharacter()
+	if game.SaveFilenameText() != "" || game.SaveFilenameCursor() != 1 {
+		t.Fatalf("delete empty changed dialog text=%q cursor=%d", game.SaveFilenameText(), game.SaveFilenameCursor())
+	}
+
+	game.saveDialog = saveFilenameDialog{Open: true, Text: "abc.xsp", Cursor: 3}
+	game.deleteSaveFilenameCharacter()
+	if game.SaveFilenameText() != "ab.xsp" || game.SaveFilenameCursor() != 2 {
+		t.Fatalf("delete middle text=%q cursor=%d", game.SaveFilenameText(), game.SaveFilenameCursor())
+	}
+}
+
+func TestAppUnitSaveFilenameDialogGeometry(t *testing.T) {
+	game := NewGame()
+	rect := saveFilenameDialogRect()
+	wantRect := image.Rect(
+		screenWidth/2-valueDialogWidth/2,
+		screenHeight/2-valueDialogHeight/2,
+		screenWidth/2+valueDialogWidth/2,
+		screenHeight/2+valueDialogHeight/2,
+	)
+	if rect != wantRect {
+		t.Fatalf("save dialog rect = %#v", rect)
+	}
+	if got := game.saveFilenameTextRect(); got != image.Rect(rect.Min.X+12, rect.Min.Y+42, rect.Max.X-12, rect.Min.Y+66) {
+		t.Fatalf("save filename text rect = %#v", got)
+	}
+	if got := game.saveFilenameDialogOKRect(); got != image.Rect(rect.Max.X-64, rect.Max.Y-34, rect.Max.X-12, rect.Max.Y-12) {
+		t.Fatalf("save filename OK rect = %#v", got)
+	}
+}
+
 func TestAppUnitSaveFilenamePathNormalizesInput(t *testing.T) {
 	for _, tc := range []struct {
 		input string
@@ -971,16 +1012,57 @@ func TestAppUnitDemoPickerGeometryAndBounds(t *testing.T) {
 	for _, index := range []int{-1, 1} {
 		game.demoFiles = []string{filepath.Join("..", "..", "demos", "pendulum.xsp")}
 		game.demoPickerOpen = true
-		game.loadDemoAt(index)
-		if !game.demoPickerOpen {
-			t.Fatalf("out-of-range index %d closed demo picker", index)
+		if game.loadDemoAt(index) || !game.demoPickerOpen {
+			t.Fatalf("out-of-range index %d result open=%t", index, game.demoPickerOpen)
 		}
+	}
+	game.demoFiles = []string{loadPickerSeparator}
+	game.demoPickerOpen = true
+	if game.loadDemoAt(0) || !game.demoPickerOpen {
+		t.Fatalf("separator load result open=%t", game.demoPickerOpen)
 	}
 	game.demoFiles = []string{"missing.xsp"}
 	game.demoPickerOpen = true
 	game.loadDemoAt(0)
 	if game.demoPickerOpen {
 		t.Fatal("failed file read should still close demo picker")
+	}
+}
+
+func TestAppUnitGroupedLoadPickerEntries(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		saves     []string
+		starters  []string
+		originals []string
+		want      []string
+	}{
+		{
+			name:     "saves before starters",
+			saves:    []string{"saves/a.xsp"},
+			starters: []string{"demos/b.xsp"},
+			want:     []string{"saves/a.xsp", loadPickerSeparator, "demos/b.xsp"},
+		},
+		{
+			name:      "saves before originals",
+			saves:     []string{"saves/a.xsp"},
+			originals: []string{"demos/original/c.xsp"},
+			want:      []string{"saves/a.xsp", loadPickerSeparator, "demos/original/c.xsp"},
+		},
+		{
+			name:  "saves only",
+			saves: []string{"saves/a.xsp"},
+			want:  []string{"saves/a.xsp"},
+		},
+		{
+			name:     "starters only",
+			starters: []string{"demos/b.xsp"},
+			want:     []string{"demos/b.xsp"},
+		},
+	} {
+		if got := groupedLoadPickerEntries(tc.saves, tc.starters, tc.originals); !sameStrings(got, tc.want) {
+			t.Fatalf("%s entries = %#v, want %#v", tc.name, got, tc.want)
+		}
 	}
 }
 
