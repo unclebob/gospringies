@@ -27,7 +27,7 @@ Examples:
 Scenario Outline: load picker groups saved files before packaged files
   Given saved XSP file <save_file> exists in saves
   And demo XSP file <demo_file> exists in demos
-  And original XSP file <original_file> exists in originals
+  And original XSP file <original_file> exists in demos/original
   When the coder clicks inside rendered bounds of visible control Load
   Then load picker should show <save_file> before <separator>
   And load picker should show <separator> before <demo_file>
@@ -35,7 +35,7 @@ Scenario Outline: load picker groups saved files before packaged files
 
 Examples:
   | save_file     | separator | demo_file    | original_file |
-  | lab_scene.xsp | separator | pendulum.xsp | balance.xsp   |
+  | lab_scene.xsp | separator | pendulum.xsp | pend.xsp      |
 
 Scenario Outline: load picker reads saved files from saves
   Given saved XSP file <save_file> exists in saves with <world_state>
