@@ -36,16 +36,19 @@ var xspParameterLines = []struct {
 	{"gsnp", "grid snap"},
 }
 
-var xspForceNames = []string{"gravity", "center attraction", "center of mass attraction", "wall repulsion", "mass collision"}
 var xspForceValueKeys = []string{"magnitude", "direction", "exponent", "damping"}
 var xspWallNames = []string{"top", "left", "right", "bottom"}
-var xspForceTokens = map[string]string{
-	"center attraction":         "center-attraction",
-	"center of mass attraction": "center-of-mass-attraction",
-	"wall repulsion":            "wall-repulsion",
-	"mass collision":            "mass-collision",
+var xspForceLines = []struct {
+	name  string
+	token string
+}{
+	{"gravity", "gravity"},
+	{"center attraction", "center-attraction"},
+	{"center of mass attraction", "center-of-mass-attraction"},
+	{"wall repulsion", "wall-repulsion"},
+	{"mass collision", "mass-collision"},
 }
-var xspForceNamesByToken = invertForceTokenMap(xspForceTokens)
+var xspForceNamesByToken = forceNamesByToken(xspForceLines)
 
 const originalXSpringiesMarker = "#1.0 *** XSpringies data file"
 
@@ -205,13 +208,6 @@ func setForceValues(world *sim.Simulation, name string, enabled string, values m
 	world.Parameters.Forces[name] = force
 }
 
-func forceTokenForName(name string) string {
-	if token, ok := xspForceTokens[name]; ok {
-		return token
-	}
-	return name
-}
-
 func forceNameFromToken(token string) string {
 	if name, ok := xspForceNamesByToken[token]; ok {
 		return name
@@ -219,10 +215,13 @@ func forceNameFromToken(token string) string {
 	return token
 }
 
-func invertForceTokenMap(tokens map[string]string) map[string]string {
+func forceNamesByToken(lines []struct {
+	name  string
+	token string
+}) map[string]string {
 	inverted := map[string]string{}
-	for name, token := range tokens {
-		inverted[token] = name
+	for _, line := range lines {
+		inverted[line.token] = line.name
 	}
 	return inverted
 }
@@ -502,12 +501,12 @@ func writeParameterLines(builder *strings.Builder, world *sim.Simulation) {
 }
 
 func writeForceLines(builder *strings.Builder, world *sim.Simulation) {
-	for _, name := range xspForceNames {
-		force, ok := world.Parameters.Force(name)
+	for _, line := range xspForceLines {
+		force, ok := world.Parameters.Force(line.name)
 		if !ok {
 			continue
 		}
-		builder.WriteString(fmt.Sprintf("frce %s %s%s\n", forceTokenForName(name), force.Enabled, forceValueSuffix(force.Values)))
+		builder.WriteString(fmt.Sprintf("frce %s %s%s\n", line.token, force.Enabled, forceValueSuffix(force.Values)))
 	}
 }
 

@@ -149,11 +149,15 @@ func assertLoadedForceTokenMapsToForce(w *world, example map[string]string) erro
 	if w.xspLoadErr != nil {
 		return w.xspLoadErr
 	}
-	if _, ok := w.xspWorld.Parameters.Force(forceName); !ok {
+	return assertForceTokenStoredAsName(w.xspWorld, token, forceName)
+}
+
+func assertForceTokenStoredAsName(world *sim.Simulation, token string, forceName string) error {
+	if _, ok := world.Parameters.Force(forceName); !ok {
 		return fmt.Errorf("force %q not loaded from token %q", forceName, token)
 	}
 	if token != forceName {
-		if _, ok := w.xspWorld.Parameters.Force(token); ok {
+		if _, ok := world.Parameters.Force(token); ok {
 			return fmt.Errorf("token %q was stored as a force name", token)
 		}
 	}
@@ -161,29 +165,49 @@ func assertLoadedForceTokenMapsToForce(w *world, example map[string]string) erro
 }
 
 func assertLoadedForceConfigured(w *world, example map[string]string) error {
-	forceName, enabled, err := stringPair(example, "force_name", "enabled_state")
-	if err != nil {
-		return err
-	}
-	parameters, err := stringValue(example, "force_parameters")
+	forceName, enabled, expectedValues, err := expectedForceConfiguration(example)
 	if err != nil {
 		return err
 	}
 	if w.xspLoadErr != nil {
 		return w.xspLoadErr
 	}
-	values, err := forceParameterValues(parameters)
+	force, err := loadedForce(w.xspWorld, forceName)
 	if err != nil {
 		return err
 	}
-	force, ok := w.xspWorld.Parameters.Force(forceName)
-	if !ok {
-		return fmt.Errorf("force %q not found", forceName)
+	return assertForceConfiguration(forceName, force, enabled, expectedValues)
+}
+
+func expectedForceConfiguration(example map[string]string) (string, string, map[string]string, error) {
+	forceName, enabled, err := stringPair(example, "force_name", "enabled_state")
+	if err != nil {
+		return "", "", nil, err
 	}
+	parameters, err := stringValue(example, "force_parameters")
+	if err != nil {
+		return "", "", nil, err
+	}
+	values, err := forceParameterValues(parameters)
+	if err != nil {
+		return "", "", nil, err
+	}
+	return forceName, enabled, values, nil
+}
+
+func loadedForce(world *sim.Simulation, forceName string) (sim.ForceConfig, error) {
+	force, ok := world.Parameters.Force(forceName)
+	if !ok {
+		return sim.ForceConfig{}, fmt.Errorf("force %q not found", forceName)
+	}
+	return force, nil
+}
+
+func assertForceConfiguration(forceName string, force sim.ForceConfig, enabled string, expectedValues map[string]string) error {
 	if force.Enabled != enabled {
 		return fmt.Errorf("%s enabled = %q, want %q", forceName, force.Enabled, enabled)
 	}
-	for key, value := range values {
+	for key, value := range expectedValues {
 		if force.Values[key] != value {
 			return fmt.Errorf("%s %s = %q, want %q", forceName, key, force.Values[key], value)
 		}
