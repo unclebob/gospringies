@@ -114,14 +114,7 @@ func saveXSPWorld(w *world, _ map[string]string) error {
 }
 
 func assertSavedXSPIncludesForceToken(w *world, example map[string]string) error {
-	token, err := stringValue(example, "force_token")
-	if err != nil {
-		return err
-	}
-	if !strings.Contains(w.xspSavedFirst, "\nfrce "+token+" ") {
-		return fmt.Errorf("saved XSP missing force token %q:\n%s", token, w.xspSavedFirst)
-	}
-	return nil
+	return assertSavedXSPIncludesExampleValue(w, example, "force_token", "force token", forceTokenLinePrefix)
 }
 
 func loadXSPInputWithForceToken(w *world, example map[string]string) error {
@@ -341,12 +334,34 @@ func loadAndSaveXSPInput(w *world, _ map[string]string) error {
 }
 
 func assertSavedXSPIncludesCommand(w *world, example map[string]string) error {
-	command, err := stringValue(example, "command")
+	return assertSavedXSPIncludesExampleValue(w, example, "command", "command", commandLinePrefix)
+}
+
+func forceTokenLinePrefix(token string) string {
+	return "\nfrce " + token + " "
+}
+
+func commandLinePrefix(command string) string {
+	return "\n" + command + " "
+}
+
+func assertSavedXSPIncludesExampleValue(
+	w *world,
+	example map[string]string,
+	key string,
+	description string,
+	linePrefix func(string) string,
+) error {
+	value, err := stringValue(example, key)
 	if err != nil {
 		return err
 	}
-	if !strings.Contains(w.xspSavedFirst, "\n"+command+" ") {
-		return fmt.Errorf("saved XSP missing command %q:\n%s", command, w.xspSavedFirst)
+	return assertSavedXSPIncludesLine(w, description, value, linePrefix(value))
+}
+
+func assertSavedXSPIncludesLine(w *world, description string, value string, linePrefix string) error {
+	if !strings.Contains(w.xspSavedFirst, linePrefix) {
+		return fmt.Errorf("saved XSP missing %s %q:\n%s", description, value, w.xspSavedFirst)
 	}
 	return nil
 }
