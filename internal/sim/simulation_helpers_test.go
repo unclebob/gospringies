@@ -18,6 +18,7 @@ func TestVec2OperationsUseBothComponents(t *testing.T) {
 	if got := (Vec2{}).Normalize(); got != (Vec2{}) {
 		t.Fatalf("zero normalize = %#v", got)
 	}
+	assertVecEqual(t, (Vec2{X: 3, Y: 4}).Normalize(), Vec2{X: 0.6, Y: 0.8})
 }
 
 func TestResetClearsObjectsParametersAndTime(t *testing.T) {
@@ -184,6 +185,10 @@ func TestAdaptiveStepBoundaryHelpers(t *testing.T) {
 	if got := world.configuredPrecision(); got != defaultPrecision {
 		t.Fatalf("zero configured precision = %f", got)
 	}
+	world.Parameters.Set("timestep", "0")
+	if got := world.configuredTimeStep(); got != defaultStepDuration {
+		t.Fatalf("zero configured timestep = %f", got)
+	}
 	world.Parameters.Set("precision", "0.004")
 	if got := adaptiveStepDuration(0.25, world.configuredPrecision()); got != 0.25 {
 		t.Fatalf("clamped adaptive step = %f", got)
@@ -193,6 +198,12 @@ func TestAdaptiveStepBoundaryHelpers(t *testing.T) {
 	}
 	if got := adaptiveStepDuration(0.25, defaultPrecision); got != 0.25 {
 		t.Fatalf("equal adaptive step = %f", got)
+	}
+	if got := positiveAdvanceStep(0, 0.01); got != 0.01 {
+		t.Fatalf("zero positive advance step = %f", got)
+	}
+	if got := positiveAdvanceStep(0.02, 0.10); got != 0.02 {
+		t.Fatalf("positive advance step = %f", got)
 	}
 }
 
