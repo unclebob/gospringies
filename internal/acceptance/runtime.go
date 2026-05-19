@@ -42,6 +42,8 @@ type world struct {
 	visibleControlsFrame drawFrameReport
 	renderResult         renderResult
 	mouseEditor          *edit.Editor
+	mouseDragPosition    sim.Vec2
+	mouseDragRecorded    bool
 	createdMassID        int
 	createdSpringID      int
 	springStartMassID    int
@@ -184,6 +186,7 @@ var stepHandlers = map[string]stepHandler{
 	"a movable mass is affected by <force>":                                                                 createMovableMassAffectedByForce,
 	"the mass should receive a force from <force>":                                                          assertMassReceivesForce,
 	"mass <mass_id> fixed state is <fixed>":                                                                 createMassFixedState,
+	"mass <mass_id> fixed state is false":                                                                   createMassMovableState,
 	"mass <mass_id> is affected by force <force>":                                                           affectMassByForce,
 	"mass <mass_id> acceleration should be <acceleration>":                                                  assertMassAcceleration,
 	"wall <wall> is enabled":                                                                                enableWall,
@@ -296,13 +299,17 @@ var stepHandlers = map[string]stepHandler{
 	"a mass should be created at <expected_position>":                                                       assertCreatedMassPosition,
 	"the mass should use the current mass defaults":                                                         assertCreatedMassDefaults,
 	"grid snap is <grid_snap>":                                                                              setMouseGridSnap,
+	"grid snap is enabled":                                                                                  setMouseGridSnapEnabled,
 	"the grid snap size is <snap_size>":                                                                     setMouseGridSnapSize,
+	"mass placement should be constrained to grid state <grid_snap>":                                        assertMassPlacementConstrainedToGrid,
 	"mass <mass_a> exists":                                                                                  addMouseMassA,
 	"mass <mass_b> exists":                                                                                  addMouseMassB,
 	"the coder creates a spring from mass <mass_a> to mass <mass_b>":                                        createMouseSpring,
 	"a spring should connect mass <mass_a> to mass <mass_b>":                                                assertMouseSpringEndpoints,
 	"the spring should use the current spring defaults":                                                     assertMouseSpringDefaults,
 	"the coder drags mass <mass_id> to <target_position>":                                                   dragMouseMass,
+	"the coder drags mass <mass_id> through <drag_position> to <target_position>":                           dragMouseMassThrough,
+	"mass <mass_id> drag position should be <snapped_drag_position>":                                        assertMouseMassDragPosition,
 	"mass <mass_id> position should be <expected_position>":                                                 assertMouseMassPosition,
 	"mass <mass_id> initial position should be <expected_start_position>":                                   assertMouseMassInitialPosition,
 	"mass <mass_id> id should remain <mass_id>":                                                             assertMouseMassID,

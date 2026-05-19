@@ -340,7 +340,7 @@ func (g *Game) dragSelectedMasses(position sim.Vec2) bool {
 func (g *Game) dragSingleMass(id int, position sim.Vec2) bool {
 	for i := range g.simulation.Masses {
 		if g.simulation.Masses[i].ID == id {
-			g.simulation.Masses[i].Position = position
+			g.simulation.Masses[i].Position = g.snapToGrid(position)
 			g.simulation.Masses[i].Velocity = sim.Vec2{}
 			g.finishMassDragStep(position)
 			return true
@@ -370,8 +370,19 @@ func (g *Game) applyDraggingOffsets(cursor sim.Vec2) {
 	for i := range g.simulation.Masses {
 		offset, ok := g.draggingOffsets[g.simulation.Masses[i].ID]
 		if ok {
-			g.simulation.Masses[i].Position = cursor.Add(offset)
+			g.simulation.Masses[i].Position = g.snapToGrid(cursor.Add(offset))
 			g.simulation.Masses[i].Velocity = sim.Vec2{}
 		}
+	}
+}
+
+func (g *Game) snapToGrid(position sim.Vec2) sim.Vec2 {
+	size := g.gridSnapSize()
+	if size <= 0 {
+		return position
+	}
+	return sim.Vec2{
+		X: math.Round(position.X/size) * size,
+		Y: math.Round(position.Y/size) * size,
 	}
 }

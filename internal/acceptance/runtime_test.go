@@ -1312,6 +1312,15 @@ func TestMouseEditingHelpersReportFailures(t *testing.T) {
 	if err := assertMouseMassPosition(&world{}, map[string]string{"mass_id": "1"}); err == nil {
 		t.Fatal("expected missing expected position")
 	}
+	if err := dragMouseMassThrough(&world{}, map[string]string{"mass_id": "1"}); err == nil {
+		t.Fatal("expected missing drag position")
+	}
+	if err := assertMouseMassDragPosition(&world{}, map[string]string{"mass_id": "1"}); err == nil {
+		t.Fatal("expected missing snapped drag position")
+	}
+	if err := assertMassPlacementConstrainedToGrid(&world{}, map[string]string{}); err == nil {
+		t.Fatal("expected missing grid snap constraint")
+	}
 	if _, err := positionValue(map[string]string{"position": "bad,2"}, "position"); err == nil {
 		t.Fatal("expected invalid x position")
 	}
@@ -1403,6 +1412,58 @@ func TestMouseMassHelpersCreatePositionFromID(t *testing.T) {
 	}
 	assertMouseMass(t, w, 3, sim.Vec2{X: 60, Y: 20})
 	assertMouseMass(t, w, 4, sim.Vec2{X: 80, Y: 20})
+}
+
+func TestMouseDragThroughRecordsSnappedIntermediatePosition(t *testing.T) {
+	w := &world{domainWorld: sim.NewWorld()}
+	w.domainWorld.Parameters.Set("grid snap", "10")
+	if err := w.domainWorld.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := setMouseGridSnap(w, map[string]string{"grid_snap": "enabled"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := setMouseGridSnapSize(w, map[string]string{"snap_size": "10"}); err != nil {
+		t.Fatal(err)
+	}
+
+	err := dragMouseMassThrough(w, map[string]string{
+		"mass_id":         "1",
+		"drag_position":   "123,87",
+		"target_position": "146,113",
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := assertMouseMassDragPosition(w, map[string]string{"mass_id": "1", "snapped_drag_position": "120,90"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertMouseMassPosition(w, map[string]string{"mass_id": "1", "expected_position": "150,110"}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestMassPlacementConstrainedToGridAssertion(t *testing.T) {
+	w := &world{domainWorld: sim.NewWorld(), createdMassID: 1}
+	if err := w.domainWorld.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 120, Y: 90}, Mass: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := setMouseGridSnap(w, map[string]string{"grid_snap": "enabled"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := setMouseGridSnapSize(w, map[string]string{"snap_size": "10"}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := assertMassPlacementConstrainedToGrid(w, map[string]string{"grid_snap": "enabled"}); err != nil {
+		t.Fatal(err)
+	}
+
+	setCreatedMass(t, w, sim.Mass{ID: 1, Position: sim.Vec2{X: 121, Y: 90}, Mass: 1})
+	if err := assertMassPlacementConstrainedToGrid(w, map[string]string{"grid_snap": "enabled"}); err == nil {
+		t.Fatal("expected unsnapped mass position to fail")
+	}
 }
 
 func setCreatedMass(t *testing.T, w *world, mass sim.Mass) {

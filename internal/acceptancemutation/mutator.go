@@ -179,8 +179,8 @@ func isEquivalentXSPMutation(scenarioIndex int, key string) bool {
 func isEquivalentMouseEditingMutation(scenarioIndex int, key string) bool {
 	keys := map[int]map[string]bool{
 		1: {"snap_size": true},
-		2: {"mass_a": true, "mass_b": true},
-		3: {"mass_id": true, "start_position": true, "target_position": true},
+		3: {"mass_a": true, "mass_b": true},
+		4: {"mass_id": true, "start_position": true},
 	}
 	return keys[scenarioIndex][key]
 }
