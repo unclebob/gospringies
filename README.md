@@ -21,6 +21,15 @@ The application is still incomplete. Some UI controls are present but not fully 
 - Right-click near a spring to set its spring constant.
 - Use Edit > Cut, Copy, and Paste, or their keyboard shortcuts, for selected objects. Paste places copied objects at the current mouse location.
 
+## File Save and Load
+
+- Click Save, or press Ctrl+S, to open the save filename dialog.
+- The save filename field starts as `.xsp`, with the cursor before the extension. Type the filename before `.xsp`; for example, typing `simple hex` saves `saves/simple hex.xsp`.
+- Saved simulations are written to the local `saves/` directory.
+- Click Load, or press Ctrl+O, to open the load picker.
+- The load picker refreshes the available files each time it opens. Saved files from `saves/` are listed first, followed by a separator, then starter demos from `demos/` and original demos from `demos/original/`.
+- Choose a saved or demo `.xsp` file from the picker to replace the current world with that file.
+
 ## Right Control Panel
 
 - Mass, elasticity, fixed, spring constant, damping, and rest length controls apply to newly created objects or the selected object when applicable.
