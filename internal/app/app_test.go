@@ -1974,6 +1974,7 @@ func TestDragSelectedMassesWithSingleOffsetAppliesOffset(t *testing.T) {
 		sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1},
 		sim.Mass{ID: 2, Position: sim.Vec2{X: 20, Y: 10}, Mass: 1},
 	)
+	game.World().Parameters.Set("grid snap", "0")
 	_ = game.editing().SelectMass(1)
 	game.draggingOffsets = map[int]sim.Vec2{1: {X: 2, Y: 3}}
 	game.draggingStart = sim.Vec2{X: 10, Y: 10}
