@@ -1,3 +1,4 @@
+# mutation-stamp: sha256=047ea2893b5c278960ade3f20f9c617525be52babf312466933c1770291a9810
 Feature: XSP load and save
 
 Background:

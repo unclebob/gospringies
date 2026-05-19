@@ -1,3 +1,4 @@
+# mutation-stamp: sha256=9582a93c94b27a5bb1783d944c68691f1c842f3590c3f38cbeb08787527242dc
 Feature: Render world
 
 Background:

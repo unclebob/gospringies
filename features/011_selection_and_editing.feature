@@ -1,3 +1,4 @@
+# mutation-stamp: sha256=92ae0566263c87a135dd0bf1d2c1a257b0c886e24ec4f82be412b618d73f89fe
 Feature: Selection and editing
 
 Background:

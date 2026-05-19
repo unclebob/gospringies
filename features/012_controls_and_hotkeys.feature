@@ -1,3 +1,4 @@
+# mutation-stamp: sha256=3d3b9d2e24ae429a6202a7a0530bc639e31b5827367c79f1aba5536c5dd6828c
 Feature: Controls and hotkeys
 
 Background:

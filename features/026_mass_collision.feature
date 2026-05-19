@@ -1,3 +1,4 @@
+# mutation-stamp: sha256=57c19c1474b5e838a651574a9155e5c9e6428cfbc02a025ffd81098c256f447f
 Feature: Mass collision
 
 Background:

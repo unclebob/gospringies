@@ -1,3 +1,4 @@
+# mutation-stamp: sha256=f40c2adfbeeecf6ab9334674e82dabe6d514a47785e15739c50825469e43813d
 Feature: Domain model
 
 Background:

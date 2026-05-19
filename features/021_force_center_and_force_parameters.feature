@@ -1,3 +1,4 @@
+# mutation-stamp: sha256=8d005f5f8093588673f777d85182ae4b1d8f7f01fe16b9aa7f2826a884526a64
 Feature: Force center and force parameters
 
 Background:

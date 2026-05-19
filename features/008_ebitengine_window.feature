@@ -1,3 +1,4 @@
+# mutation-stamp: sha256=7a177058be281217eb39cbfd045f11e84dba15cd5bcce59ebf2fccf6205477bb
 Feature: Ebitengine window
 
 Background:

@@ -1,3 +1,4 @@
+# mutation-stamp: sha256=15e8a314f21bfc699e6880e406f73ed6e8a9d2818f24c46d1d151c199ec78155
 Feature: Render visible controls
 
 Background:

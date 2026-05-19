@@ -1,3 +1,4 @@
+# mutation-stamp: sha256=7f9679b50d3253122fb6f1b961bc2b0d5159b639001160db10dec0234c883f97
 Feature: Edit mode details
 
 Background:

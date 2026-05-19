@@ -1,9 +1,11 @@
-package acceptance
+package acceptancemutation
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand"
 	"os"
@@ -16,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"springs/internal/acceptancegen"
 	"springs/internal/gherkin"
 )
 
@@ -54,7 +57,9 @@ type MutationProgress struct {
 }
 
 type RunMutationOptions struct {
+	Context       context.Context
 	Workers       int
+	MutantTimeout time.Duration
 	ProgressEvery int
 	Progress      func(MutationProgress)
 }
@@ -274,7 +279,7 @@ func RunMutationsWithOptions(feature gherkin.Feature, workDir string, options Ru
 	if err := os.MkdirAll(workDir, 0o755); err != nil {
 		return nil, err
 	}
-	return runMutationJobs(feature, mutations, workDir, options), nil
+	return runMutationJobs(feature, mutations, workDir, withMutationContext(options))
 }
 
 type mutationJob struct {
@@ -287,40 +292,62 @@ type indexedMutationResult struct {
 	result MutationResult
 }
 
-func runMutationJobs(feature gherkin.Feature, mutations []Mutation, workDir string, options RunMutationOptions) []MutationResult {
+func runMutationJobs(feature gherkin.Feature, mutations []Mutation, workDir string, options RunMutationOptions) ([]MutationResult, error) {
 	results := make([]MutationResult, len(mutations))
 	if len(mutations) == 0 {
-		return results
+		return results, nil
 	}
+	ctx := options.Context
 	jobs := make(chan mutationJob)
-	completed := make(chan indexedMutationResult)
+	completed := make(chan indexedMutationResult, len(mutations))
 	var workers sync.WaitGroup
-	startMutationWorkers(feature, workDir, jobs, completed, &workers, mutationWorkerCount(options.Workers, len(mutations)))
-	go enqueueMutationJobs(mutations, jobs)
+	startMutationWorkers(ctx, feature, workDir, jobs, completed, &workers, mutationWorkerCount(options.Workers, len(mutations)), options.MutantTimeout)
+	go enqueueMutationJobs(ctx, mutations, jobs)
 	go closeCompletedWhenDone(completed, &workers)
-	collectMutationResults(completed, results, options)
-	return results
+	return collectMutationResults(ctx, completed, results, options)
+}
+
+func withMutationContext(options RunMutationOptions) RunMutationOptions {
+	if options.Context == nil {
+		options.Context = context.Background()
+	}
+	return options
 }
 
 func startMutationWorkers(
+	ctx context.Context,
 	feature gherkin.Feature,
 	workDir string,
 	jobs <-chan mutationJob,
 	completed chan<- indexedMutationResult,
 	workers *sync.WaitGroup,
 	count int,
+	mutantTimeout time.Duration,
 ) {
 	for range count {
 		workers.Add(1)
-		go runMutationWorker(feature, workDir, jobs, completed, workers)
+		go runMutationWorker(ctx, feature, workDir, jobs, completed, workers, mutantTimeout)
 	}
 }
 
-func collectMutationResults(completed <-chan indexedMutationResult, results []MutationResult, options RunMutationOptions) {
+func collectMutationResults(
+	ctx context.Context,
+	completed <-chan indexedMutationResult,
+	results []MutationResult,
+	options RunMutationOptions,
+) ([]MutationResult, error) {
 	progress := mutationProgressTracker{total: len(results), every: options.ProgressEvery, report: options.Progress}
-	for completedResult := range completed {
-		results[completedResult.index] = completedResult.result
-		progress.record(completedResult.result)
+	for {
+		select {
+		case completedResult, ok := <-completed:
+			if !ok {
+				return results, nil
+			}
+			results[completedResult.index] = completedResult.result
+			progress.record(completedResult.result)
+		case <-ctx.Done():
+			return results, ctx.Err()
+		}
 	}
 }
 
@@ -337,17 +364,42 @@ func mutationWorkerCount(requested int, mutationCount int) int {
 	return requested
 }
 
-func runMutationWorker(feature gherkin.Feature, workDir string, jobs <-chan mutationJob, completed chan<- indexedMutationResult, workers *sync.WaitGroup) {
+func runMutationWorker(
+	ctx context.Context,
+	feature gherkin.Feature,
+	workDir string,
+	jobs <-chan mutationJob,
+	completed chan<- indexedMutationResult,
+	workers *sync.WaitGroup,
+	mutantTimeout time.Duration,
+) {
 	defer workers.Done()
-	for job := range jobs {
-		completed <- indexedMutationResult{index: job.index, result: runMutation(feature, job.mutation, workDir)}
+	for {
+		job, ok := nextMutationJob(ctx, jobs)
+		if !ok {
+			return
+		}
+		completed <- indexedMutationResult{index: job.index, result: runMutation(ctx, feature, job.mutation, workDir, mutantTimeout)}
 	}
 }
 
-func enqueueMutationJobs(mutations []Mutation, jobs chan<- mutationJob) {
+func nextMutationJob(ctx context.Context, jobs <-chan mutationJob) (mutationJob, bool) {
+	select {
+	case <-ctx.Done():
+		return mutationJob{}, false
+	case job, ok := <-jobs:
+		return job, ok
+	}
+}
+
+func enqueueMutationJobs(ctx context.Context, mutations []Mutation, jobs chan<- mutationJob) {
 	defer close(jobs)
 	for i, mutation := range mutations {
-		jobs <- mutationJob{index: i, mutation: mutation}
+		select {
+		case <-ctx.Done():
+			return
+		case jobs <- mutationJob{index: i, mutation: mutation}:
+		}
 	}
 }
 
@@ -397,7 +449,7 @@ func (p *mutationProgressTracker) shouldReport() bool {
 	return p.completed%p.every == 0 || p.completed == p.total
 }
 
-func runMutation(feature gherkin.Feature, mutation Mutation, workDir string) MutationResult {
+func runMutation(ctx context.Context, feature gherkin.Feature, mutation Mutation, workDir string, mutantTimeout time.Duration) MutationResult {
 	start := time.Now()
 	result := MutationResult{Mutation: mutation}
 	generated, ir := mutationPaths(workDir, mutation)
@@ -406,11 +458,20 @@ func runMutation(feature gherkin.Feature, mutation Mutation, workDir string) Mut
 		result.Error = err.Error()
 		return result
 	}
-	output, err := exec.Command("go", "test", "-tags", "acceptance_mutation", "./"+filepath.ToSlash(filepath.Dir(generated))).CombinedOutput()
+	commandCtx, cancel := mutationCommandContext(ctx, mutantTimeout)
+	defer cancel()
+	output, err := exec.CommandContext(commandCtx, "go", "test", "-tags", "acceptance_mutation", "./"+filepath.ToSlash(filepath.Dir(generated))).CombinedOutput()
 	result.Output = string(output)
 	result.Duration = time.Since(start)
-	result.Status = mutationStatus(err)
+	result.Status, result.Error = mutationStatus(ctx, commandCtx, err)
 	return result
+}
+
+func mutationCommandContext(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
+	if timeout <= 0 {
+		return context.WithCancel(ctx)
+	}
+	return context.WithTimeout(ctx, timeout)
 }
 
 func mutationPaths(workDir string, mutation Mutation) (string, string) {
@@ -428,14 +489,27 @@ func writeMutationTest(feature gherkin.Feature, mutation Mutation, generated, ir
 	if err := gherkin.WriteJSON(mutatedFeature, ir); err != nil {
 		return err
 	}
-	return generateTaggedGoTest(ir, generated, "acceptance_mutation")
+	return acceptancegen.GenerateTaggedGoTest(ir, generated, "acceptance_mutation")
 }
 
-func mutationStatus(err error) string {
-	if err != nil {
-		return "killed"
+func mutationStatus(runCtx, commandCtx context.Context, err error) (string, string) {
+	if mutationCommandTimedOut(runCtx, commandCtx) {
+		return "killed", ""
 	}
-	return "survived"
+	if ctxErr := runCtx.Err(); ctxErr != nil {
+		return "error", ctxErr.Error()
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return "error", err.Error()
+	}
+	if err != nil {
+		return "killed", ""
+	}
+	return "survived", ""
+}
+
+func mutationCommandTimedOut(runCtx, commandCtx context.Context) bool {
+	return commandCtx.Err() != nil && runCtx.Err() == nil
 }
 
 func Summarize(results []MutationResult) MutationSummary {

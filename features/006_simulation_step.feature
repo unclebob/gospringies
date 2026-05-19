@@ -1,3 +1,4 @@
+# mutation-stamp: sha256=b921cbc85d02a7dc77f035f4bd674db846d6382d9c84007eaa50a24624f96527
 Feature: Simulation step
 
 Background:
@@ -20,10 +21,12 @@ Scenario Outline: fixed masses remain stationary
   When the coder advances the simulation by <duration>
   Then mass <mass_id> position should remain <start_position>
   And mass <mass_id> velocity should remain <start_velocity>
+  And the coder looks up mass <id>
+  And mass <id> fixed state should be <fixed>
 
 Examples:
-  | mass_id | fixed | start_position | start_velocity | duration |
-  | 1       | true  | initial        | zero           | 10 steps |
+  | mass_id | id | fixed | start_position | start_velocity | duration |
+  | 1       | 1  | true  | initial        | zero           | 10 steps |
 
 Scenario Outline: advancing by duration is deterministic
   Given a world in state <initial_state>

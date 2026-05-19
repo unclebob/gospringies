@@ -1,3 +1,4 @@
+# mutation-stamp: sha256=afce9abd35b9886bba5daa727bf67d41778783d67d94003ace678212e71c52aa
 Feature: Spring mode mouse semantics
 
 Background:

@@ -1,3 +1,4 @@
+# mutation-stamp: sha256=99d502a28c6ce0e5842104a42c4f049c9784fd8b6a12a7479a172bfa39173669
 Feature: State save restore
 
 Background:

@@ -1,3 +1,4 @@
+# mutation-stamp: sha256=1474e5921652a334db784131b2e476899cb786eb1d77570184e001960992da8a
 Feature: Demo Files
   Demo files provide ready-to-load examples for manual exploration and regression coverage.
 

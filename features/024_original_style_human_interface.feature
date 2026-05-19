@@ -1,3 +1,4 @@
+# mutation-stamp: sha256=bb95bad9cf91da334e9a3f72829f94c92dd066dd0d08dd42750e81dc301dbc02
 Feature: Original style human interface
 
 Background:

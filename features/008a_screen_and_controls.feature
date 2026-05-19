@@ -1,3 +1,4 @@
+# mutation-stamp: sha256=99fcb35cf9f1193d5549fe6cbb7a962e46f39facb23d702a1a0c83f89adad1e2
 Feature: Screen and controls
 
 Background:

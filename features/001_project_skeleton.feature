@@ -1,3 +1,4 @@
+# mutation-stamp: sha256=c3e5b9bb12376fa0a29875b1c69d4989070aab68773fcbcc40d300f24b700c99
 Feature: Project skeleton
 
 Background:

@@ -1,14 +1,16 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"runtime"
+	"time"
 
-	"springs/internal/acceptance"
+	"springs/internal/acceptancemutation"
 	"springs/internal/gherkin"
 	"springs/internal/mutationstamp"
 )
@@ -35,7 +37,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	return finishRun(options.featurePath, summary, stderr)
 }
 
-func finishRun(featurePath string, summary acceptance.MutationSummary, stderr io.Writer) int {
+func finishRun(featurePath string, summary acceptancemutation.MutationSummary, stderr io.Writer) int {
 	code := exitCodeFromSummary(summary)
 	if code != 0 {
 		return code
@@ -48,10 +50,12 @@ func finishRun(featurePath string, summary acceptance.MutationSummary, stderr io
 }
 
 type options struct {
-	featurePath string
-	workDir     string
-	jsonReport  bool
-	workers     int
+	featurePath   string
+	workDir       string
+	jsonReport    bool
+	workers       int
+	timeout       time.Duration
+	mutantTimeout time.Duration
 }
 
 func parseOptions(args []string, stderr io.Writer) (options, error) {
@@ -61,27 +65,46 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	workDir := flags.String("work-dir", "build/acceptance-mutation", "directory where mutation work files are written")
 	jsonReport := flags.Bool("json", false, "emit JSON report")
 	workers := flags.Int("workers", runtime.NumCPU(), "maximum mutation workers")
-	_ = flags.Duration("timeout", 0, "full mutation timeout")
+	timeout := flags.Duration("timeout", 0, "full mutation timeout")
+	mutantTimeout := flags.Duration("mutant-timeout", 30*time.Second, "timeout for one generated mutation test")
 	if err := flags.Parse(args); err != nil {
 		return options{}, err
 	}
-	return options{featurePath: *featurePath, workDir: *workDir, jsonReport: *jsonReport, workers: *workers}, nil
+	return options{
+		featurePath:   *featurePath,
+		workDir:       *workDir,
+		jsonReport:    *jsonReport,
+		workers:       *workers,
+		timeout:       *timeout,
+		mutantTimeout: *mutantTimeout,
+	}, nil
 }
 
-func runFeatureMutations(options options, progress io.Writer) (acceptance.MutationSummary, []acceptance.MutationResult, error) {
+func runFeatureMutations(options options, progress io.Writer) (acceptancemutation.MutationSummary, []acceptancemutation.MutationResult, error) {
 	feature, err := gherkin.ReadFile(options.featurePath)
 	if err != nil {
-		return acceptance.MutationSummary{}, nil, err
+		return acceptancemutation.MutationSummary{}, nil, err
 	}
-	results, err := acceptance.RunMutationsWithOptions(feature, options.workDir, acceptance.RunMutationOptions{
+	ctx, cancel := mutationContext(options.timeout)
+	defer cancel()
+	results, err := acceptancemutation.RunMutationsWithOptions(feature, options.workDir, acceptancemutation.RunMutationOptions{
+		Context:       ctx,
 		Workers:       options.workers,
+		MutantTimeout: options.mutantTimeout,
 		ProgressEvery: 20,
 		Progress:      printProgress(progress),
 	})
 	if err != nil {
-		return acceptance.MutationSummary{}, nil, err
+		return acceptancemutation.MutationSummary{}, nil, err
 	}
-	return acceptance.Summarize(results), results, nil
+	return acceptancemutation.Summarize(results), results, nil
+}
+
+func mutationContext(timeout time.Duration) (context.Context, context.CancelFunc) {
+	if timeout <= 0 {
+		return context.WithCancel(context.Background())
+	}
+	return context.WithTimeout(context.Background(), timeout)
 }
 
 func progressWriter(options options, stdout, stderr io.Writer) io.Writer {
@@ -91,8 +114,8 @@ func progressWriter(options options, stdout, stderr io.Writer) io.Writer {
 	return stdout
 }
 
-func printProgress(w io.Writer) func(acceptance.MutationProgress) {
-	return func(progress acceptance.MutationProgress) {
+func printProgress(w io.Writer) func(acceptancemutation.MutationProgress) {
+	return func(progress acceptancemutation.MutationProgress) {
 		fmt.Fprintf(w, "progress completed=%d total=%d killed=%d survived=%d errors=%d\n",
 			progress.Completed,
 			progress.Total,
@@ -103,7 +126,7 @@ func printProgress(w io.Writer) func(acceptance.MutationProgress) {
 	}
 }
 
-func printReport(stdout, stderr io.Writer, jsonReport bool, summary acceptance.MutationSummary, results []acceptance.MutationResult) {
+func printReport(stdout, stderr io.Writer, jsonReport bool, summary acceptancemutation.MutationSummary, results []acceptancemutation.MutationResult) {
 	if jsonReport {
 		printJSON(stdout, stderr, summary, results)
 	} else {
@@ -111,21 +134,21 @@ func printReport(stdout, stderr io.Writer, jsonReport bool, summary acceptance.M
 	}
 }
 
-func exitCodeFromSummary(summary acceptance.MutationSummary) int {
+func exitCodeFromSummary(summary acceptancemutation.MutationSummary) int {
 	if summary.Survived > 0 || summary.Errors > 0 {
 		return 1
 	}
 	return 0
 }
 
-func printText(w io.Writer, summary acceptance.MutationSummary, results []acceptance.MutationResult) {
+func printText(w io.Writer, summary acceptancemutation.MutationSummary, results []acceptancemutation.MutationResult) {
 	fmt.Fprintf(w, "total=%d killed=%d survived=%d errors=%d\n", summary.Total, summary.Killed, summary.Survived, summary.Errors)
 	for _, result := range results {
 		printResult(w, result)
 	}
 }
 
-func printResult(w io.Writer, result acceptance.MutationResult) {
+func printResult(w io.Writer, result acceptancemutation.MutationResult) {
 	fmt.Fprintf(w, "%-8s %s\n", result.Status, result.Mutation.Description)
 	if result.Status != "survived" && result.Status != "error" {
 		return
@@ -153,10 +176,10 @@ func printOptional(w io.Writer, label, value string, block bool) {
 	}
 }
 
-func printJSON(stdout, stderr io.Writer, summary acceptance.MutationSummary, results []acceptance.MutationResult) {
+func printJSON(stdout, stderr io.Writer, summary acceptancemutation.MutationSummary, results []acceptancemutation.MutationResult) {
 	data, err := json.MarshalIndent(struct {
-		Summary acceptance.MutationSummary
-		Results []acceptance.MutationResult
+		Summary acceptancemutation.MutationSummary
+		Results []acceptancemutation.MutationResult
 	}{summary, results}, "", "  ")
 	if err != nil {
 		fmt.Fprintln(stderr, err)

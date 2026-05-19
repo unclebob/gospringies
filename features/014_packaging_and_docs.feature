@@ -1,3 +1,4 @@
+# mutation-stamp: sha256=f81ddd936831befc13d0c71abc5de56268d60a34483ad4fdf7196f9bdbfdb379
 Feature: Packaging and docs
 
 Background:

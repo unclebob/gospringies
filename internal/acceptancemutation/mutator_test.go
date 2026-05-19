@@ -1,10 +1,12 @@
-package acceptance
+package acceptancemutation
 
 import (
+	"context"
 	"math/rand"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"springs/internal/gherkin"
@@ -519,6 +521,60 @@ func TestMutationProgressTrackerReportsEveryIntervalAndAtEnd(t *testing.T) {
 	}
 }
 
+func TestCollectMutationResultsRecordsCompletionAndProgress(t *testing.T) {
+	completed := make(chan indexedMutationResult, 1)
+	completed <- indexedMutationResult{index: 0, result: MutationResult{Status: "killed"}}
+	close(completed)
+	var reports []MutationProgress
+
+	results, err := collectMutationResults(context.Background(), completed, make([]MutationResult, 1), RunMutationOptions{
+		ProgressEvery: 1,
+		Progress:      func(progress MutationProgress) { reports = append(reports, progress) },
+	})
+
+	if err != nil {
+		t.Fatalf("collectMutationResults returned error: %v", err)
+	}
+	if results[0].Status != "killed" {
+		t.Fatalf("results = %#v", results)
+	}
+	if len(reports) != 1 || reports[0].Killed != 1 {
+		t.Fatalf("reports = %#v", reports)
+	}
+}
+
+func TestCollectMutationResultsReturnsContextError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if _, err := collectMutationResults(ctx, make(chan indexedMutationResult), make([]MutationResult, 1), RunMutationOptions{}); err == nil {
+		t.Fatal("expected context error")
+	}
+}
+
+func TestEnqueueMutationJobsStopsOnContextCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	jobs := make(chan mutationJob)
+
+	enqueueMutationJobs(ctx, []Mutation{{ID: "m1"}}, jobs)
+
+	if _, ok := <-jobs; ok {
+		t.Fatal("expected jobs channel to be closed")
+	}
+}
+
+func TestStartMutationWorkersStopsCanceledWorkers(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	jobs := make(chan mutationJob)
+	completed := make(chan indexedMutationResult, 1)
+	var workers sync.WaitGroup
+
+	startMutationWorkers(ctx, gherkin.Feature{}, t.TempDir(), jobs, completed, &workers, 1, 0)
+	workers.Wait()
+}
+
 func TestSummarizeCountsMutationStatuses(t *testing.T) {
 	summary := Summarize([]MutationResult{
 		{Status: "killed"},
@@ -583,11 +639,21 @@ func TestWriteMutationTestCreatesTaggedGeneratedTest(t *testing.T) {
 }
 
 func TestMutationStatus(t *testing.T) {
-	if mutationStatus(nil) != "survived" {
+	if status, message := mutationStatus(context.Background(), context.Background(), nil); status != "survived" || message != "" {
 		t.Fatal("nil error should survive")
 	}
-	if mutationStatus(os.ErrNotExist) != "killed" {
+	if status, message := mutationStatus(context.Background(), context.Background(), os.ErrNotExist); status != "killed" || message != "" {
 		t.Fatal("non-nil error should be killed")
+	}
+	runCtx, cancelRun := context.WithCancel(context.Background())
+	cancelRun()
+	if status, message := mutationStatus(runCtx, runCtx, nil); status != "error" || message == "" {
+		t.Fatal("canceled context should be an error")
+	}
+	commandCtx, cancelCommand := context.WithCancel(context.Background())
+	cancelCommand()
+	if status, message := mutationStatus(context.Background(), commandCtx, nil); status != "killed" || message != "" {
+		t.Fatal("timed-out mutant command should be killed")
 	}
 }
 

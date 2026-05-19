@@ -6,8 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
-	"springs/internal/acceptance"
+	"springs/internal/acceptancemutation"
 	"springs/internal/mutationstamp"
 )
 
@@ -15,10 +16,10 @@ func TestPrintTextIncludesSurvivorDetails(t *testing.T) {
 	var output bytes.Buffer
 	printText(
 		&output,
-		acceptance.MutationSummary{Total: 1, Survived: 1},
-		[]acceptance.MutationResult{{
+		acceptancemutation.MutationSummary{Total: 1, Survived: 1},
+		[]acceptancemutation.MutationResult{{
 			Status: "survived",
-			Mutation: acceptance.Mutation{
+			Mutation: acceptancemutation.Mutation{
 				Description: "$.path: old -> new",
 			},
 			Output: "details\n",
@@ -36,10 +37,10 @@ func TestPrintTextOmitsKilledDetails(t *testing.T) {
 	var output bytes.Buffer
 	printText(
 		&output,
-		acceptance.MutationSummary{Total: 1, Killed: 1},
-		[]acceptance.MutationResult{{
+		acceptancemutation.MutationSummary{Total: 1, Killed: 1},
+		[]acceptancemutation.MutationResult{{
 			Status: "killed",
-			Mutation: acceptance.Mutation{
+			Mutation: acceptancemutation.Mutation{
 				Description: "$.path: old -> new",
 			},
 			Output: "hidden\n",
@@ -54,7 +55,7 @@ func TestPrintTextOmitsKilledDetails(t *testing.T) {
 func TestPrintJSON(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	printJSON(&stdout, &stderr, acceptance.MutationSummary{Total: 1}, nil)
+	printJSON(&stdout, &stderr, acceptancemutation.MutationSummary{Total: 1}, nil)
 
 	if !strings.Contains(stdout.String(), `"Total": 1`) {
 		t.Fatalf("json output = %s", stdout.String())
@@ -63,7 +64,7 @@ func TestPrintJSON(t *testing.T) {
 
 func TestPrintProgressReportsCounts(t *testing.T) {
 	var stderr bytes.Buffer
-	printProgress(&stderr)(acceptance.MutationProgress{Completed: 20, Total: 39, Killed: 19, Survived: 1})
+	printProgress(&stderr)(acceptancemutation.MutationProgress{Completed: 20, Total: 39, Killed: 19, Survived: 1})
 
 	if !strings.Contains(stderr.String(), "progress completed=20 total=39 killed=19 survived=1 errors=0") {
 		t.Fatalf("stderr = %s", stderr.String())
@@ -84,12 +85,23 @@ func TestProgressWriterUsesStdoutForTextAndStderrForJSON(t *testing.T) {
 
 func TestParseOptionsAcceptsWorkers(t *testing.T) {
 	var stderr bytes.Buffer
-	options, err := parseOptions([]string{"-feature", "feature.feature", "-workers", "4"}, &stderr)
+	options, err := parseOptions([]string{
+		"-feature", "feature.feature",
+		"-workers", "4",
+		"-timeout", "3m",
+		"-mutant-timeout", "5s",
+	}, &stderr)
 	if err != nil {
 		t.Fatalf("parseOptions returned error: %v", err)
 	}
 	if options.workers != 4 {
 		t.Fatalf("workers = %d, want 4", options.workers)
+	}
+	if options.timeout != 3*time.Minute {
+		t.Fatalf("timeout = %v, want 3m", options.timeout)
+	}
+	if options.mutantTimeout != 5*time.Second {
+		t.Fatalf("mutant timeout = %v, want 5s", options.mutantTimeout)
 	}
 }
 

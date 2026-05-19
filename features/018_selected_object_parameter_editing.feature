@@ -1,3 +1,4 @@
+# mutation-stamp: sha256=56e71d45781d4a7a19b2a4c02d66259d24c550d2f96a61dd21fcd0aee869395f
 Feature: Selected object parameter editing
 
 Background:

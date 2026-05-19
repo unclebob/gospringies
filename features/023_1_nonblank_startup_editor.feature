@@ -1,3 +1,4 @@
+# mutation-stamp: sha256=cc7f8901a71857a2914582342a1070f11013671b46b8a2ffe04c8e4c60c761fd
 Feature: Nonblank startup editor 23.1
 
 Background:

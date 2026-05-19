@@ -1,3 +1,4 @@
+# mutation-stamp: sha256=1f6979a84cd523ef127a21422cada1da0b06a91c0f2774875f8d8644655e94f1
 Feature: Force evaluation
 
 Background:

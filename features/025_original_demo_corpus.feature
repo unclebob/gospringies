@@ -1,3 +1,4 @@
+# mutation-stamp: sha256=52be68892c0cd18ca4c1195514346d727636d350a5a2eb10ea947494e0c22d59
 Feature: Original demo corpus
 
 Background:
