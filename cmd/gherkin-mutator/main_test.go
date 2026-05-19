@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -22,11 +24,12 @@ func TestPrintTextIncludesSurvivorDetails(t *testing.T) {
 			Mutation: acceptancemutation.Mutation{
 				Description: "$.path: old -> new",
 			},
+			Error:  "boom",
 			Output: "details\n",
 		}},
 	)
 
-	for _, fragment := range []string{"total=1 killed=0 survived=1 errors=0", "survived $.path: old -> new", "details"} {
+	for _, fragment := range []string{"total=1 killed=0 survived=1 errors=0", "survived $.path: old -> new", "error: boom", "output:\ndetails"} {
 		if !strings.Contains(output.String(), fragment) {
 			t.Fatalf("output missing %q:\n%s", fragment, output.String())
 		}
@@ -102,6 +105,126 @@ func TestParseOptionsAcceptsWorkers(t *testing.T) {
 	}
 	if options.mutantTimeout != 5*time.Second {
 		t.Fatalf("mutant timeout = %v, want 5s", options.mutantTimeout)
+	}
+}
+
+func TestParseOptionsDefaults(t *testing.T) {
+	var stderr bytes.Buffer
+	options, err := parseOptions(nil, &stderr)
+	if err != nil {
+		t.Fatalf("parseOptions returned error: %v", err)
+	}
+	if options.workers <= 0 {
+		t.Fatalf("workers = %d, want positive default", options.workers)
+	}
+	if options.timeout != 0 {
+		t.Fatalf("timeout = %v, want 0", options.timeout)
+	}
+	if options.mutantTimeout != 30*time.Second {
+		t.Fatalf("mutant timeout = %v, want 30s", options.mutantTimeout)
+	}
+}
+
+func TestMutationContextUsesDeadlineOnlyForPositiveTimeout(t *testing.T) {
+	zeroCtx, zeroCancel := mutationContext(0)
+	defer zeroCancel()
+	if _, ok := zeroCtx.Deadline(); ok {
+		t.Fatal("zero timeout should not set a deadline")
+	}
+	oneNanoCtx, oneNanoCancel := mutationContext(time.Nanosecond)
+	defer oneNanoCancel()
+	if _, ok := oneNanoCtx.Deadline(); !ok {
+		t.Fatal("one nanosecond timeout should set a deadline")
+	}
+	positiveCtx, positiveCancel := mutationContext(time.Second)
+	defer positiveCancel()
+	if _, ok := positiveCtx.Deadline(); !ok {
+		t.Fatal("positive timeout should set a deadline")
+	}
+}
+
+func TestRunFeatureMutationsReturnsReadError(t *testing.T) {
+	_, _, err := runFeatureMutations(options{featurePath: "missing.feature"}, io.Discard)
+	if err == nil {
+		t.Fatal("expected missing feature error")
+	}
+}
+
+func TestRunReturnsFailureForMissingFeature(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	code := run([]string{"-feature", filepath.Join(t.TempDir(), "missing.feature")}, &stdout, &stderr)
+
+	if code != 1 {
+		t.Fatalf("exit code = %d, stderr = %s", code, stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %s", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "missing.feature") {
+		t.Fatalf("stderr = %s", stderr.String())
+	}
+}
+
+func TestRunFeatureMutationsReturnsWorkDirError(t *testing.T) {
+	dir := t.TempDir()
+	featurePath := filepath.Join(dir, "empty.feature")
+	workDir := filepath.Join(dir, "not-a-directory")
+	writeFile(t, featurePath, "Feature: Empty\n\nScenario: no examples\n  Given nothing\n")
+	writeFile(t, workDir, "x")
+
+	_, _, err := runFeatureMutations(options{featurePath: featurePath, workDir: workDir, workers: 1}, io.Discard)
+	if err == nil {
+		t.Fatal("expected work dir error")
+	}
+}
+
+func TestFinishRunReportsStampError(t *testing.T) {
+	var stderr bytes.Buffer
+	code := finishRun(filepath.Join(t.TempDir(), "missing.feature"), acceptancemutation.MutationSummary{}, &stderr)
+
+	if code != 1 {
+		t.Fatalf("exit code = %d, stderr = %s", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "missing.feature") {
+		t.Fatalf("stderr = %s", stderr.String())
+	}
+}
+
+func TestExitCodeFromSummary(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		summary acceptancemutation.MutationSummary
+		want    int
+	}{
+		{name: "all killed", summary: acceptancemutation.MutationSummary{Killed: 1}, want: 0},
+		{name: "survivor", summary: acceptancemutation.MutationSummary{Survived: 1}, want: 1},
+		{name: "error", summary: acceptancemutation.MutationSummary{Errors: 1}, want: 1},
+		{name: "survivor and error", summary: acceptancemutation.MutationSummary{Survived: 1, Errors: 1}, want: 1},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := exitCodeFromSummary(tt.summary); got != tt.want {
+				t.Fatalf("exit code = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMainExitsForInvalidArguments(t *testing.T) {
+	if os.Getenv("SPRINGS_GHERKIN_MUTATOR_MAIN_TEST") == "1" {
+		main()
+		return
+	}
+
+	cmd := exec.Command(os.Args[0], "-test.run=TestMainExitsForInvalidArguments")
+	cmd.Env = append(os.Environ(), "SPRINGS_GHERKIN_MUTATOR_MAIN_TEST=1")
+	err := cmd.Run()
+	exitErr, ok := err.(*exec.ExitError)
+	if !ok {
+		t.Fatalf("expected exit error, got %T: %v", err, err)
+	}
+	if exitErr.ExitCode() != 2 {
+		t.Fatalf("exit code = %d, want 2", exitErr.ExitCode())
 	}
 }
 

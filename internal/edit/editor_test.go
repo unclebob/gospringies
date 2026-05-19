@@ -125,7 +125,7 @@ func TestDragMovesOnlyMovableMasses(t *testing.T) {
 	if err := editor.DragMass(1, sim.Vec2{X: 40, Y: 50}); err != nil {
 		t.Fatal(err)
 	}
-	if err := editor.DragMass(2, sim.Vec2{X: 40, Y: 50}); err != nil {
+	if err := editor.DragMass(2, sim.Vec2{X: 70, Y: 80}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -166,6 +166,102 @@ func TestEditorMathHelpersCoverBoundaryCases(t *testing.T) {
 	}
 	if got := distance(sim.Vec2{X: 0, Y: 4}, sim.Vec2{X: 0, Y: 1}); got != 3 {
 		t.Fatalf("vertical distance = %f", got)
+	}
+}
+
+func TestAddMassSelectionKeepsExistingSelection(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Mass: 1})
+	editor := NewEditor(world)
+	if err := editor.SelectMass(1); err != nil {
+		t.Fatal(err)
+	}
+	if err := editor.AddMassSelection(2); err != nil {
+		t.Fatal(err)
+	}
+	if !editor.MassSelected(1) || !editor.MassSelected(2) {
+		t.Fatalf("selection = %#v", editor.SelectedMasses)
+	}
+}
+
+func TestSelectionGeometryHelpersCoverBoundaries(t *testing.T) {
+	if !segmentIntersectsBox(sim.Vec2{X: 5, Y: 5}, sim.Vec2{X: 20, Y: 5}, sim.Vec2{}, sim.Vec2{X: 10, Y: 10}) {
+		t.Fatal("endpoint inside box should intersect")
+	}
+	if !segmentIntersectsBox(sim.Vec2{X: 2, Y: 2}, sim.Vec2{X: 8, Y: 8}, sim.Vec2{}, sim.Vec2{X: 10, Y: 10}) {
+		t.Fatal("segment fully inside box should intersect")
+	}
+	if !segmentFullyWithinBox(sim.Vec2{X: 2, Y: 2}, sim.Vec2{X: 8, Y: 8}, sim.Vec2{}, sim.Vec2{X: 10, Y: 10}) {
+		t.Fatal("both endpoints inside box should be fully enclosed")
+	}
+	if segmentFullyWithinBox(sim.Vec2{X: 2, Y: 2}, sim.Vec2{X: 18, Y: 8}, sim.Vec2{}, sim.Vec2{X: 10, Y: 10}) {
+		t.Fatal("one endpoint outside box should not be fully enclosed")
+	}
+	if segmentFullyWithinBox(sim.Vec2{X: -2, Y: 2}, sim.Vec2{X: 8, Y: 8}, sim.Vec2{}, sim.Vec2{X: 10, Y: 10}) {
+		t.Fatal("first endpoint outside box should not be fully enclosed")
+	}
+	if !segmentsIntersect(sim.Vec2{}, sim.Vec2{X: 10, Y: 10}, sim.Vec2{X: 0, Y: 10}, sim.Vec2{X: 10, Y: 0}) {
+		t.Fatal("crossing diagonals should intersect")
+	}
+	if segmentsIntersect(sim.Vec2{}, sim.Vec2{X: 10}, sim.Vec2{X: 5, Y: 1}, sim.Vec2{X: 5, Y: 2}) {
+		t.Fatal("same-side segment should not intersect")
+	}
+	if segmentsIntersect(sim.Vec2{}, sim.Vec2{X: 10}, sim.Vec2{Y: 1}, sim.Vec2{X: 10, Y: 1}) {
+		t.Fatal("parallel separated segments should not intersect")
+	}
+	if !segmentsIntersect(sim.Vec2{}, sim.Vec2{X: 10}, sim.Vec2{X: 10}, sim.Vec2{X: 10, Y: 5}) {
+		t.Fatal("touching endpoint should intersect")
+	}
+
+	baseA := sim.Vec2{}
+	baseB := sim.Vec2{X: 10}
+	if !hasCollinearEndpoint(baseA, baseB, sim.Vec2{X: 5}, sim.Vec2{Y: 2}, 0, 2, 2, 2) {
+		t.Fatal("first collinear endpoint should be enough")
+	}
+	if !hasCollinearEndpoint(baseA, baseB, sim.Vec2{Y: 2}, sim.Vec2{X: 5}, 2, 0, 2, 2) {
+		t.Fatal("second collinear endpoint should be enough")
+	}
+	if !hasCollinearEndpoint(baseA, sim.Vec2{Y: 2}, sim.Vec2{}, sim.Vec2{X: 10}, 2, 2, 0, 2) {
+		t.Fatal("third collinear endpoint should be enough")
+	}
+	if !hasCollinearEndpoint(sim.Vec2{Y: 2}, sim.Vec2{X: 5}, sim.Vec2{}, sim.Vec2{X: 10}, 2, 2, 2, 0) {
+		t.Fatal("fourth collinear endpoint should be enough")
+	}
+	if !collinearEndpointOnSegment(baseA, baseB, sim.Vec2{X: 5}, 0) {
+		t.Fatal("collinear point on segment should match")
+	}
+	if collinearEndpointOnSegment(baseA, baseB, sim.Vec2{X: 5}, 1) {
+		t.Fatal("non-collinear point should not match")
+	}
+	if !oppositeSides(2, -3) || !oppositeSides(-2, 3) ||
+		!oppositeSides(0.5, -3) || !oppositeSides(3, -0.5) ||
+		!oppositeSides(-0.5, 3) || !oppositeSides(-3, 0.5) {
+		t.Fatal("opposite signs should be opposite sides")
+	}
+	if oppositeSides(0, 3) || oppositeSides(0, -3) || oppositeSides(2, 0) || oppositeSides(-2, 0) {
+		t.Fatal("zero should not be on the opposite side")
+	}
+	if oppositeSides(2, 3) || oppositeSides(-2, -3) {
+		t.Fatal("zero or matching signs should not be opposite sides")
+	}
+	if !onSegment(baseA, sim.Vec2{X: 10}, baseB) || !between(0, 0, 10) || !between(10, 0, 10) {
+		t.Fatal("segment and between boundaries should be inclusive")
+	}
+	if orientation(sim.Vec2{}, sim.Vec2{X: 10}, sim.Vec2{X: 5, Y: 1}) <= 0 {
+		t.Fatal("orientation should be positive")
+	}
+	if orientation(sim.Vec2{}, sim.Vec2{X: 10}, sim.Vec2{X: 5, Y: -1}) >= 0 {
+		t.Fatal("orientation should be negative")
+	}
+	if orientation(sim.Vec2{}, sim.Vec2{X: 1}, sim.Vec2{Y: 1e-10}) != 0 {
+		t.Fatal("tiny orientation should be treated as collinear")
+	}
+	if orientation(sim.Vec2{}, sim.Vec2{X: 1}, sim.Vec2{Y: 1e-9}) == 0 {
+		t.Fatal("orientation exactly at epsilon should be nonzero")
+	}
+	if got := orientation(sim.Vec2{X: 1, Y: 2}, sim.Vec2{X: 4, Y: 6}, sim.Vec2{X: 5, Y: 3}); got != -13 {
+		t.Fatalf("non-axis orientation = %v", got)
 	}
 }
 
@@ -379,6 +475,12 @@ func TestBoxSelectSelectsFullyEnclosedSpring(t *testing.T) {
 	if !editor.MassSelected(1) || !editor.MassSelected(2) || !editor.SpringSelected(3) {
 		t.Fatalf("selection = %#v %#v", editor.SelectedMasses, editor.SelectedSprings)
 	}
+
+	editor.clearSelection()
+	world.Springs = []sim.Spring{{ID: 4, MassA: 1, MassB: 99}}
+	if count := editor.selectFullyEnclosedSprings(sim.Vec2{}, sim.Vec2{X: 50, Y: 50}); count != 0 || editor.SpringSelected(4) {
+		t.Fatalf("missing endpoint selected count %d selection %#v", count, editor.SelectedSprings)
+	}
 }
 
 func TestBoxSelectSelectsPartOfSpringWhenNothingElseIsEnclosed(t *testing.T) {
@@ -392,6 +494,17 @@ func TestBoxSelectSelectsPartOfSpringWhenNothingElseIsEnclosed(t *testing.T) {
 
 	if editor.MassSelected(1) || editor.MassSelected(2) || !editor.SpringSelected(3) {
 		t.Fatalf("selection = %#v %#v", editor.SelectedMasses, editor.SelectedSprings)
+	}
+
+	editor.clearSelection()
+	editor.selectSinglePartiallyEnclosedSpring(sim.Vec2{X: 200}, sim.Vec2{X: 210, Y: 10})
+	if len(editor.SelectedSprings) != 0 {
+		t.Fatalf("non-intersecting partial spring selected %#v", editor.SelectedSprings)
+	}
+
+	world.Springs = []sim.Spring{{ID: 4, MassA: 1, MassB: 99}, {ID: 5, MassA: 99, MassB: 2}}
+	if id := editor.singlePartiallyEnclosedSpringID(sim.Vec2{X: 40}, sim.Vec2{X: 60, Y: 20}); id != 0 {
+		t.Fatalf("missing endpoint partial spring id = %d", id)
 	}
 }
 
@@ -424,6 +537,9 @@ func TestBoxSelectDoesNotSelectMultiplePartialSprings(t *testing.T) {
 
 	if editor.SpringSelected(3) || editor.SpringSelected(6) {
 		t.Fatalf("selection = %#v %#v", editor.SelectedMasses, editor.SelectedSprings)
+	}
+	if len(editor.SelectedSprings) != 0 {
+		t.Fatalf("unexpected partial spring selection = %#v", editor.SelectedSprings)
 	}
 }
 
@@ -622,6 +738,13 @@ func TestSetRestLengthUsesCurrentSelectedSpringGeometry(t *testing.T) {
 	if spring.RestLength != 5 {
 		t.Fatalf("rest length = %f", spring.RestLength)
 	}
+
+	if length, err := editor.currentSpringLength(sim.Spring{MassA: 1, MassB: 99}); err == nil || length != 0 {
+		t.Fatalf("missing second endpoint length = %f err = %v", length, err)
+	}
+	if length, err := editor.currentSpringLength(sim.Spring{MassA: 99, MassB: 2}); err == nil || length != 0 {
+		t.Fatalf("missing first endpoint length = %f err = %v", length, err)
+	}
 }
 
 func TestParameterControlsIgnoreIncompatibleSelectionsAndUpdateDefaults(t *testing.T) {
@@ -700,5 +823,9 @@ func TestSpringPointerReleaseAndHitBoundaries(t *testing.T) {
 	}
 	if id, created, err := editor.ReleaseSpring(sim.Vec2{X: springHitRadius + 1}); err != nil || created || id != 0 {
 		t.Fatalf("missed release = id %d created %t err %v", id, created, err)
+	}
+	editor.pendingSpring = &PendingSpring{StartMassID: 99, Active: true}
+	if id, created, err := editor.ReleaseSpring(sim.Vec2{}); err == nil || created || id != 0 {
+		t.Fatalf("invalid pending release = id %d created %t err %v", id, created, err)
 	}
 }

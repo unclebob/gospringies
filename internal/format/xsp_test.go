@@ -278,6 +278,18 @@ func TestForceValueSuffix(t *testing.T) {
 }
 
 func TestXSPParseHelperErrorValues(t *testing.T) {
+	if name, enabled, first, second, err := legacyForceFields([]string{"frce", "bad", "1", "10", "90"}); err == nil || name != "" || enabled != "" || first != 0 || second != 0 {
+		t.Fatalf("legacy force id parse = %q, %q, %v, %v, %v", name, enabled, first, second, err)
+	}
+	if name, enabled, first, second, err := legacyForceFields([]string{"frce", "5", "1", "10", "90"}); err == nil || name != "" || enabled != "" || first != 0 || second != 0 {
+		t.Fatalf("legacy force name parse = %q, %q, %v, %v, %v", name, enabled, first, second, err)
+	}
+	if name, enabled, first, second, err := legacyForceFields([]string{"frce", "0", "maybe", "10", "90"}); err == nil || name != "" || enabled != "" || first != 0 || second != 0 {
+		t.Fatalf("legacy force enabled parse = %q, %q, %v, %v, %v", name, enabled, first, second, err)
+	}
+	if name, enabled, first, second, err := legacyForceFields([]string{"frce", "0", "1", "bad", "90"}); err == nil || name != "" || enabled != "" || first != 0 || second != 0 {
+		t.Fatalf("legacy force first parse = %q, %q, %v, %v, %v", name, enabled, first, second, err)
+	}
 	if position, velocity, mass, elasticity, err := massNumericFields([]string{"mass", "1", "bad", "2", "3", "4"}); err == nil || position != (sim.Vec2{}) || velocity != (sim.Vec2{}) || mass != 0 || elasticity != 0 {
 		t.Fatalf("mass x parse = %v, %v, %v, %v, %v", position, velocity, mass, elasticity, err)
 	}
@@ -295,6 +307,15 @@ func TestXSPParseHelperErrorValues(t *testing.T) {
 	}
 	if position, velocity, mass, elasticity, err := massNumericFields([]string{"mass", "1", "1", "2", "3", "bad"}); err == nil || position != (sim.Vec2{}) || velocity != (sim.Vec2{}) || mass != 0 || elasticity != 0 {
 		t.Fatalf("mass elasticity parse = %v, %v, %v, %v, %v", position, velocity, mass, elasticity, err)
+	}
+	if mass, elasticity, err := massValueFields([]string{"bad", "4"}); err == nil || mass != 0 || elasticity != 0 {
+		t.Fatalf("mass value fields parse = %v, %v, %v", mass, elasticity, err)
+	}
+	if id, err := positiveIDField("bad", "id"); err == nil || id != 0 {
+		t.Fatalf("positive id parse = %v, %v", id, err)
+	}
+	if id, err := positiveIDField("0", "id"); err == nil || id != 0 {
+		t.Fatalf("positive id value = %v, %v", id, err)
 	}
 	if value, err := intField("bad", "id"); err == nil || value != 0 {
 		t.Fatalf("int parse = %v, %v", value, err)

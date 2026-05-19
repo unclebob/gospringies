@@ -1,7 +1,10 @@
+//go:build !appunit
+
 package app
 
 import (
 	"errors"
+	"image"
 	"math"
 	"os"
 	"path/filepath"
@@ -63,6 +66,41 @@ func TestGameLayoutUsesWindowSize(t *testing.T) {
 	}
 }
 
+func TestNewGameStartsWithYUpCanvas(t *testing.T) {
+	game := NewGame()
+	if !game.canvasYUp {
+		t.Fatal("new game should use a y-up canvas")
+	}
+}
+
+func TestAdvanceSimulationFrameRequiresPositiveSpeed(t *testing.T) {
+	game := NewGame()
+	game.paused = false
+	game.simulationSpeed = -1
+
+	game.advanceSimulationFrame()
+
+	if game.World().Time != 0 {
+		t.Fatalf("world time = %f, want unchanged", game.World().Time)
+	}
+}
+
+func TestZeroSpeedDoesNotPinDraggingMass(t *testing.T) {
+	game := gameWithMasses(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
+	game.paused = false
+	game.simulationSpeed = 0
+	game.draggingMassID = 1
+	game.draggingOffsets = map[int]sim.Vec2{1: {X: 1, Y: 1}}
+	game.lastCursor = sim.Vec2{X: 50, Y: 50}
+
+	game.advanceSimulationFrame()
+
+	mass, _ := game.World().MassByID(1)
+	if mass.Position != (sim.Vec2{X: 10, Y: 10}) {
+		t.Fatalf("mass position = %#v, want unchanged", mass.Position)
+	}
+}
+
 func TestAppWorldBoundsUseWindowSize(t *testing.T) {
 	game := NewGame()
 	want := sim.Bounds{Width: screenWidth, Height: screenHeight}
@@ -78,9 +116,14 @@ func TestAppWorldBoundsUseWindowSize(t *testing.T) {
 	}
 
 	replacement := sim.NewWorld()
+	staleEditorWorld := sim.NewWorld()
+	game.editing().World = staleEditorWorld
 	game.ReplaceWorld(replacement)
 	if game.World().Bounds != want {
 		t.Fatalf("replacement bounds = %#v, want %#v", game.World().Bounds, want)
+	}
+	if game.editor.World != game.simulation || game.editor.World == staleEditorWorld {
+		t.Fatal("replacement should reattach editor world to game simulation")
 	}
 }
 
@@ -174,6 +217,36 @@ func TestDrawCoversOpenOverlayBranches(t *testing.T) {
 	game.valueDialog = valueDialog{Open: true, Title: "Value", Text: "1", Min: 0, Max: 2}
 
 	game.Draw(ebiten.NewImage(screenWidth, screenHeight))
+}
+
+func TestAnyKeyPressedChecksEveryCandidate(t *testing.T) {
+	keys := []ebiten.Key{ebiten.KeyA, ebiten.KeyB, ebiten.KeyC}
+	checked := map[ebiten.Key]bool{}
+	pressed := func(key ebiten.Key) bool {
+		checked[key] = true
+		return key == ebiten.KeyC
+	}
+
+	if !anyKeyPressed(keys, pressed) {
+		t.Fatal("expected final candidate to be reported pressed")
+	}
+	for _, key := range keys {
+		if !checked[key] {
+			t.Fatalf("key %v was not checked", key)
+		}
+	}
+	if anyKeyPressed(keys[:2], func(ebiten.Key) bool { return false }) {
+		t.Fatal("unexpected pressed key")
+	}
+}
+
+func TestShiftDownBypassesEbitenKeyState(t *testing.T) {
+	game := NewGame()
+	game.shiftDown = true
+
+	if !game.shiftKeyPressed() {
+		t.Fatal("shiftDown should count as shift pressed")
+	}
 }
 
 func gameWithMasses(masses ...sim.Mass) *Game {
@@ -535,6 +608,98 @@ func TestGridPointsFollowGridSnapSetting(t *testing.T) {
 	}
 }
 
+func TestGridPointsIncludeCanvasEdgesOnlyInsideDrawableRegion(t *testing.T) {
+	game := NewGame()
+	game.World().Parameters.Set("grid snap", "10")
+	game.World().Bounds.Height = 20
+
+	points := game.gridPoints()
+	if len(points) == 0 {
+		t.Fatal("expected grid points")
+	}
+
+	canvas := visibleRegionRects()["canvas"]
+	foundTop := false
+	foundBottom := false
+	for _, point := range points {
+		if point.X < float64(canvas.Min.X) || point.X >= float64(canvas.Max.X) {
+			t.Fatalf("grid point x = %f outside canvas %#v", point.X, canvas)
+		}
+		if point.Y == 0 {
+			foundBottom = true
+		}
+		if point.Y == 20 {
+			foundTop = true
+		}
+	}
+	if !foundBottom {
+		t.Fatal("expected bottom boundary grid row")
+	}
+	if !foundTop {
+		t.Fatal("expected top boundary grid row")
+	}
+}
+
+func TestUnitGridSnapStillDrawsGridPoints(t *testing.T) {
+	game := NewGame()
+	game.World().Parameters.Set("grid snap", "1")
+
+	if points := game.gridPoints(); len(points) == 0 {
+		t.Fatal("expected grid points for unit grid snap")
+	}
+}
+
+func TestValidGridSnapSizeRequiresPositiveSize(t *testing.T) {
+	if validGridSnapSize(0) {
+		t.Fatal("zero grid snap should be invalid")
+	}
+	if validGridSnapSize(-1) {
+		t.Fatal("negative grid snap should be invalid")
+	}
+	if !validGridSnapSize(1) {
+		t.Fatal("positive grid snap should be valid")
+	}
+}
+
+func TestEditorChromeRectsMatchApplicationChrome(t *testing.T) {
+	want := []chromeRect{
+		{x: 0, y: 0, width: screenWidth, height: topBarHeight, color: chromeColor},
+		{x: 0, y: topBarHeight, width: toolbarWidth, height: screenHeight - topBarHeight - statusHeight, color: panelColor},
+		{x: screenWidth - inspectorWidth, y: topBarHeight, width: inspectorWidth, height: screenHeight - topBarHeight - statusHeight, color: panelColor},
+		{x: 0, y: screenHeight - statusHeight, width: screenWidth, height: statusHeight, color: chromeColor},
+	}
+
+	if got := editorChromeRects(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("editor chrome rects = %#v, want %#v", got, want)
+	}
+}
+
+func TestDrawHelpersUseCrispUnaliasedGeometry(t *testing.T) {
+	if editorChromeAntiAlias() {
+		t.Fatal("editor chrome should draw without antialiasing")
+	}
+	if gridPointPixelSize() != 1 {
+		t.Fatalf("grid point size = %f, want 1", gridPointPixelSize())
+	}
+	if gridPointAntiAlias() {
+		t.Fatal("grid points should draw without antialiasing")
+	}
+	if springLineAntiAlias() {
+		t.Fatal("spring lines should draw without antialiasing")
+	}
+
+	game := NewGame()
+	game.World().Parameters.Set("grid snap", "10")
+	rects := game.gridPointRects()
+	if len(rects) == 0 {
+		t.Fatal("expected grid point draw rects")
+	}
+	first := rects[0]
+	if first.width != 1 || first.height != 1 || first.color != gridPointColor || first.antiAlias {
+		t.Fatalf("grid point rect = %#v", first)
+	}
+}
+
 func TestClickCreatedMassSnapsToGridPoint(t *testing.T) {
 	game := NewGame()
 	world := sim.NewWorld()
@@ -660,6 +825,38 @@ func TestRenderFrameMarksRenderingActive(t *testing.T) {
 
 	if !game.RenderingActive() {
 		t.Fatal("expected rendering to be active")
+	}
+}
+
+func TestCoordinateTransformsRespectCanvasOrientation(t *testing.T) {
+	game := NewGame()
+	game.World().Bounds.Height = 100
+	point := sim.Vec2{X: 25, Y: 30}
+
+	if got := game.screenToWorld(point); got != (sim.Vec2{X: 25, Y: 70}) {
+		t.Fatalf("screenToWorld y-up = %#v", got)
+	}
+	if got := game.worldToScreen(point); got != (sim.Vec2{X: 25, Y: 70}) {
+		t.Fatalf("worldToScreen y-up = %#v", got)
+	}
+
+	game.canvasYUp = false
+	if got := game.screenToWorld(point); got != point {
+		t.Fatalf("screenToWorld y-down = %#v", got)
+	}
+	if got := game.worldToScreen(point); got != point {
+		t.Fatalf("worldToScreen y-down = %#v", got)
+	}
+}
+
+func TestEditingRebuildsWhenWorldChanges(t *testing.T) {
+	game := NewGame()
+	editor := game.editing()
+	replacement := sim.NewWorld()
+	game.simulation = replacement
+
+	if got := game.editing(); got == editor || got.World != replacement {
+		t.Fatalf("editor was not rebuilt for replacement world")
 	}
 }
 
@@ -814,6 +1011,9 @@ func TestCopyPasteDuplicatesSelectedObjects(t *testing.T) {
 	if !game.editing().MassSelected(3) || !game.editing().MassSelected(4) || !game.editing().SpringSelected(2) {
 		t.Fatalf("pasted selection = %#v %#v", game.editing().SelectedMasses, game.editing().SelectedSprings)
 	}
+	if !game.selected || !game.dirty {
+		t.Fatalf("paste state selected=%t dirty=%t", game.selected, game.dirty)
+	}
 }
 
 func TestCutCopiesThenDeletesSelection(t *testing.T) {
@@ -828,10 +1028,24 @@ func TestCutCopiesThenDeletesSelection(t *testing.T) {
 	if len(game.World().Masses) != 0 {
 		t.Fatalf("mass count after cut = %d, want 0", len(game.World().Masses))
 	}
+	if game.selected || !game.dirty {
+		t.Fatalf("cut state selected=%t dirty=%t", game.selected, game.dirty)
+	}
 	game.lastCursor = sim.Vec2{X: 200, Y: 220}
 	game.RunCommand("paste")
 	if len(game.World().Masses) != 1 {
 		t.Fatalf("mass count after paste = %d, want 1", len(game.World().Masses))
+	}
+}
+
+func TestSyncSelectionStateClearsEmptySelection(t *testing.T) {
+	game := NewGame()
+	game.selected = true
+
+	game.syncSelectionState()
+
+	if game.selected {
+		t.Fatal("empty selection should clear selected state")
 	}
 }
 
@@ -896,6 +1110,7 @@ func TestClickVisibleFileControlsOpenPathEntry(t *testing.T) {
 
 func TestLoadControlOpensDemoPicker(t *testing.T) {
 	game := NewGame()
+	game.demoPickerScroll = 3
 
 	if !game.ClickVisibleControl("Load") {
 		t.Fatal("Load control click was not handled")
@@ -906,6 +1121,9 @@ func TestLoadControlOpensDemoPicker(t *testing.T) {
 	}
 	if len(game.demoList()) == 0 {
 		t.Fatal("expected demo files")
+	}
+	if game.demoPickerScroll != 0 {
+		t.Fatalf("demo picker scroll = %d, want reset to 0", game.demoPickerScroll)
 	}
 }
 
@@ -918,6 +1136,38 @@ func TestDemoPickerScrolls(t *testing.T) {
 
 	if game.demoPickerScroll != 3 {
 		t.Fatalf("demo picker scroll = %d, want 3", game.demoPickerScroll)
+	}
+}
+
+func TestDemoPickerGeometryAndDrawParameters(t *testing.T) {
+	game := NewGame()
+	rect := demoPickerRect()
+	wantRect := image.Rect(240, 96, screenWidth-240, screenHeight-96)
+	if rect != wantRect {
+		t.Fatalf("picker rect = %#v, want %#v", rect, wantRect)
+	}
+	if rows := demoPickerVisibleRows(); rows != (rect.Dy()-48)/demoPickerRowHeight {
+		t.Fatalf("visible rows = %d", rows)
+	}
+	row0 := game.demoRowRect(0)
+	row1 := game.demoRowRect(1)
+	if row0 != image.Rect(rect.Min.X+12, rect.Min.Y+40, rect.Max.X-12, rect.Min.Y+40+demoPickerRowHeight-2) {
+		t.Fatalf("row0 rect = %#v", row0)
+	}
+	if row1.Min.Y-row0.Min.Y != demoPickerRowHeight || row1.Dx() != row0.Dx() || row1.Dy() != row0.Dy() {
+		t.Fatalf("row spacing row0=%#v row1=%#v", row0, row1)
+	}
+	if got := demoPickerTitlePoint(rect); got != (image.Pt(rect.Min.X+12, rect.Min.Y+10)) {
+		t.Fatalf("title point = %#v", got)
+	}
+	if got := demoPickerRowTextPoint(row0); got != (image.Pt(row0.Min.X+8, row0.Min.Y+4)) {
+		t.Fatalf("row text point = %#v", got)
+	}
+	if demoPickerPanelAntiAlias() || demoPickerRowAntiAlias() {
+		t.Fatal("demo picker rectangles should draw without antialiasing")
+	}
+	if demoPickerRowFill(0) != controlColor || demoPickerRowFill(1) != sectionColor {
+		t.Fatal("demo picker row fill should alternate by visible row")
 	}
 }
 
@@ -942,9 +1192,52 @@ func TestDemoPickerClickLoadsSelectedDemo(t *testing.T) {
 	}
 }
 
+func TestDemoPickerClickUsesScrollOffsetAndOutsideClickCloses(t *testing.T) {
+	dir := t.TempDir()
+	first := filepath.Join(dir, "first.xsp")
+	second := filepath.Join(dir, "second.xsp")
+	if err := os.WriteFile(first, []byte("#1.0\nmass 1 10 20 1 0\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(second, []byte("#1.0\nmass 2 30 40 1 0\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	game := NewGame()
+	game.demoFiles = []string{first, second}
+	game.demoPickerOpen = true
+	game.demoPickerScroll = 1
+	row := game.demoRowRect(0)
+
+	game.clickDemoPicker(row.Min.X+2, row.Min.Y+2)
+
+	if _, ok := game.World().MassByID(2); !ok {
+		t.Fatalf("scrolled demo was not loaded: %#v", game.World().Masses)
+	}
+
+	game.demoPickerOpen = true
+	game.clickDemoPicker(demoPickerRect().Max.X+1, demoPickerRect().Max.Y+1)
+	if game.demoPickerOpen {
+		t.Fatal("outside click should close demo picker")
+	}
+}
+
+func TestLoadDemoAtOutOfRangeKeepsPickerOpen(t *testing.T) {
+	game := NewGame()
+	game.demoFiles = []string{filepath.Join("..", "..", "demos", "pendulum.xsp")}
+	for _, index := range []int{-1, len(game.demoFiles)} {
+		game.demoPickerOpen = true
+		game.loadDemoAt(index)
+		if !game.demoPickerOpen {
+			t.Fatalf("out-of-range index %d closed demo picker", index)
+		}
+	}
+}
+
 func TestClickVisibleGravityControlEnablesGravity(t *testing.T) {
 	game := NewGame()
 	game.World().Parameters.Forces["gravity"] = sim.ForceConfig{Enabled: "false", Values: map[string]string{"magnitude": "0", "direction": "90"}}
+	game.dirty = false
 
 	if !game.ClickVisibleControl("Gravity") {
 		t.Fatal("Gravity control click was not handled")
@@ -956,6 +1249,9 @@ func TestClickVisibleGravityControlEnablesGravity(t *testing.T) {
 	}
 	if !game.VisibleControlActive("Gravity") {
 		t.Fatal("expected Gravity control to show active state")
+	}
+	if !game.dirty {
+		t.Fatal("Gravity control should mark game dirty")
 	}
 }
 
@@ -983,9 +1279,34 @@ func TestClickVisibleMassCollisionControlTogglesCollision(t *testing.T) {
 	}
 }
 
+func TestToggleForceDisablesForceWithNilValues(t *testing.T) {
+	game := NewGame()
+	game.World().Parameters.Forces["gravity"] = sim.ForceConfig{Enabled: "true"}
+
+	game.toggleForce("gravity", map[string]string{"magnitude": "10"})
+
+	force, _ := game.World().Parameters.Force("gravity")
+	if force.Enabled != "false" || force.Values == nil {
+		t.Fatalf("disabled force = %#v, want disabled with initialized values", force)
+	}
+}
+
+func TestSetForceValueInitializesAndEnablesForce(t *testing.T) {
+	game := NewGame()
+	game.World().Parameters.Forces["gravity"] = sim.ForceConfig{Enabled: "false"}
+
+	game.setForceValue("gravity", "magnitude", 12)
+
+	force, _ := game.World().Parameters.Force("gravity")
+	if force.Enabled != "true" || force.Values["magnitude"] != "12" {
+		t.Fatalf("force = %#v, want enabled with magnitude 12", force)
+	}
+}
+
 func TestGravitySliderSetsGravity(t *testing.T) {
 	game := NewGame()
 	game.World().Parameters.EnableForce("gravity", map[string]string{"magnitude": "10", "direction": "0"})
+	game.dirty = false
 	control, ok := visibleControlWithName("gravity slider")
 	if !ok {
 		t.Fatal("missing gravity slider")
@@ -999,6 +1320,9 @@ func TestGravitySliderSetsGravity(t *testing.T) {
 	force, _ := game.World().Parameters.Force("gravity")
 	if force.Enabled != "true" || force.Values["magnitude"] != "25" {
 		t.Fatalf("gravity force = %#v", force)
+	}
+	if !game.dirty {
+		t.Fatal("gravity slider should mark game dirty")
 	}
 }
 
@@ -1046,6 +1370,7 @@ func TestSpeedSliderMinimumIsZero(t *testing.T) {
 
 func TestViscositySliderSetsViscosity(t *testing.T) {
 	game := NewGame()
+	game.dirty = false
 	control, ok := visibleControlWithName("viscosity slider")
 	if !ok {
 		t.Fatal("missing viscosity slider")
@@ -1058,6 +1383,25 @@ func TestViscositySliderSetsViscosity(t *testing.T) {
 
 	if got := game.World().Parameters.Value("viscosity"); got != "1" {
 		t.Fatalf("viscosity = %q, want 1", got)
+	}
+	if !game.dirty {
+		t.Fatal("viscosity slider should mark game dirty")
+	}
+}
+
+func TestSliderFractionHandlesTrackBounds(t *testing.T) {
+	track := image.Rect(10, 0, 30, 1)
+	if got := sliderFractionAt(track, 10); got != 0 {
+		t.Fatalf("min fraction = %f, want 0", got)
+	}
+	if got := sliderFractionAt(track, 30); got != 1 {
+		t.Fatalf("max fraction = %f, want 1", got)
+	}
+	if got := sliderFractionAt(image.Rect(10, 0, 11, 1), 11); got != 1 {
+		t.Fatalf("one-pixel fraction = %f, want 1", got)
+	}
+	if got := sliderFractionAt(image.Rect(10, 0, 10, 1), 20); got != 0 {
+		t.Fatalf("zero-width fraction = %f, want 0", got)
 	}
 }
 
@@ -1098,6 +1442,78 @@ func TestSlidersDragWhileMouseHeld(t *testing.T) {
 
 	if got := game.simulationSpeed; got != maxSpeed {
 		t.Fatalf("simulation speed after drag = %f, want %f", got, maxSpeed)
+	}
+}
+
+func TestReleasePointerClearsTransientDragState(t *testing.T) {
+	game := NewGame()
+	game.draggingMassID = 7
+	game.draggingOffsets = map[int]sim.Vec2{7: {X: 1}}
+	game.dragMoved = true
+	game.selectionDrag = true
+	game.activeSlider = "speed slider"
+
+	game.releasePointer(sim.Vec2{X: 10, Y: 10})
+
+	if game.draggingMassID != 0 || game.draggingOffsets != nil || game.dragMoved || game.selectionDrag || game.activeSlider != "" {
+		t.Fatalf("drag state was not cleared: %#v", game)
+	}
+}
+
+func TestRightPointerOnlyOpensContextOnInitialPress(t *testing.T) {
+	game := gameWithMasses(sim.Mass{ID: 1, Position: sim.Vec2{X: 20, Y: 20}, Mass: 1})
+
+	game.handleRightPointer(true, 20, 20)
+	firstMass := game.massMenu.MassID
+	game.massMenu = massContextMenu{}
+	game.handleRightPointer(true, 20, 20)
+
+	if firstMass != 1 {
+		t.Fatalf("first right press mass = %d, want 1", firstMass)
+	}
+	if game.massMenu.Open {
+		t.Fatal("held right press reopened context menu")
+	}
+}
+
+func TestClickOpenOverlayConsumesOpenOverlayClicks(t *testing.T) {
+	game := NewGame()
+	game.demoFiles = []string{"demos/pendulum.xsp"}
+	game.demoPickerOpen = true
+	if !game.clickOpenOverlay(0, 0) {
+		t.Fatal("demo picker overlay click was not consumed")
+	}
+
+	game.demoPickerOpen = false
+	game.valueDialog = valueDialog{Open: true}
+	if !game.clickOpenOverlay(0, 0) {
+		t.Fatal("value dialog overlay click was not consumed")
+	}
+
+	game.valueDialog.Open = false
+	game.massMenu = massContextMenu{Open: true, MassID: 1}
+	if !game.clickOpenOverlay(0, 0) {
+		t.Fatal("mass context menu overlay click was not consumed")
+	}
+
+	game.massMenu.Open = false
+	if game.clickOpenOverlay(0, 0) {
+		t.Fatal("missing overlay click should not be consumed")
+	}
+}
+
+func TestDemoPickerScrollClampsBothDirections(t *testing.T) {
+	game := NewGame()
+	game.demoPickerOpen = true
+	game.demoFiles = make([]string, demoPickerVisibleRows()+2)
+
+	game.scrollDemoPicker(99)
+	if game.demoPickerScroll != 2 {
+		t.Fatalf("scroll high = %d, want 2", game.demoPickerScroll)
+	}
+	game.scrollDemoPicker(-99)
+	if game.demoPickerScroll != 0 {
+		t.Fatalf("scroll low = %d, want 0", game.demoPickerScroll)
 	}
 }
 
@@ -1283,6 +1699,117 @@ func TestControlDragRubberBandsPendingSpring(t *testing.T) {
 	}
 }
 
+func TestSelectionClickThreshold(t *testing.T) {
+	if !selectionClick(sim.Vec2{X: 0, Y: 0}, sim.Vec2{X: 2.99, Y: 0}) {
+		t.Fatal("short movement should count as click")
+	}
+	if selectionClick(sim.Vec2{X: 0, Y: 0}, sim.Vec2{X: 3, Y: 0}) {
+		t.Fatal("threshold movement should count as drag")
+	}
+}
+
+func TestThrowKeyWithoutDragDoesNotThrowMass(t *testing.T) {
+	game := gameWithMasses(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Velocity: sim.Vec2{X: 3, Y: 4}, Mass: 1})
+	game.draggingMassID = 1
+	game.draggingStart = sim.Vec2{X: 10, Y: 10}
+	game.throwDown = true
+
+	game.finishMassDrag(sim.Vec2{X: 10, Y: 10})
+
+	mass, _ := game.World().MassByID(1)
+	if mass.Velocity != (sim.Vec2{X: 3, Y: 4}) {
+		t.Fatalf("velocity = %#v, want unchanged", mass.Velocity)
+	}
+}
+
+func TestThrowDraggedMassesUsesSingleMassWhenNoSelectionOffsets(t *testing.T) {
+	game := gameWithMasses(sim.Mass{ID: 1, Mass: 1}, sim.Mass{ID: 2, Mass: 1})
+	game.draggingMassID = 1
+
+	game.throwDraggedMasses(sim.Vec2{X: 7, Y: 8})
+
+	mass1, _ := game.World().MassByID(1)
+	mass2, _ := game.World().MassByID(2)
+	if mass1.Velocity != (sim.Vec2{X: 7, Y: 8}) || mass2.Velocity != (sim.Vec2{}) {
+		t.Fatalf("velocities = %#v %#v", mass1.Velocity, mass2.Velocity)
+	}
+}
+
+func TestThrowDraggedMassesMarksDirtyForSelectionOffsets(t *testing.T) {
+	game := gameWithMasses(sim.Mass{ID: 1, Mass: 1})
+	game.draggingOffsets = map[int]sim.Vec2{1: {}}
+
+	game.throwDraggedMasses(sim.Vec2{X: 7, Y: 8})
+
+	mass, _ := game.World().MassByID(1)
+	if mass.Velocity != (sim.Vec2{X: 7, Y: 8}) || !game.dirty {
+		t.Fatalf("throw selected state velocity=%#v dirty=%t", mass.Velocity, game.dirty)
+	}
+}
+
+func TestFinishSelectGestureClickClearsDragAndCreatesMass(t *testing.T) {
+	game := NewGame()
+	game.ReplaceWorld(sim.NewWorld())
+	game.selectionDrag = true
+	game.selectionStart = sim.Vec2{X: 100, Y: 100}
+
+	game.finishSelectGesture(sim.Vec2{X: 100, Y: 100})
+
+	if game.selectionDrag {
+		t.Fatal("selection drag remained active")
+	}
+	if len(game.World().Masses) != 1 {
+		t.Fatalf("mass count = %d, want 1", len(game.World().Masses))
+	}
+}
+
+func TestCreateMassAtMarksDirtyAndSelectsCreatedMass(t *testing.T) {
+	game := NewGame()
+	game.ReplaceWorld(sim.NewWorld())
+
+	id, ok := game.createMassAt(sim.Vec2{X: 30, Y: 40}, false)
+
+	if !ok || id == 0 {
+		t.Fatalf("createMassAt = %d, %t", id, ok)
+	}
+	if !game.dirty || !game.editing().MassSelected(id) || !game.selected {
+		t.Fatalf("created mass state dirty=%t selected=%t editor=%#v", game.dirty, game.selected, game.editing().SelectedMasses)
+	}
+}
+
+func TestFinishSpringAtMarksDirtyOnlyForValidDifferentEndpoint(t *testing.T) {
+	game := gameWithMasses(
+		sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1},
+		sim.Mass{ID: 2, Position: sim.Vec2{X: 30, Y: 10}, Mass: 1},
+	)
+	game.pendingSpringID = 1
+
+	game.finishSpringAt(sim.Vec2{X: 30, Y: 10})
+
+	if len(game.World().Springs) != 1 || !game.dirty || game.pendingSpringID != 0 {
+		t.Fatalf("finish spring state springs=%#v dirty=%t pending=%d", game.World().Springs, game.dirty, game.pendingSpringID)
+	}
+
+	game.dirty = false
+	game.pendingSpringID = 1
+	game.finishSpringAt(sim.Vec2{X: 10, Y: 10})
+	if len(game.World().Springs) != 1 || game.dirty {
+		t.Fatalf("self spring changed state springs=%#v dirty=%t", game.World().Springs, game.dirty)
+	}
+}
+
+func TestMassAtIncludesRadiusBoundaryAndReportsMiss(t *testing.T) {
+	game := gameWithMasses(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
+	_, _, radius := massDrawCircle(game.World().Masses[0])
+
+	if id, ok := game.massAt(sim.Vec2{X: 10 + float64(radius), Y: 10}); !ok || id != 1 {
+		t.Fatalf("boundary massAt = %d, %t", id, ok)
+	}
+	if id, ok := game.massAt(sim.Vec2{X: 10 + float64(radius) + 0.01, Y: 10}); ok || id != 0 {
+		t.Fatalf("miss massAt = %d, %t", id, ok)
+	}
+}
+
 func TestClickVisibleControlsUseRectHitTesting(t *testing.T) {
 	game := NewGame()
 
@@ -1291,6 +1818,12 @@ func TestClickVisibleControlsUseRectHitTesting(t *testing.T) {
 	}
 	if game.ClickAt(500, 300) {
 		t.Fatal("unexpected handled click outside controls")
+	}
+	if control, ok := visibleControlAt(image.Pt(500, 300)); ok || control != (controlBox{}) {
+		t.Fatalf("visibleControlAt outside controls = %#v, %t", control, ok)
+	}
+	if game.VisibleControlActive("missing") {
+		t.Fatal("missing visible control should not be active")
 	}
 }
 
@@ -1392,6 +1925,50 @@ func TestDraggingSelectedMassMovesEntireSelection(t *testing.T) {
 	}
 	if mass3.Position != (sim.Vec2{X: 700, Y: 500}) {
 		t.Fatalf("unselected mass position = %#v, want unchanged", mass3.Position)
+	}
+}
+
+func TestDragSelectedMassesWithoutOffsetsMovesByDelta(t *testing.T) {
+	game := gameWithMasses(
+		sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1},
+		sim.Mass{ID: 2, Position: sim.Vec2{X: 20, Y: 10}, Mass: 1},
+	)
+	_ = game.editing().SelectMass(1)
+	game.editing().SelectedMasses[2] = true
+	game.draggingLast = sim.Vec2{X: 10, Y: 10}
+	game.draggingStart = sim.Vec2{X: 10, Y: 10}
+
+	if !game.dragSelectedMasses(sim.Vec2{X: 13, Y: 14}) {
+		t.Fatal("selected drag should report handled")
+	}
+
+	mass1, _ := game.World().MassByID(1)
+	mass2, _ := game.World().MassByID(2)
+	if mass1.Position != (sim.Vec2{X: 13, Y: 14}) || mass2.Position != (sim.Vec2{X: 23, Y: 14}) {
+		t.Fatalf("selected drag positions = %#v %#v", mass1.Position, mass2.Position)
+	}
+	if !game.dragMoved || !game.dirty {
+		t.Fatalf("selected drag state moved=%t dirty=%t", game.dragMoved, game.dirty)
+	}
+}
+
+func TestDragSelectedMassesWithSingleOffsetAppliesOffset(t *testing.T) {
+	game := gameWithMasses(
+		sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1},
+		sim.Mass{ID: 2, Position: sim.Vec2{X: 20, Y: 10}, Mass: 1},
+	)
+	_ = game.editing().SelectMass(1)
+	game.draggingOffsets = map[int]sim.Vec2{1: {X: 2, Y: 3}}
+	game.draggingStart = sim.Vec2{X: 10, Y: 10}
+
+	if !game.dragSelectedMasses(sim.Vec2{X: 13, Y: 14}) {
+		t.Fatal("selected drag with offsets should report handled")
+	}
+
+	mass1, _ := game.World().MassByID(1)
+	mass2, _ := game.World().MassByID(2)
+	if mass1.Position != (sim.Vec2{X: 15, Y: 17}) || mass2.Position != (sim.Vec2{X: 20, Y: 10}) {
+		t.Fatalf("offset drag positions = %#v %#v", mass1.Position, mass2.Position)
 	}
 }
 
@@ -1511,6 +2088,61 @@ func TestDraggingSelectedMassesPinsGroupToCursorWhileSimulationRuns(t *testing.T
 	}
 	if mass1.Velocity != (sim.Vec2{}) || mass2.Velocity != (sim.Vec2{}) {
 		t.Fatalf("dragged velocities after advance = %#v %#v, want zero", mass1.Velocity, mass2.Velocity)
+	}
+}
+
+func TestCaptureSelectedDraggingOffsetsRequiresSelectedDraggedMass(t *testing.T) {
+	game := gameWithMasses(
+		sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1},
+		sim.Mass{ID: 2, Position: sim.Vec2{X: 20, Y: 20}, Mass: 1},
+	)
+	game.draggingMassID = 1
+	game.draggingOffsets = map[int]sim.Vec2{}
+	_ = game.editing().SelectMass(2)
+
+	if game.captureSelectedDraggingOffsets(sim.Vec2{}) {
+		t.Fatal("unselected dragged mass should not capture selection offsets")
+	}
+
+	_ = game.editing().SelectMass(1)
+	game.editing().SelectedMasses[2] = true
+	if !game.captureSelectedDraggingOffsets(sim.Vec2{X: 5, Y: 5}) {
+		t.Fatal("selected dragged mass should capture selection offsets")
+	}
+	if len(game.draggingOffsets) != 2 || game.draggingOffsets[1] != (sim.Vec2{X: 5, Y: 5}) || game.draggingOffsets[2] != (sim.Vec2{X: 15, Y: 15}) {
+		t.Fatalf("dragging offsets = %#v", game.draggingOffsets)
+	}
+}
+
+func TestCaptureSelectedDraggingOffsetsWorksForSingleSelectedMass(t *testing.T) {
+	game := gameWithMasses(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
+	game.draggingMassID = 1
+	game.draggingOffsets = map[int]sim.Vec2{}
+	_ = game.editing().SelectMass(1)
+
+	if !game.captureSelectedDraggingOffsets(sim.Vec2{X: 4, Y: 5}) {
+		t.Fatal("single selected dragged mass should capture selection offset")
+	}
+	if game.draggingOffsets[1] != (sim.Vec2{X: 6, Y: 5}) {
+		t.Fatalf("dragging offsets = %#v", game.draggingOffsets)
+	}
+}
+
+func TestPinDraggingMassesRequiresDraggingIDAndOffsets(t *testing.T) {
+	game := gameWithMasses(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
+	game.draggingOffsets = map[int]sim.Vec2{1: {X: 1, Y: 1}}
+	game.pinDraggingMasses(sim.Vec2{X: 20, Y: 20})
+	mass, _ := game.World().MassByID(1)
+	if mass.Position != (sim.Vec2{X: 10, Y: 10}) {
+		t.Fatalf("mass moved without dragging id: %#v", mass.Position)
+	}
+
+	game.draggingMassID = 1
+	game.draggingOffsets = nil
+	game.pinDraggingMasses(sim.Vec2{X: 20, Y: 20})
+	mass, _ = game.World().MassByID(1)
+	if mass.Position != (sim.Vec2{X: 10, Y: 10}) {
+		t.Fatalf("mass moved without offsets: %#v", mass.Position)
 	}
 }
 
@@ -1640,6 +2272,38 @@ func TestPointerGestureRequiresMouseDownOnMass(t *testing.T) {
 	mass, _ := game.World().MassByID(1)
 	if mass.Position != (sim.Vec2{X: 10, Y: 10}) {
 		t.Fatalf("mass position = %#v, want 10,10", mass.Position)
+	}
+}
+
+func TestSelectedMassesImplicitSelectionRequiresNoSpringSelection(t *testing.T) {
+	game := gameWithMasses(
+		sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1},
+		sim.Mass{ID: 2, Position: sim.Vec2{X: 30, Y: 10}, Mass: 1},
+	)
+	game.World().Springs = []sim.Spring{{ID: 1, MassA: 1, MassB: 2}}
+	game.selected = true
+
+	if got := game.selectedMasses(); len(got) != 2 {
+		t.Fatalf("implicit selected masses = %#v, want all masses", got)
+	}
+
+	game.editing().SelectedSprings[1] = true
+	if got := game.selectedMasses(); len(got) != 0 {
+		t.Fatalf("spring-only selection masses = %#v, want none", got)
+	}
+}
+
+func TestSelectedSpringLinesRequireBothEndpoints(t *testing.T) {
+	game := gameWithMasses(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
+	game.World().Springs = []sim.Spring{
+		{ID: 1, MassA: 1, MassB: 2},
+		{ID: 2, MassA: 2, MassB: 1},
+	}
+	game.editing().SelectedSprings[1] = true
+	game.editing().SelectedSprings[2] = true
+
+	if got := game.selectedSpringLines(); len(got) != 0 {
+		t.Fatalf("selected spring lines with missing endpoints = %#v", got)
 	}
 }
 
@@ -1850,6 +2514,8 @@ func TestRunAndPauseControlsSetSimulationState(t *testing.T) {
 func TestFileCommandsSaveLoadAndInsertXSP(t *testing.T) {
 	game := NewGame()
 	_ = game.World().AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 1, Y: 2}, Mass: 1})
+	_ = game.editing().SelectMass(1)
+	game.syncSelectionState()
 
 	saved := game.SaveXSP()
 	if saved == "" || game.EditorScreen().Indicators["file state"] != "saved" {
@@ -1857,11 +2523,19 @@ func TestFileCommandsSaveLoadAndInsertXSP(t *testing.T) {
 	}
 
 	loaded := "#1.0\ncmas 7\nmass 9 10 20 1 0\n"
+	staleEditorWorld := sim.NewWorld()
+	game.editing().World = staleEditorWorld
 	if err := game.LoadXSP(loaded); err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := game.World().MassByID(9); !ok || game.World().Parameters.Value("current mass") != "7" {
 		t.Fatalf("loaded world = %#v", game.World())
+	}
+	if game.selected {
+		t.Fatal("load should clear selected state")
+	}
+	if game.editor.World != game.simulation || game.editor.World == staleEditorWorld {
+		t.Fatal("load should reattach editor world to game simulation")
 	}
 	if game.EditorScreen().Indicators["file state"] != "saved" {
 		t.Fatalf("load indicators = %#v", game.EditorScreen().Indicators)
@@ -1916,6 +2590,18 @@ func TestRestoreStateWithoutSavedStateRestoresInitialWorld(t *testing.T) {
 
 	if !reflect.DeepEqual(game.World(), expected) {
 		t.Fatalf("restored world = %#v, want %#v", game.World(), expected)
+	}
+}
+
+func TestRestoreCommandMarksWorldDirty(t *testing.T) {
+	game := NewGame()
+	game.SaveState()
+	game.dirty = false
+
+	game.RunCommand("restore state")
+
+	if !game.dirty {
+		t.Fatal("restore command should mark game dirty")
 	}
 }
 
