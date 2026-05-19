@@ -34,6 +34,7 @@ Scenario Outline: named force tokens are stable in saved XSP
   When the coder saves the world as XSP
   Then saved XSP output should include force token <force_token>
   When the coder loads XSP input with force token <force_token>
+  Then loaded force token <force_token> should map to force <force_name>
   Then loaded force <force_name> should be configured with <enabled_state> and <force_parameters>
 
 Examples:
