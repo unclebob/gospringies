@@ -25,6 +25,37 @@ Examples:
   | Time Step                 | 0.016 |
   | Precision                 | 0.001 |
 
+Scenario: right panel numeric controls fit without overlap
+  When the coder renders the right inspector
+  Then every numeric setting label should fit inside the right inspector
+  And every numeric setting slider should fit inside the right inspector
+  And every numeric setting text field should fit inside the right inspector
+  And numeric setting controls should not overlap other numeric setting controls
+  And numeric setting controls should not overlap right inspector section headings
+
+Scenario Outline: slider text fields use a compact row layout
+  When the coder renders numeric setting <setting>
+  Then numeric setting <setting> label should be left of its slider
+  And numeric setting <setting> text field should be right of its slider
+  And numeric setting <setting> slider and text field should be on the same row
+  And numeric setting <setting> text field should fit value <longest_value>
+
+Examples:
+  | setting                   | longest_value |
+  | Mass                      | 1000.0        |
+  | Elasticity                | 1.0           |
+  | Kspring                   | 1000.0        |
+  | Kdamp                     | 1000.0        |
+  | Gravity                   | 1000.0        |
+  | Center Attraction         | 1000.0        |
+  | Center Of Mass Attraction | 1000.0        |
+  | Wall Repulsion            | 100000.0      |
+  | Viscosity                 | 1000.0        |
+  | Stick                     | 1000.0        |
+  | Speed                     | 10.0          |
+  | Time Step                 | 0.0001        |
+  | Precision                 | 0.000001      |
+
 Scenario Outline: stickiness is adjusted with a slider
   When the coder changes numeric setting Stick with the slider to <new_value>
   Then parameter stickiness should be <new_value>
