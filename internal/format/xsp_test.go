@@ -188,6 +188,34 @@ func TestLoadXSPPreservesDisabledForceValues(t *testing.T) {
 	}
 }
 
+func TestLoadXSPAcceptsMultiWordForceNames(t *testing.T) {
+	input := strings.Join([]string{
+		"#1.0",
+		"frce center attraction false magnitude=10 exponent=0",
+		"frce center of mass attraction false magnitude=5 damping=2",
+		"frce wall repulsion false magnitude=10000 exponent=1",
+		"frce mass collision false",
+	}, "\n") + "\n"
+
+	world, err := LoadXSP(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, name := range []string{"center attraction", "center of mass attraction", "wall repulsion", "mass collision"} {
+		force, ok := world.Parameters.Force(name)
+		if !ok || force.Enabled != "false" {
+			t.Fatalf("force %q = %#v, %t", name, force, ok)
+		}
+	}
+	if force, _ := world.Parameters.Force("wall repulsion"); force.Values["magnitude"] != "10000" || force.Values["exponent"] != "1" {
+		t.Fatalf("wall repulsion values = %#v", force)
+	}
+	if force, _ := world.Parameters.Force("center of mass attraction"); force.Values["magnitude"] != "5" || force.Values["damping"] != "2" {
+		t.Fatalf("center of mass values = %#v", force)
+	}
+}
+
 func TestLoadXSPHandlesForcesWithoutValues(t *testing.T) {
 	world, err := LoadXSP("#1.0\nfrce gravity true\n")
 	if err != nil {

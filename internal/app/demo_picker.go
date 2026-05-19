@@ -106,7 +106,7 @@ func globXSP(dir string) []string {
 func groupedLoadPickerEntries(saves []string, starters []string, originals []string) []string {
 	var entries []string
 	entries = append(entries, saves...)
-	if len(saves) > 0 && len(starters)+len(originals) > 0 {
+	if len(saves) > 0 {
 		entries = append(entries, loadPickerSeparator)
 	}
 	entries = append(entries, starters...)

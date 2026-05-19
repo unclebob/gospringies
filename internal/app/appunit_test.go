@@ -941,6 +941,31 @@ func TestAppUnitLoadPickerEntriesAndSelectionByName(t *testing.T) {
 	}
 }
 
+func TestAppUnitOpenDemoPickerRefreshesFileList(t *testing.T) {
+	root := t.TempDir()
+	withAppUnitWorkingDirectory(t, root)
+	appUnitWriteFile(t, filepath.Join("saves", "old.xsp"), "#1.0\nmass 1 10 20 1 0\n")
+	game := NewGame()
+
+	game.openDemoPicker()
+	if !sameStrings(game.LoadPickerEntries(), []string{filepath.Join("saves", "old.xsp"), loadPickerSeparator}) {
+		t.Fatalf("initial picker entries = %#v", game.LoadPickerEntries())
+	}
+
+	appUnitWriteFile(t, filepath.Join("saves", "simple hex.xsp"), "#1.0\nmass 2 30 40 1 0\n")
+	game.openDemoPicker()
+
+	if !sameStrings(game.LoadPickerEntries(), []string{filepath.Join("saves", "old.xsp"), filepath.Join("saves", "simple hex.xsp"), loadPickerSeparator}) {
+		t.Fatalf("refreshed picker entries = %#v", game.LoadPickerEntries())
+	}
+	if !game.ChooseLoadPickerEntry("simple hex.xsp") {
+		t.Fatalf("new saved file did not load: %s", game.LastFileError())
+	}
+	if _, ok := game.World().MassByID(2); !ok || game.CurrentFilePath() != filepath.Join("saves", "simple hex.xsp") {
+		t.Fatalf("loaded masses = %#v current path = %q", game.World().Masses, game.CurrentFilePath())
+	}
+}
+
 func withAppUnitWorkingDirectory(t *testing.T, dir string) {
 	t.Helper()
 	previous, err := os.Getwd()
@@ -1052,7 +1077,7 @@ func TestAppUnitGroupedLoadPickerEntries(t *testing.T) {
 		{
 			name:  "saves only",
 			saves: []string{"saves/a.xsp"},
-			want:  []string{"saves/a.xsp"},
+			want:  []string{"saves/a.xsp", loadPickerSeparator},
 		},
 		{
 			name:     "starters only",

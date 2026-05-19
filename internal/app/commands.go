@@ -87,6 +87,7 @@ func (g *Game) syncSelectionState() {
 func (g *Game) openDemoPicker() {
 	g.demoPickerOpen = true
 	g.demoPickerScroll = 0
+	g.demoFiles = nil
 	g.demoList()
 }
 
