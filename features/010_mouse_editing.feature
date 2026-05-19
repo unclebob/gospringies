@@ -1,4 +1,3 @@
-# mutation-stamp: sha256=c4fde23b4ff25996a3b7bd3ab86084a92f0228614ca0e7837aa9110bacb3e7d6
 Feature: Mouse editing
 
 Background:
@@ -15,17 +14,31 @@ Examples:
   | mode     | pointer_position | expected_position |
   | add mass | 120,80           | 120,80            |
 
-Scenario Outline: grid snap affects mass placement
+Scenario Outline: grid snap constrains mass placement to grid points
   Given grid snap is <grid_snap>
   And the grid snap size is <snap_size>
   And the editor mode is add mass
   When the coder clicks at <pointer_position>
   Then a mass should be created at <expected_position>
+  And mass placement should be constrained to grid state <grid_snap>
 
 Examples:
   | grid_snap | snap_size | pointer_position | expected_position |
   | enabled   | 10        | 123,87           | 120,90            |
   | disabled  | 10        | 123,87           | 123,87            |
+
+Scenario Outline: grid snap constrains mass dragging to grid points
+  Given grid snap is enabled
+  And the grid snap size is <snap_size>
+  And mass <mass_id> fixed state is false
+  And mass <mass_id> starts at <start_position>
+  When the coder drags mass <mass_id> through <drag_position> to <target_position>
+  Then mass <mass_id> drag position should be <snapped_drag_position>
+  And mass <mass_id> position should be <expected_position>
+
+Examples:
+  | mass_id | snap_size | start_position | drag_position | target_position | snapped_drag_position | expected_position |
+  | 1       | 10        | 10,10          | 123,87        | 146,113         | 120,90                | 150,110           |
 
 Scenario Outline: spring placement connects existing masses
   Given the editor mode is <mode>
