@@ -249,6 +249,48 @@ func TestAppUnitVisibleControlLayoutAndReport(t *testing.T) {
 	}
 }
 
+func TestAppUnitDragMassSnapsToGrid(t *testing.T) {
+	game := appUnitGameWithMasses(
+		sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Velocity: sim.Vec2{X: 1, Y: 1}, Mass: 1},
+		sim.Mass{ID: 2, Position: sim.Vec2{X: 20, Y: 20}, Velocity: sim.Vec2{X: 2, Y: 2}, Mass: 1},
+	)
+	game.World().Parameters.Set("grid snap", "10")
+
+	if !game.DragMass(1, sim.Vec2{X: 123, Y: 87}) {
+		t.Fatal("single mass drag should succeed")
+	}
+	mass, _ := game.World().MassByID(1)
+	if mass.Position != (sim.Vec2{X: 120, Y: 90}) || mass.Velocity != (sim.Vec2{}) || !game.dirty || !game.dragMoved {
+		t.Fatalf("single dragged mass = %#v dirty=%t moved=%t", mass, game.dirty, game.dragMoved)
+	}
+
+	game.dirty = false
+	game.dragMoved = false
+	game.draggingOffsets = map[int]sim.Vec2{1: {X: 2, Y: 3}, 2: {X: -3, Y: -2}}
+	_ = game.editing().SelectMass(1)
+	_ = game.editing().AddMassSelection(2)
+	if !game.DragMass(1, sim.Vec2{X: 13, Y: 14}) {
+		t.Fatal("selected mass drag should succeed")
+	}
+	first, _ := game.World().MassByID(1)
+	second, _ := game.World().MassByID(2)
+	if first.Position != (sim.Vec2{X: 15, Y: 17}) || second.Position != (sim.Vec2{X: 10, Y: 12}) {
+		t.Fatalf("selected dragged masses = %#v %#v", first, second)
+	}
+	if first.Velocity != (sim.Vec2{}) || second.Velocity != (sim.Vec2{}) || !game.dirty || !game.dragMoved {
+		t.Fatalf("selected drag state first=%#v second=%#v dirty=%t moved=%t", first, second, game.dirty, game.dragMoved)
+	}
+
+	game.World().Parameters.Set("grid snap", "0")
+	if got := game.snapToGrid(sim.Vec2{X: 12.5, Y: 17.5}); got != (sim.Vec2{X: 12.5, Y: 17.5}) {
+		t.Fatalf("disabled snap = %#v", got)
+	}
+	game.World().Parameters.Set("grid snap", "1")
+	if got := game.snapToGrid(sim.Vec2{X: 12.5, Y: 17.5}); got != (sim.Vec2{X: 13, Y: 18}) {
+		t.Fatalf("unit snap = %#v", got)
+	}
+}
+
 func TestAppUnitEditorScreenAndShortcuts(t *testing.T) {
 	game := NewGame()
 	game.SetPaused(true)

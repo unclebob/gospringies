@@ -2,6 +2,7 @@ package acceptance
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -66,6 +67,25 @@ func assertCreatedMassDefaults(w *world, _ map[string]string) error {
 	return nil
 }
 
+func assertMassPlacementConstrainedToGrid(w *world, example map[string]string) error {
+	snap, err := stringValue(example, "grid_snap")
+	if err != nil {
+		return err
+	}
+	enabled, ok := booleanState(snap, mouseGridSnapStates)
+	if !ok {
+		return fmt.Errorf("unsupported grid snap %q", snap)
+	}
+	if !enabled {
+		return nil
+	}
+	mass, err := createdMouseMass(w)
+	if err != nil {
+		return err
+	}
+	return assertGridPoint("mass placement", mass.Position, ensureMouseEditor(w).GridSnapSize)
+}
+
 func setMouseGridSnap(w *world, example map[string]string) error {
 	snap, err := stringValue(example, "grid_snap")
 	if err != nil {
@@ -76,6 +96,11 @@ func setMouseGridSnap(w *world, example map[string]string) error {
 		return fmt.Errorf("unsupported grid snap %q", snap)
 	}
 	ensureMouseEditor(w).GridSnapEnabled = enabled
+	return nil
+}
+
+func setMouseGridSnapEnabled(w *world, _ map[string]string) error {
+	ensureMouseEditor(w).GridSnapEnabled = true
 	return nil
 }
 
@@ -142,6 +167,38 @@ func dragMouseMass(w *world, example map[string]string) error {
 	return ensureMouseEditor(w).DragMass(id, position)
 }
 
+func dragMouseMassThrough(w *world, example map[string]string) error {
+	if err := dragMouseMassToPosition(w, example, "drag_position"); err != nil {
+		return err
+	}
+	id, err := intValue(example, "mass_id")
+	if err != nil {
+		return err
+	}
+	mass, ok := w.domainWorld.MassByID(id)
+	if !ok {
+		return fmt.Errorf("mass %d not found", id)
+	}
+	w.mouseDragPosition = mass.Position
+	w.mouseDragRecorded = true
+	return dragMouseMassToPosition(w, example, "target_position")
+}
+
+func dragMouseMassToPosition(w *world, example map[string]string, key string) error {
+	id, err := intValue(example, "mass_id")
+	if err != nil {
+		return err
+	}
+	position, err := positionValue(example, key)
+	if err != nil {
+		return err
+	}
+	if game, ok := dragModeGame(w); ok {
+		return dragAppMass(w, game, id, position)
+	}
+	return ensureMouseEditor(w).DragMass(id, position)
+}
+
 func dragModeGame(w *world) (*app.Game, bool) {
 	game, ok := w.appGame.(*app.Game)
 	return game, ok
@@ -160,6 +217,20 @@ func dragAppMass(w *world, game *app.Game, id int, position sim.Vec2) error {
 
 func assertMouseMassPosition(w *world, example map[string]string) error {
 	return assertMouseMassPositionValue(w, example, "expected_position", "mass position")
+}
+
+func assertMouseMassDragPosition(w *world, example map[string]string) error {
+	if _, err := intValue(example, "mass_id"); err != nil {
+		return err
+	}
+	position, err := positionValue(example, "snapped_drag_position")
+	if err != nil {
+		return err
+	}
+	if !w.mouseDragRecorded {
+		return fmt.Errorf("mass drag position was not recorded")
+	}
+	return assertVec("mass drag position", w.mouseDragPosition, position.X, position.Y)
 }
 
 func assertMouseMassInitialPosition(w *world, example map[string]string) error {
@@ -285,4 +356,18 @@ func withMouseMass(w *world, example map[string]string, check func(sim.Mass) err
 		return fmt.Errorf("mass %d not found", id)
 	}
 	return check(mass)
+}
+
+func assertGridPoint(name string, position sim.Vec2, size float64) error {
+	if size <= 0 {
+		return fmt.Errorf("%s grid snap size = %f", name, size)
+	}
+	if !onGrid(position.X, size) || !onGrid(position.Y, size) {
+		return fmt.Errorf("%s = %f,%f is not constrained to grid size %f", name, position.X, position.Y, size)
+	}
+	return nil
+}
+
+func onGrid(value float64, size float64) bool {
+	return math.Abs(value/size-math.Round(value/size)) < 0.000001
 }

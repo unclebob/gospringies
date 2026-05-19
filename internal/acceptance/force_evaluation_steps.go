@@ -223,6 +223,15 @@ func createMassFixedState(w *world, example map[string]string) error {
 	return world.AddMass(sim.Mass{ID: id, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1, Fixed: fixed})
 }
 
+func createMassMovableState(w *world, example map[string]string) error {
+	withFixed := map[string]string{}
+	for key, value := range example {
+		withFixed[key] = value
+	}
+	withFixed["fixed"] = "false"
+	return createMassFixedState(w, withFixed)
+}
+
 func affectMassByForce(w *world, example map[string]string) error {
 	force, err := stringValue(example, "force")
 	if err != nil {
