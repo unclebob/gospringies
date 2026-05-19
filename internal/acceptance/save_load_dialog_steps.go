@@ -139,10 +139,18 @@ func assertSavedXSPFileContainsState(w *world, example map[string]string) error 
 }
 
 func createSavedXSPFile(w *world, example map[string]string) error {
+	return createSavedXSPFileFromKey(w, example, "save_file")
+}
+
+func createOldSavedXSPFile(w *world, example map[string]string) error {
+	return createSavedXSPFileFromKey(w, example, "old_save_file")
+}
+
+func createSavedXSPFileFromKey(w *world, example map[string]string, key string) error {
 	if err := ensureSaveLoadWorkDir(w); err != nil {
 		return err
 	}
-	name, err := stringValue(example, "save_file")
+	name, err := stringValue(example, key)
 	if err != nil {
 		return err
 	}
@@ -172,10 +180,18 @@ func createOriginalXSPFile(w *world, example map[string]string) error {
 }
 
 func createSavedXSPFileWithState(w *world, example map[string]string) error {
+	return createSavedXSPFileWithStateFromKey(w, example, "save_file")
+}
+
+func createNewSavedXSPFileWithState(w *world, example map[string]string) error {
+	return createSavedXSPFileWithStateFromKey(w, example, "new_save_file")
+}
+
+func createSavedXSPFileWithStateFromKey(w *world, example map[string]string, key string) error {
 	if err := ensureSaveLoadWorkDir(w); err != nil {
 		return err
 	}
-	name, state, err := stringPair(example, "save_file", "world_state")
+	name, state, err := stringPair(example, key, "world_state")
 	if err != nil {
 		return err
 	}
@@ -194,7 +210,15 @@ func openLoadPicker(w *world, _ map[string]string) error {
 }
 
 func chooseLoadPickerEntry(w *world, example map[string]string) error {
-	name, err := stringValue(example, "save_file")
+	return chooseLoadPickerEntryFromKey(w, example, "save_file")
+}
+
+func chooseNewLoadPickerEntry(w *world, example map[string]string) error {
+	return chooseLoadPickerEntryFromKey(w, example, "new_save_file")
+}
+
+func chooseLoadPickerEntryFromKey(w *world, example map[string]string, key string) error {
+	name, err := stringValue(example, key)
 	if err != nil {
 		return err
 	}
@@ -265,6 +289,10 @@ func requireLoadPickerEntryOrder(entries []string, first string, second string) 
 
 func assertSaveFileBeforeSeparator(w *world, example map[string]string) error {
 	return assertLoadPickerEntryBefore(w, example, "save_file", "separator")
+}
+
+func assertNewSaveFileBeforeSeparator(w *world, example map[string]string) error {
+	return assertLoadPickerEntryBefore(w, example, "new_save_file", "separator")
 }
 
 func assertSeparatorBeforeDemoFile(w *world, example map[string]string) error {
