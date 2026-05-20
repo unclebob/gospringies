@@ -7,7 +7,16 @@ import (
 	"strings"
 )
 
-const numericTextCursorPeriod = 60
+const (
+	numericTextCursorPeriod   = 60
+	numericStepButtonWidth    = 20
+	numericStepButtonGap      = 4
+	numericStepAmount         = 0.1
+	numericStepHoldDelayTicks = 30
+	numericStepRepeatTicks    = 6
+	wallToggleButtonWidth     = 14
+	wallToggleButtonGap       = 2
+)
 
 type numericSetting struct {
 	Name      string
@@ -30,8 +39,8 @@ var numericSettings = []numericSetting{
 	{Name: "Kdamp", Label: "Kdamp", Parameter: "damping", Control: "Kdamp", Min: 0, Max: 1000, Decimals: 1, Y: 198},
 	{Name: "Gravity", Label: "Gravity", Force: "gravity", ForceKey: "magnitude", Min: 0, Max: 50, Decimals: 1, Y: 278},
 	{Name: "Center Attraction", Label: "Center Attraction", Force: "center attraction", ForceKey: "magnitude", Min: 0, Max: 1000, Decimals: 1, Y: 304},
-	{Name: "Center Of Mass Attraction", Label: "Center Of Mass Attraction", Force: "center of mass attraction", ForceKey: "magnitude", Min: 0, Max: 1000, Decimals: 1, Y: 330},
-	{Name: "Wall Repulsion", Label: "Wall Repulsion", Force: "wall repulsion", ForceKey: "magnitude", Min: 0, Max: 100000, Decimals: 1, Y: 356},
+	{Name: "Center Of Mass Attraction", Label: "CM Attraction", Force: "center of mass attraction", ForceKey: "magnitude", Min: 0, Max: 1000, Decimals: 1, Y: 330},
+	{Name: "Wall Repulsion", Label: "Wall Rep", Force: "wall repulsion", ForceKey: "magnitude", Min: 0, Max: 100000, Decimals: 1, Y: 356},
 	{Name: "Viscosity", Label: "Viscosity", Parameter: "viscosity", Min: 0, Max: 2, Decimals: 1, Y: 594},
 	{Name: "Stick", Label: "Stick", Parameter: "stickiness", Min: 0, Max: 10, Decimals: 1, Y: 620},
 	{Name: "Speed", Label: "Speed", Speed: true, Min: 0, Max: maxSpeed, Decimals: 1, Y: 646},
@@ -42,31 +51,99 @@ var numericSettings = []numericSetting{
 func numericSettingControls() []controlBox {
 	var controls []controlBox
 	for _, setting := range numericSettings {
-		label, slider, text := numericSettingRects(setting.Y)
+		checkbox, label, decrement, slider, increment, text := numericSettingRects(setting)
+		if checkboxName := numericSettingForceToggleControl(setting); checkboxName != "" {
+			controls = append(controls, controlBox{Name: checkboxName, Label: "", Region: "right inspector", Rect: checkbox})
+		}
+		controls = append(controls, wallToggleControlsForSetting(setting)...)
 		controls = append(controls,
 			controlBox{Name: numericControlName(setting.Name, "label"), Label: setting.Label + ":", Region: "right inspector", Rect: label},
+			controlBox{Name: numericControlName(setting.Name, "decrement"), Label: "<", Region: "right inspector", Rect: decrement},
 			controlBox{Name: numericControlName(setting.Name, "slider"), Label: "", Region: "right inspector", Rect: slider},
+			controlBox{Name: numericControlName(setting.Name, "increment"), Label: ">", Region: "right inspector", Rect: increment},
 			controlBox{Name: numericControlName(setting.Name, "text field"), Label: "", Region: "right inspector", Rect: text},
 		)
 	}
 	return controls
 }
 
-func numericSettingRects(y int) (image.Rectangle, image.Rectangle, image.Rectangle) {
+func numericSettingRects(setting numericSetting) (image.Rectangle, image.Rectangle, image.Rectangle, image.Rectangle, image.Rectangle, image.Rectangle) {
 	left := inspectorLeft() + 16
 	right := screenWidth - 16
-	label := image.Rect(left, y, left+168, y+20)
-	slider := image.Rect(label.Max.X+8, y, right-80, y+20)
-	text := image.Rect(right-72, y, right, y+20)
-	return label, slider, text
+	labelLeft := left
+	labelRight := left + 168
+	controlAnchor := left + 168
+	checkbox := image.Rectangle{}
+	if numericSettingForceToggleControl(setting) != "" {
+		checkbox = image.Rect(left, setting.Y, left+numericStepButtonWidth, setting.Y+20)
+		labelLeft = checkbox.Max.X + numericStepButtonGap
+	}
+	if setting.Force == "wall repulsion" {
+		labelRight = labelLeft + 64
+	}
+	label := image.Rect(labelLeft, setting.Y, labelRight, setting.Y+20)
+	decrement := image.Rect(controlAnchor+8, setting.Y, controlAnchor+8+numericStepButtonWidth, setting.Y+20)
+	slider := image.Rect(decrement.Max.X+numericStepButtonGap, setting.Y, right-80-numericStepButtonWidth-numericStepButtonGap, setting.Y+20)
+	increment := image.Rect(slider.Max.X+numericStepButtonGap, setting.Y, slider.Max.X+numericStepButtonGap+numericStepButtonWidth, setting.Y+20)
+	text := image.Rect(right-72, setting.Y, right, setting.Y+20)
+	return checkbox, label, decrement, slider, increment, text
 }
 
 func numericControlName(setting string, kind string) string {
 	return strings.ToLower(setting) + " " + kind
 }
 
+func numericSettingForceToggleControl(setting numericSetting) string {
+	return numericForceToggleControls[setting.Force]
+}
+
+var numericForceToggleControls = map[string]string{
+	"gravity":                   "gravity force",
+	"center attraction":         "center attraction force",
+	"center of mass attraction": "center mass force",
+	"wall repulsion":            "wall repulsion force",
+}
+
+func wallToggleControlsForSetting(setting numericSetting) []controlBox {
+	if setting.Force != "wall repulsion" {
+		return nil
+	}
+	_, label, _, _, _, _ := numericSettingRects(setting)
+	left := label.Max.X + numericStepButtonGap
+	specs := []struct {
+		name  string
+		label string
+	}{
+		{"top wall toggle", "T"},
+		{"bottom wall toggle", "B"},
+		{"left wall toggle", "L"},
+		{"right wall toggle", "R"},
+	}
+	controls := make([]controlBox, 0, len(specs))
+	for index, spec := range specs {
+		x := left + index*(wallToggleButtonWidth+wallToggleButtonGap)
+		controls = append(controls, controlBox{
+			Name:   spec.name,
+			Label:  spec.label,
+			Region: "right inspector",
+			Rect:   image.Rect(x, setting.Y, x+wallToggleButtonWidth, setting.Y+20),
+		})
+	}
+	return controls
+}
+
 func numericSettingForSlider(name string) (numericSetting, bool) {
 	return numericSettingForControl(name, "slider")
+}
+
+func numericSettingForStepButton(name string) (numericSetting, float64, bool) {
+	if setting, ok := numericSettingForControl(name, "decrement"); ok {
+		return setting, -numericStepAmount, true
+	}
+	if setting, ok := numericSettingForControl(name, "increment"); ok {
+		return setting, numericStepAmount, true
+	}
+	return numericSetting{}, 0, false
 }
 
 func numericSettingForTextField(name string) (numericSetting, bool) {
@@ -92,7 +169,7 @@ func numericSettingByName(name string) (numericSetting, bool) {
 }
 
 func (g *Game) numericSettingValue(setting numericSetting) float64 {
-	value, _ := strconv.ParseFloat(g.numericSettingValueText(setting), 64)
+	value, _ := strconv.ParseFloat(g.committedNumericSettingValueText(setting), 64)
 	return value
 }
 
@@ -102,6 +179,10 @@ func (g *Game) numericSettingValueText(setting numericSetting) string {
 	}
 	raw := g.rawNumericSettingValue(setting)
 	return formatNumericSettingText(raw, setting.Decimals)
+}
+
+func (g *Game) committedNumericSettingValueText(setting numericSetting) string {
+	return formatNumericSettingText(g.rawNumericSettingValue(setting), setting.Decimals)
 }
 
 func (g *Game) rawNumericSettingValue(setting numericSetting) string {
@@ -139,9 +220,14 @@ func (g *Game) numericSettingSliderFraction(setting numericSetting) float64 {
 }
 
 func (g *Game) setNumericSettingFromSlider(setting numericSetting, x int) {
-	_, slider, _ := numericSettingRects(setting.Y)
+	_, _, _, slider, _, _ := numericSettingRects(setting)
 	fraction := sliderFractionAt(sliderTrack(controlBox{Rect: slider}), x)
 	value := setting.Min + fraction*(setting.Max-setting.Min)
+	g.setNumericSettingValue(setting, formatNumericSettingSliderValue(value, setting.Decimals))
+}
+
+func (g *Game) stepNumericSetting(setting numericSetting, delta float64) {
+	value := clampFloat(g.numericSettingValue(setting)+delta, setting.Min, setting.Max)
 	g.setNumericSettingValue(setting, formatNumericSettingSliderValue(value, setting.Decimals))
 }
 
@@ -174,17 +260,13 @@ func (g *Game) setNumericSettingValue(setting numericSetting, text string) bool 
 
 func (g *Game) focusNumericSettingTextField(setting numericSetting) {
 	g.focusedNumeric = setting.Name
-	g.numericInputText = g.numericSettingValueText(setting)
+	g.numericInputText = g.committedNumericSettingValueText(setting)
 	g.numericInputTicks = 0
 	g.numericInputFresh = true
 }
 
 func (g *Game) appendNumericSettingInput(chars []rune) {
 	if g.focusedNumeric == "" {
-		return
-	}
-	setting, ok := numericSettingByName(g.focusedNumeric)
-	if !ok {
 		return
 	}
 	for _, char := range chars {
@@ -196,7 +278,6 @@ func (g *Game) appendNumericSettingInput(chars []rune) {
 			g.numericInputFresh = false
 		}
 		g.numericInputText += string(char)
-		g.setNumericSettingValue(setting, g.numericInputText)
 	}
 }
 
@@ -204,13 +285,31 @@ func (g *Game) deleteNumericSettingCharacter() {
 	if g.focusedNumeric == "" || len(g.numericInputText) == 0 {
 		return
 	}
-	setting, ok := numericSettingByName(g.focusedNumeric)
-	if !ok {
-		return
-	}
 	g.numericInputText = g.numericInputText[:len(g.numericInputText)-1]
 	g.numericInputFresh = false
-	g.setNumericSettingValue(setting, g.numericInputText)
+}
+
+func (g *Game) commitNumericSettingInput() bool {
+	if g.focusedNumeric == "" {
+		return false
+	}
+	setting, ok := numericSettingByName(g.focusedNumeric)
+	if !ok {
+		g.cancelNumericSettingInput()
+		return false
+	}
+	if !g.setNumericSettingValue(setting, g.numericInputText) {
+		return false
+	}
+	g.focusedNumeric = ""
+	g.numericInputFresh = false
+	return true
+}
+
+func (g *Game) cancelNumericSettingInput() {
+	g.focusedNumeric = ""
+	g.numericInputText = ""
+	g.numericInputFresh = false
 }
 
 func (g *Game) tickNumericTextField() {
@@ -223,20 +322,28 @@ func (g *Game) numericTextCursorVisible(setting string) bool {
 	return g.focusedNumeric == setting && (g.numericInputTicks/numericTextCursorPeriod)%2 == 0
 }
 
+func (g *Game) numericTextHighlighted(setting string) bool {
+	return g.focusedNumeric == setting && g.numericInputFresh
+}
+
 func (g *Game) NumericSettingReport(settingName string) (NumericSettingFrame, bool) {
 	setting, ok := numericSettingByName(settingName)
 	if !ok {
 		return NumericSettingFrame{}, false
 	}
-	label, slider, text := numericSettingRects(setting.Y)
+	checkbox, label, decrement, slider, increment, text := numericSettingRects(setting)
 	return NumericSettingFrame{
+		CheckboxRect:       checkbox,
 		LabelRect:          label,
+		DecrementRect:      decrement,
 		SliderRect:         slider,
+		IncrementRect:      increment,
 		TextFieldRect:      text,
 		InspectorRect:      inspectorRect(),
 		Text:               g.numericSettingValueText(setting),
 		SliderFraction:     g.numericSettingSliderFraction(setting),
 		TextCursorVisible:  g.numericTextCursorVisible(setting.Name),
+		TextHighlighted:    g.numericTextHighlighted(setting.Name),
 		LabelFitsInspector: label.In(inspectorRect()),
 	}, true
 }
@@ -255,7 +362,7 @@ func (g *Game) ChangeNumericSettingWithSlider(settingName string, text string) b
 	if err != nil || setting.Max <= setting.Min {
 		return false
 	}
-	_, slider, _ := numericSettingRects(setting.Y)
+	_, _, _, slider, _, _ := numericSettingRects(setting)
 	track := sliderTrack(controlBox{Rect: slider})
 	fraction := clampFloat((value-setting.Min)/(setting.Max-setting.Min), 0, 1)
 	x := track.Min.X + int(fraction*float64(track.Dx()))
@@ -272,6 +379,13 @@ func (g *Game) FocusNumericSettingTextField(settingName string) bool {
 }
 
 func (g *Game) EnterNumericSettingText(text string) bool {
+	if !g.TypeNumericSettingText(text) {
+		return false
+	}
+	return g.CommitNumericSettingText()
+}
+
+func (g *Game) TypeNumericSettingText(text string) bool {
 	if g.focusedNumeric == "" {
 		return false
 	}
@@ -279,6 +393,10 @@ func (g *Game) EnterNumericSettingText(text string) bool {
 	g.numericInputFresh = false
 	g.appendNumericSettingInput([]rune(text))
 	return true
+}
+
+func (g *Game) CommitNumericSettingText() bool {
+	return g.commitNumericSettingInput()
 }
 
 func (g *Game) NumericSettingText(settingName string) (string, bool) {
@@ -291,7 +409,7 @@ func (g *Game) NumericSettingSliderValue(settingName string) (string, bool) {
 	if !ok {
 		return "", false
 	}
-	return g.numericSettingValueText(setting), true
+	return g.committedNumericSettingValueText(setting), true
 }
 
 func inspectorRect() image.Rectangle {

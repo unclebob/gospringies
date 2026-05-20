@@ -44,13 +44,17 @@ type DrawFrameReport struct {
 }
 
 type NumericSettingFrame struct {
+	CheckboxRect       image.Rectangle
 	LabelRect          image.Rectangle
+	DecrementRect      image.Rectangle
 	SliderRect         image.Rectangle
+	IncrementRect      image.Rectangle
 	TextFieldRect      image.Rectangle
 	InspectorRect      image.Rectangle
 	Text               string
 	SliderFraction     float64
 	TextCursorVisible  bool
+	TextHighlighted    bool
 	LabelFitsInspector bool
 }
 
@@ -79,7 +83,8 @@ func (g *Game) activeControl(name string) bool {
 	return g.activeRunControl(name) ||
 		g.activeForceControl(name) ||
 		g.activeParameterControl(name) ||
-		g.activeWallControl(name)
+		g.activeWallControl(name) ||
+		g.activeNumericStep == name
 }
 
 func (g *Game) activeRunControl(name string) bool {
@@ -189,16 +194,9 @@ func inspectorControls() []controlBox {
 	controls = append(controls, []controlBox{
 		{Name: "fixed mass toggle", Label: "Fixed", Region: "right inspector", Rect: image.Rect(x, 120, right, 140)},
 		{Name: "set rest length command", Label: "RestLen", Region: "right inspector", Rect: image.Rect(x, 224, right, 244)},
-		{Name: "gravity force", Label: "Gravity", Region: "right inspector", Rect: image.Rect(x, 382, x+half, 402)},
-		{Name: "center attraction force", Label: "Center", Region: "right inspector", Rect: image.Rect(x+half+8, 382, right, 402)},
-		{Name: "center mass force", Label: "CMass", Region: "right inspector", Rect: image.Rect(x, 408, x+half, 428)},
-		{Name: "wall repulsion force", Label: "WallRep", Region: "right inspector", Rect: image.Rect(x+half+8, 408, right, 428)},
-		{Name: "mass collision force", Label: "Collide", Region: "right inspector", Rect: image.Rect(x, 434, right, 454)},
-		{Name: "set center command", Label: "SetCtr", Region: "right inspector", Rect: image.Rect(x, 460, right, 480)},
-		{Name: "top wall toggle", Label: "Top", Region: "right inspector", Rect: image.Rect(x, 510, x+half, 530)},
-		{Name: "bottom wall toggle", Label: "Bot", Region: "right inspector", Rect: image.Rect(x+half+8, 510, right, 530)},
-		{Name: "left wall toggle", Label: "Left", Region: "right inspector", Rect: image.Rect(x, 536, x+half, 556)},
-		{Name: "right wall toggle", Label: "Right", Region: "right inspector", Rect: image.Rect(x+half+8, 536, right, 556)},
+		{Name: "mass collision force", Label: "", Region: "right inspector", Rect: image.Rect(x, 382, x+numericStepButtonWidth, 402)},
+		{Name: "mass collision label", Label: "Collide", Region: "right inspector", Rect: image.Rect(x+numericStepButtonWidth+numericStepButtonGap, 382, x+half, 402)},
+		{Name: "set center command", Label: "SetCtr", Region: "right inspector", Rect: image.Rect(x, 408, right, 428)},
 		{Name: "grid snap toggle", Label: "Grid", Region: "right inspector", Rect: image.Rect(x, 724, x+half, 744)},
 		{Name: "show springs toggle", Label: "Springs", Region: "right inspector", Rect: image.Rect(x+half+8, 724, right, 744)},
 		{Name: "adaptive timestep toggle", Label: "Adapt", Region: "right inspector", Rect: image.Rect(x, 750, right, 770)},
@@ -213,7 +211,6 @@ func inspectorSections() []controlBox {
 		{Label: "Mass", Region: "right inspector", Rect: image.Rect(x, 44, right, 64)},
 		{Label: "Spring", Region: "right inspector", Rect: image.Rect(x, 148, right, 168)},
 		{Label: "Forces", Region: "right inspector", Rect: image.Rect(x, 254, right, 274)},
-		{Label: "Walls", Region: "right inspector", Rect: image.Rect(x, 486, right, 506)},
 		{Label: "Simulation", Region: "right inspector", Rect: image.Rect(x, 570, right, 590)},
 	}
 }

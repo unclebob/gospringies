@@ -38,11 +38,17 @@ func (g *Game) ClickAt(x int, y int) bool {
 			g.editMenuOpen = false
 			return true
 		}
-		g.focusedNumeric = ""
+		g.cancelNumericSettingInput()
 		return false
 	}
 	if setting, ok := numericSettingForTextField(control.Name); ok {
 		g.focusNumericSettingTextField(setting)
+		return true
+	}
+	if setting, delta, ok := numericSettingForStepButton(control.Name); ok {
+		g.activeNumericStep = control.Name
+		g.numericStepTicks = 0
+		g.stepNumericSetting(setting, delta)
 		return true
 	}
 	if isSliderControl(control.Name) {
@@ -142,6 +148,22 @@ func (g *Game) setSliderAt(name string, x int) {
 		return
 	}
 	g.setNumericSettingFromSlider(setting, x)
+}
+
+func (g *Game) continueNumericStepHold() {
+	setting, delta, ok := numericSettingForStepButton(g.activeNumericStep)
+	if !ok {
+		g.activeNumericStep = ""
+		g.numericStepTicks = 0
+		return
+	}
+	g.numericStepTicks++
+	if g.numericStepTicks < numericStepHoldDelayTicks {
+		return
+	}
+	if (g.numericStepTicks-numericStepHoldDelayTicks)%numericStepRepeatTicks == 0 {
+		g.stepNumericSetting(setting, delta)
+	}
 }
 
 func sliderFractionAt(track image.Rectangle, x int) float64 {
@@ -353,7 +375,7 @@ func (g *Game) finishMassDragStep(position sim.Vec2) {
 func (g *Game) moveSelectedMasses(delta sim.Vec2) {
 	for i := range g.simulation.Masses {
 		if g.editing().MassSelected(g.simulation.Masses[i].ID) {
-			g.simulation.Masses[i].Position = g.simulation.Masses[i].Position.Add(delta)
+			g.simulation.Masses[i].Position = g.snapToGrid(g.simulation.Masses[i].Position.Add(delta))
 			g.simulation.Masses[i].Velocity = sim.Vec2{}
 		}
 	}
@@ -363,7 +385,7 @@ func (g *Game) applyDraggingOffsets(cursor sim.Vec2) {
 	for i := range g.simulation.Masses {
 		offset, ok := g.draggingOffsets[g.simulation.Masses[i].ID]
 		if ok {
-			g.simulation.Masses[i].Position = cursor.Add(offset)
+			g.simulation.Masses[i].Position = g.snapToGrid(cursor.Add(offset))
 			g.simulation.Masses[i].Velocity = sim.Vec2{}
 		}
 	}

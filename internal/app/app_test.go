@@ -181,6 +181,7 @@ func TestMoveSelectedMassesMovesOnlySelectedMasses(t *testing.T) {
 		sim.Mass{ID: 1, Position: sim.Vec2{X: 1, Y: 1}},
 		sim.Mass{ID: 2, Position: sim.Vec2{X: 5, Y: 5}},
 	)
+	game.World().Parameters.Set("grid snap", "0")
 	_ = game.editing().SelectMass(1)
 
 	game.moveSelectedMasses(sim.Vec2{X: 2, Y: 3})
@@ -321,12 +322,18 @@ func TestDrawFrameRendersReadableControlLabels(t *testing.T) {
 		"quit command":            "Quit",
 		"mass label":              "Mass:",
 		"elasticity label":        "Elasticity:",
-		"gravity force":           "Gravity",
+		"gravity force":           "",
 		"gravity label":           "Gravity:",
-		"center attraction force": "Center",
-		"center mass force":       "CMass",
-		"wall repulsion force":    "WallRep",
-		"mass collision force":    "Collide",
+		"center attraction force": "",
+		"center mass force":       "",
+		"wall repulsion force":    "",
+		"wall repulsion label":    "Wall Rep:",
+		"mass collision force":    "",
+		"mass collision label":    "Collide",
+		"top wall toggle":         "T",
+		"bottom wall toggle":      "B",
+		"left wall toggle":        "L",
+		"right wall toggle":       "R",
 		"grid snap toggle":        "Grid",
 		"show springs toggle":     "Springs",
 		"viscosity label":         "Viscosity:",
@@ -371,7 +378,7 @@ func TestEditMenuShowsStandardItems(t *testing.T) {
 
 func TestDrawFrameRendersInspectorAndStatusFields(t *testing.T) {
 	report := NewGame().DrawFrameReport()
-	for _, section := range []string{"Mass", "Spring", "Forces", "Walls", "Simulation"} {
+	for _, section := range []string{"Mass", "Spring", "Forces", "Simulation"} {
 		if !report.InspectorSections[section] {
 			t.Fatalf("missing inspector section %q: %#v", section, report.InspectorSections)
 		}
@@ -1322,7 +1329,11 @@ func TestClickVisibleGravityControlEnablesGravity(t *testing.T) {
 	game.World().Parameters.Forces["gravity"] = sim.ForceConfig{Enabled: "false", Values: map[string]string{"magnitude": "0", "direction": "90"}}
 	game.dirty = false
 
-	if !game.ClickVisibleControl("Gravity") {
+	control, ok := visibleControlWithName("gravity force")
+	if !ok {
+		t.Fatal("missing gravity force checkbox")
+	}
+	if !game.ClickAt(control.Rect.Min.X+1, control.Rect.Min.Y+1) {
 		t.Fatal("Gravity control click was not handled")
 	}
 
@@ -1330,7 +1341,7 @@ func TestClickVisibleGravityControlEnablesGravity(t *testing.T) {
 	if force.Enabled != "true" || force.Values["magnitude"] != "10" || force.Values["direction"] != "0" {
 		t.Fatalf("gravity force = %#v", force)
 	}
-	if !game.VisibleControlActive("Gravity") {
+	if !game.activeControl("gravity force") {
 		t.Fatal("expected Gravity control to show active state")
 	}
 	if !game.dirty {
@@ -1341,7 +1352,11 @@ func TestClickVisibleGravityControlEnablesGravity(t *testing.T) {
 func TestClickVisibleMassCollisionControlTogglesCollision(t *testing.T) {
 	game := NewGame()
 
-	if !game.ClickVisibleControl("Collide") {
+	control, ok := visibleControlWithName("mass collision force")
+	if !ok {
+		t.Fatal("missing collide checkbox")
+	}
+	if !game.ClickAt(control.Rect.Min.X+1, control.Rect.Min.Y+1) {
 		t.Fatal("Collide control click was not handled")
 	}
 
@@ -1349,11 +1364,11 @@ func TestClickVisibleMassCollisionControlTogglesCollision(t *testing.T) {
 	if force.Enabled != "true" {
 		t.Fatalf("mass collision force = %#v", force)
 	}
-	if !game.VisibleControlActive("Collide") {
+	if !game.activeControl("mass collision force") {
 		t.Fatal("expected Collide control to show active state")
 	}
 
-	if !game.ClickVisibleControl("Collide") {
+	if !game.ClickAt(control.Rect.Min.X+1, control.Rect.Min.Y+1) {
 		t.Fatal("second Collide control click was not handled")
 	}
 	force, _ = game.World().Parameters.Force("mass collision")
@@ -1472,6 +1487,62 @@ func TestViscositySliderSetsViscosity(t *testing.T) {
 	}
 }
 
+func TestNumericStepButtonsIncrementAndDecrementByTenth(t *testing.T) {
+	game := NewGame()
+	game.World().Parameters.Set("damping", "1.0")
+	increment, ok := visibleControlWithName("kdamp increment")
+	if !ok {
+		t.Fatal("missing kdamp increment")
+	}
+	decrement, ok := visibleControlWithName("kdamp decrement")
+	if !ok {
+		t.Fatal("missing kdamp decrement")
+	}
+
+	if !game.ClickAt(increment.Rect.Min.X+1, increment.Rect.Min.Y+1) {
+		t.Fatal("kdamp increment click was not handled")
+	}
+	if got := game.World().Parameters.Value("damping"); got != "1.1" {
+		t.Fatalf("damping after increment = %q, want 1.1", got)
+	}
+	if !game.ClickAt(decrement.Rect.Min.X+1, decrement.Rect.Min.Y+1) {
+		t.Fatal("kdamp decrement click was not handled")
+	}
+	if got := game.World().Parameters.Value("damping"); got != "1.0" {
+		t.Fatalf("damping after decrement = %q, want 1.0", got)
+	}
+}
+
+func TestNumericStepButtonHoldRepeatsAfterDelay(t *testing.T) {
+	game := NewGame()
+	game.World().Parameters.Set("damping", "1.0")
+	control, ok := visibleControlWithName("kdamp increment")
+	if !ok {
+		t.Fatal("missing kdamp increment")
+	}
+	x := control.Rect.Min.X + 1
+	y := control.Rect.Min.Y + 1
+
+	game.handlePointer(true, x, y)
+	for range numericStepHoldDelayTicks - 1 {
+		game.handlePointer(true, x, y)
+	}
+	if got := game.World().Parameters.Value("damping"); got != "1.1" {
+		t.Fatalf("damping before repeat = %q, want 1.1", got)
+	}
+	game.handlePointer(true, x, y)
+	if got := game.World().Parameters.Value("damping"); got != "1.2" {
+		t.Fatalf("damping at first repeat = %q, want 1.2", got)
+	}
+	for range numericStepRepeatTicks {
+		game.handlePointer(true, x, y)
+	}
+	if got := game.World().Parameters.Value("damping"); got != "1.3" {
+		t.Fatalf("damping at second repeat = %q, want 1.3", got)
+	}
+	game.handlePointer(false, x, y)
+}
+
 func TestSliderFractionHandlesTrackBounds(t *testing.T) {
 	track := image.Rect(10, 0, 30, 1)
 	if got := sliderFractionAt(track, 10); got != 0 {
@@ -1511,6 +1582,69 @@ func TestNumericSettingReportsIncludeCurrentValues(t *testing.T) {
 	}
 }
 
+func TestNumericTextEditingDoesNotMoveSliderUntilCommit(t *testing.T) {
+	game := NewGame()
+	game.World().Parameters.Set("stickiness", "2.0")
+	if !game.FocusNumericSettingTextField("Stick") {
+		t.Fatal("stick text field focus should be handled")
+	}
+	if !game.TypeNumericSettingText("7.5") {
+		t.Fatal("stick text entry should be handled")
+	}
+
+	report, _ := game.NumericSettingReport("Stick")
+	if report.Text != "7.5" {
+		t.Fatalf("draft text = %q, want 7.5", report.Text)
+	}
+	if got := game.World().Parameters.Value("stickiness"); got != "2.0" {
+		t.Fatalf("stickiness before commit = %q, want 2.0", got)
+	}
+	if got, _ := game.NumericSettingSliderValue("Stick"); got != "2.0" {
+		t.Fatalf("slider value before commit = %q, want 2.0", got)
+	}
+	if report.SliderFraction != 0.2 {
+		t.Fatalf("slider fraction before commit = %f, want 0.2", report.SliderFraction)
+	}
+
+	if !game.CommitNumericSettingText() {
+		t.Fatal("stick text commit should be handled")
+	}
+	if got := game.World().Parameters.Value("stickiness"); got != "7.5" {
+		t.Fatalf("stickiness after commit = %q, want 7.5", got)
+	}
+	if game.focusedNumeric != "" {
+		t.Fatalf("focused numeric after commit = %q", game.focusedNumeric)
+	}
+	if got, _ := game.NumericSettingSliderValue("Stick"); got != "7.5" {
+		t.Fatalf("slider value after commit = %q, want 7.5", got)
+	}
+}
+
+func TestNumericTextFieldFocusHighlightsValue(t *testing.T) {
+	game := NewGame()
+	if !game.FocusNumericSettingTextField("Kdamp") {
+		t.Fatal("kdamp text field focus should be handled")
+	}
+	report, _ := game.NumericSettingReport("Kdamp")
+	if !report.TextHighlighted {
+		t.Fatal("focused numeric text should be highlighted")
+	}
+	if !game.TypeNumericSettingText("2.0") {
+		t.Fatal("kdamp text entry should be handled")
+	}
+	report, _ = game.NumericSettingReport("Kdamp")
+	if report.TextHighlighted {
+		t.Fatal("numeric text should not remain highlighted after editing")
+	}
+	if !game.CommitNumericSettingText() {
+		t.Fatal("kdamp text commit should be handled")
+	}
+	report, _ = game.NumericSettingReport("Kdamp")
+	if report.TextHighlighted || report.TextCursorVisible {
+		t.Fatal("numeric highlight and cursor should be cleared after commit")
+	}
+}
+
 func TestSlidersDragWhileMouseHeld(t *testing.T) {
 	game := NewGame()
 	control, ok := visibleControlWithName("speed slider")
@@ -1535,10 +1669,12 @@ func TestReleasePointerClearsTransientDragState(t *testing.T) {
 	game.dragMoved = true
 	game.selectionDrag = true
 	game.activeSlider = "speed slider"
+	game.activeNumericStep = "speed increment"
+	game.numericStepTicks = 12
 
 	game.releasePointer(sim.Vec2{X: 10, Y: 10})
 
-	if game.draggingMassID != 0 || game.draggingOffsets != nil || game.dragMoved || game.selectionDrag || game.activeSlider != "" {
+	if game.draggingMassID != 0 || game.draggingOffsets != nil || game.dragMoved || game.selectionDrag || game.activeSlider != "" || game.activeNumericStep != "" || game.numericStepTicks != 0 {
 		t.Fatalf("drag state was not cleared: %#v", game)
 	}
 }
@@ -1670,7 +1806,7 @@ func TestInspectorTogglesMapToSimulationParameters(t *testing.T) {
 				t.Fatalf("grid snap = %q", game.World().Parameters.Value("grid snap"))
 			}
 		}},
-		{"Top", func(t *testing.T, game *Game) {
+		{"T", func(t *testing.T, game *Game) {
 			if enabled, _ := game.World().Parameters.WallEnabled("top"); !enabled {
 				t.Fatal("top wall was not enabled")
 			}
@@ -2033,6 +2169,7 @@ func TestDragSelectedMassesWithoutOffsetsMovesByDelta(t *testing.T) {
 		sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1},
 		sim.Mass{ID: 2, Position: sim.Vec2{X: 20, Y: 10}, Mass: 1},
 	)
+	game.World().Parameters.Set("grid snap", "0")
 	_ = game.editing().SelectMass(1)
 	game.editing().SelectedMasses[2] = true
 	game.draggingLast = sim.Vec2{X: 10, Y: 10}
@@ -2070,6 +2207,28 @@ func TestDragSelectedMassesWithSingleOffsetAppliesOffset(t *testing.T) {
 	mass2, _ := game.World().MassByID(2)
 	if mass1.Position != (sim.Vec2{X: 15, Y: 17}) || mass2.Position != (sim.Vec2{X: 20, Y: 10}) {
 		t.Fatalf("offset drag positions = %#v %#v", mass1.Position, mass2.Position)
+	}
+}
+
+func TestDragSelectedMassesWithGridSnapAppliesOffsetToGridPoints(t *testing.T) {
+	game := gameWithMasses(
+		sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1},
+		sim.Mass{ID: 2, Position: sim.Vec2{X: 20, Y: 10}, Mass: 1},
+	)
+	game.World().Parameters.Set("grid snap", "10")
+	_ = game.editing().SelectMass(1)
+	game.editing().SelectedMasses[2] = true
+	game.draggingOffsets = map[int]sim.Vec2{1: {X: 2, Y: 3}, 2: {X: -3, Y: -2}}
+	game.draggingStart = sim.Vec2{X: 10, Y: 10}
+
+	if !game.dragSelectedMasses(sim.Vec2{X: 13, Y: 14}) {
+		t.Fatal("selected drag with offsets should report handled")
+	}
+
+	mass1, _ := game.World().MassByID(1)
+	mass2, _ := game.World().MassByID(2)
+	if mass1.Position != (sim.Vec2{X: 20, Y: 20}) || mass2.Position != (sim.Vec2{X: 10, Y: 10}) {
+		t.Fatalf("snapped offset drag positions = %#v %#v", mass1.Position, mass2.Position)
 	}
 }
 

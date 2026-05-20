@@ -15,7 +15,10 @@ func (g *Game) pollNumericTextFieldKeyboard() {
 	if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
 		g.deleteNumericSettingCharacter()
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) || valueDialogSubmitPressed() {
-		g.focusedNumeric = ""
+	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+		g.cancelNumericSettingInput()
+	}
+	if valueDialogSubmitPressed() {
+		g.commitNumericSettingInput()
 	}
 }

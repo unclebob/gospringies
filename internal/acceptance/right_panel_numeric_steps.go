@@ -77,8 +77,11 @@ func assertNumericSettingControlsDoNotOverlap(w *world, _ map[string]string) err
 	var rects []namedRect
 	for name, report := range w.visibleControlsFrame.NumericSettings {
 		rects = append(rects,
+			namedRect{name + " checkbox", report.CheckboxRect},
 			namedRect{name + " label", report.LabelRect},
+			namedRect{name + " decrement", report.DecrementRect},
 			namedRect{name + " slider", report.SliderRect},
+			namedRect{name + " increment", report.IncrementRect},
 			namedRect{name + " text field", report.TextFieldRect},
 		)
 	}
@@ -342,13 +345,17 @@ func numericSettingFrame(w *world, example map[string]string) (imageSettingFrame
 }
 
 type imageSettingFrame struct {
+	CheckboxRect       image.Rectangle
 	LabelRect          image.Rectangle
+	DecrementRect      image.Rectangle
 	SliderRect         image.Rectangle
+	IncrementRect      image.Rectangle
 	TextFieldRect      image.Rectangle
 	InspectorRect      image.Rectangle
 	Text               string
 	SliderFraction     float64
 	TextCursorVisible  bool
+	TextHighlighted    bool
 	LabelFitsInspector bool
 }
 
@@ -381,7 +388,10 @@ func rectanglesOverlap(a image.Rectangle, b image.Rectangle) bool {
 
 func numericSettingControlsOverlap(report app.NumericSettingFrame, rect image.Rectangle) bool {
 	return rectanglesOverlap(report.LabelRect, rect) ||
+		rectanglesOverlap(report.CheckboxRect, rect) ||
+		rectanglesOverlap(report.DecrementRect, rect) ||
 		rectanglesOverlap(report.SliderRect, rect) ||
+		rectanglesOverlap(report.IncrementRect, rect) ||
 		rectanglesOverlap(report.TextFieldRect, rect)
 }
 

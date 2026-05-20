@@ -66,6 +66,8 @@ type Game struct {
 	controlDown       bool
 	throwDown         bool
 	activeSlider      string
+	activeNumericStep string
+	numericStepTicks  int
 	focusedNumeric    string
 	numericInputText  string
 	numericInputTicks int
@@ -303,6 +305,8 @@ func (g *Game) continuePointerPress(position sim.Vec2, x int) {
 		g.pendingSpringEnd = position
 	case g.selectionDrag:
 		g.selectionEnd = position
+	case g.activeNumericStep != "":
+		g.continueNumericStepHold()
 	case g.activeSlider != "":
 		g.setSliderAt(g.activeSlider, x)
 	}
@@ -315,6 +319,8 @@ func (g *Game) releasePointer(position sim.Vec2) {
 	g.dragMoved = false
 	g.selectionDrag = false
 	g.activeSlider = ""
+	g.activeNumericStep = ""
+	g.numericStepTicks = 0
 }
 
 func (g *Game) beginPointerPress(position sim.Vec2, x int, y int) {

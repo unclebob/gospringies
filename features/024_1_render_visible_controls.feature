@@ -39,7 +39,6 @@ Examples:
   | Mass       |
   | Spring     |
   | Forces     |
-  | Walls      |
   | Simulation |
 
 Scenario Outline: status fields are visibly rendered

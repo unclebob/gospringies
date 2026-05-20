@@ -33,13 +33,14 @@ The application is still incomplete. Some UI controls are present but not fully 
 ## Right Control Panel
 
 - Mass, elasticity, fixed, spring constant, damping, and rest length controls apply to newly created objects or the selected object when applicable.
-- Gravity enables gravity; the Gravity slider adjusts its magnitude.
-- Center and CMass enable center attraction and center-of-mass attraction.
-- WallRep enables wall repulsion; Collide enables mass-to-mass collision.
+- Numeric sliders show the current committed value. The `<` and `>` buttons on the left and right of each slider decrement or increment the value by `0.1`; holding either button for half a second repeats the change every tenth of a second.
+- A slider text box shows the committed setting value. Clicking the text box selects the whole value for editing. Typed changes are local to the text box until Enter or Return is pressed, then the value is committed and the selection highlight is removed.
+- Gravity, Center Attraction, CM Attraction, and Wall Repulsion have checkboxes to the left of their slider labels. The checkbox enables the force; the slider sets its magnitude.
+- Collide enables mass-to-mass collision.
+- The `T`, `B`, `L`, and `R` checkboxes beside Wall Repulsion toggle the top, bottom, left, and right simulation walls.
 - SetCtr makes the selected mass the center-force target.
-- Top, Bot, Left, and Right toggle the simulation walls.
 - Grid toggles grid snapping; Springs toggles spring visibility.
 - Viscosity adjusts drag from the surrounding medium.
 - Stick adjusts wall stickiness.
 - Speed controls simulation speed; zero pauses advancement.
-- Step, Prec, and Adapt control timestep, precision, and adaptive timestep behavior.
+- Time Step, Precision, and Adapt control timestep size, solver precision, and adaptive timestep behavior.

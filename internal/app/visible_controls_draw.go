@@ -53,6 +53,12 @@ func (g *Game) drawSlider(screen *ebiten.Image, control controlBox) {
 
 func (g *Game) drawNumericTextField(screen *ebiten.Image, control controlBox, setting numericSetting) {
 	drawLabeledRect(screen, control.Rect, controlColor, g.numericSettingValueText(setting))
+	if g.numericTextHighlighted(setting.Name) {
+		text := g.numericSettingValueText(setting)
+		width := len(text) * debugGlyphWidth
+		vector.DrawFilledRect(screen, float32(control.Rect.Min.X+3), float32(control.Rect.Min.Y+3), float32(width+2), float32(debugGlyphHeight+2), activeControlColor, false)
+		ebitenutil.DebugPrintAt(screen, text, control.Rect.Min.X+4, control.Rect.Min.Y+4)
+	}
 	if !g.numericTextCursorVisible(setting.Name) {
 		return
 	}

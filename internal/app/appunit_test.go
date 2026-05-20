@@ -31,8 +31,12 @@ func TestAppUnitVisibleControlsAndSliders(t *testing.T) {
 	game.World().Parameters.Forces["gravity"] = sim.ForceConfig{Enabled: "false", Values: map[string]string{"magnitude": "0", "direction": "90"}}
 	game.dirty = false
 
-	if !game.ClickVisibleControl("Gravity") {
-		t.Fatal("Gravity control click was not handled")
+	gravityCheckbox, ok := visibleControlWithName("gravity force")
+	if !ok {
+		t.Fatal("missing gravity force checkbox")
+	}
+	if !game.ClickAt(gravityCheckbox.Rect.Min.X+1, gravityCheckbox.Rect.Min.Y+1) {
+		t.Fatal("Gravity checkbox click was not handled")
 	}
 	force, _ := game.World().Parameters.Force("gravity")
 	if force.Enabled != "true" || force.Values["magnitude"] != "10" || force.Values["direction"] != "0" || !game.dirty {
@@ -73,14 +77,27 @@ func TestAppUnitNumericSettingTextInputBranches(t *testing.T) {
 	if !game.numericTextCursorVisible("Mass") {
 		t.Fatal("focused mass cursor should start visible")
 	}
+	if !game.numericTextHighlighted("Mass") {
+		t.Fatal("focused mass value should start highlighted")
+	}
 
 	game.appendNumericSettingInput([]rune("x2.5"))
 	if got := game.numericInputText; got != "2.5" {
 		t.Fatalf("numeric input text = %q, want 2.5", got)
 	}
-	if got := game.World().Parameters.Value("current mass"); got != "2.5" {
-		t.Fatalf("current mass = %q, want 2.5", got)
+	if got := game.World().Parameters.Value("current mass"); got != "1" {
+		t.Fatalf("current mass before commit = %q, want 1", got)
 	}
+	if !game.CommitNumericSettingText() {
+		t.Fatal("numeric input commit should be handled")
+	}
+	if got := game.World().Parameters.Value("current mass"); got != "2.5" {
+		t.Fatalf("current mass after commit = %q, want 2.5", got)
+	}
+	if game.focusedNumeric != "" || game.numericTextHighlighted("Mass") {
+		t.Fatalf("numeric focus/highlight after commit = %q/%t", game.focusedNumeric, game.numericTextHighlighted("Mass"))
+	}
+	game.FocusNumericSettingTextField("Mass")
 	game.deleteNumericSettingCharacter()
 	if got := game.numericInputText; got != "2." {
 		t.Fatalf("numeric input after delete = %q, want 2.", got)
@@ -167,21 +184,38 @@ func TestAppUnitVisibleControlLayoutAndReport(t *testing.T) {
 	x := inspectorLeft() + 16
 	right := screenWidth - 16
 	half := (right - x - 8) / 2
-	label, slider, text := numericSettingRects(68)
+	massSetting, _ := numericSettingByName("Mass")
+	_, label, decrement, slider, increment, text := numericSettingRects(massSetting)
+	gravitySetting, _ := numericSettingByName("Gravity")
+	gravityCheckbox, gravityLabel, gravityDecrement, gravitySlider, gravityIncrement, _ := numericSettingRects(gravitySetting)
+	centerSetting, _ := numericSettingByName("Center Attraction")
+	centerCheckbox, _, _, _, _, _ := numericSettingRects(centerSetting)
+	centerMassSetting, _ := numericSettingByName("Center Of Mass Attraction")
+	centerMassCheckbox, _, _, _, _, _ := numericSettingRects(centerMassSetting)
+	wallSetting, _ := numericSettingByName("Wall Repulsion")
+	wallCheckbox, wallLabel, _, _, _, _ := numericSettingRects(wallSetting)
+	wallToggles := wallToggleControlsForSetting(wallSetting)
 	wantControls := map[string]image.Rectangle{
 		"mass label":               label,
+		"mass decrement":           decrement,
 		"mass slider":              slider,
+		"mass increment":           increment,
 		"mass text field":          text,
-		"gravity force":            image.Rect(x, 382, x+half, 402),
-		"gravity slider":           image.Rect(x+176, 278, right-80, 298),
-		"center attraction force":  image.Rect(x+half+8, 382, right, 402),
-		"center mass force":        image.Rect(x, 408, x+half, 428),
-		"wall repulsion force":     image.Rect(x+half+8, 408, right, 428),
-		"mass collision force":     image.Rect(x, 434, right, 454),
-		"top wall toggle":          image.Rect(x, 510, x+half, 530),
-		"bottom wall toggle":       image.Rect(x+half+8, 510, right, 530),
-		"left wall toggle":         image.Rect(x, 536, x+half, 556),
-		"right wall toggle":        image.Rect(x+half+8, 536, right, 556),
+		"gravity force":            gravityCheckbox,
+		"gravity label":            gravityLabel,
+		"gravity decrement":        gravityDecrement,
+		"gravity slider":           gravitySlider,
+		"gravity increment":        gravityIncrement,
+		"center attraction force":  centerCheckbox,
+		"center mass force":        centerMassCheckbox,
+		"wall repulsion force":     wallCheckbox,
+		"wall repulsion label":     wallLabel,
+		"mass collision force":     image.Rect(x, 382, x+numericStepButtonWidth, 402),
+		"mass collision label":     image.Rect(x+numericStepButtonWidth+numericStepButtonGap, 382, x+half, 402),
+		"top wall toggle":          wallToggles[0].Rect,
+		"bottom wall toggle":       wallToggles[1].Rect,
+		"left wall toggle":         wallToggles[2].Rect,
+		"right wall toggle":        wallToggles[3].Rect,
 		"grid snap toggle":         image.Rect(x, 724, x+half, 744),
 		"show springs toggle":      image.Rect(x+half+8, 724, right, 744),
 		"adaptive timestep toggle": image.Rect(x, 750, right, 770),
@@ -269,11 +303,11 @@ func TestAppUnitVisibleControlLayoutAndReport(t *testing.T) {
 	}
 
 	active := game.visibleActiveControls()
-	if !active["Gravity"] || !active["gravity force"] || active["gravity slider"] {
+	if !active["gravity force"] || active["Gravity"] || active["gravity slider"] {
 		t.Fatalf("visible active controls = %#v", active)
 	}
 	sectionsMap := visibleInspectorSections()
-	if !sectionsMap["Mass"] || !sectionsMap["Spring"] || !sectionsMap["Forces"] || !sectionsMap["Walls"] || !sectionsMap["Simulation"] {
+	if !sectionsMap["Mass"] || !sectionsMap["Spring"] || !sectionsMap["Forces"] || sectionsMap["Walls"] || !sectionsMap["Simulation"] {
 		t.Fatalf("visible inspector sections = %#v", sectionsMap)
 	}
 
@@ -361,7 +395,7 @@ func TestAppUnitDragMassSnapsToGrid(t *testing.T) {
 	}
 	first, _ := game.World().MassByID(1)
 	second, _ := game.World().MassByID(2)
-	if first.Position != (sim.Vec2{X: 15, Y: 17}) || second.Position != (sim.Vec2{X: 10, Y: 12}) {
+	if first.Position != (sim.Vec2{X: 20, Y: 20}) || second.Position != (sim.Vec2{X: 10, Y: 10}) {
 		t.Fatalf("selected dragged masses = %#v %#v", first, second)
 	}
 	if first.Velocity != (sim.Vec2{}) || second.Velocity != (sim.Vec2{}) || !game.dirty || !game.dragMoved {
