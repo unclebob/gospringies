@@ -319,16 +319,18 @@ func TestDrawFrameRendersReadableControlLabels(t *testing.T) {
 		"insert command":          "Insert",
 		"save command":            "Save",
 		"quit command":            "Quit",
+		"mass label":              "Mass:",
+		"elasticity label":        "Elasticity:",
 		"gravity force":           "Gravity",
-		"gravity slider":          "Gravity",
+		"gravity label":           "Gravity:",
 		"center attraction force": "Center",
 		"center mass force":       "CMass",
 		"wall repulsion force":    "WallRep",
 		"mass collision force":    "Collide",
 		"grid snap toggle":        "Grid",
 		"show springs toggle":     "Springs",
-		"viscosity slider":        "Viscosity",
-		"speed slider":            "Speed",
+		"viscosity label":         "Viscosity:",
+		"speed label":             "Speed:",
 	}
 	for control, label := range expected {
 		if report.Controls[control] != label {
@@ -1462,8 +1464,8 @@ func TestViscositySliderSetsViscosity(t *testing.T) {
 		t.Fatal("viscosity slider click was not handled")
 	}
 
-	if got := game.World().Parameters.Value("viscosity"); got != "1" {
-		t.Fatalf("viscosity = %q, want 1", got)
+	if got := game.World().Parameters.Value("viscosity"); got != "1.0" {
+		t.Fatalf("viscosity = %q, want 1.0", got)
 	}
 	if !game.dirty {
 		t.Fatal("viscosity slider should mark game dirty")
@@ -1486,7 +1488,7 @@ func TestSliderFractionHandlesTrackBounds(t *testing.T) {
 	}
 }
 
-func TestSliderLabelsIncludeCurrentValues(t *testing.T) {
+func TestNumericSettingReportsIncludeCurrentValues(t *testing.T) {
 	game := NewGame()
 	game.World().Parameters.EnableForce("gravity", map[string]string{"magnitude": "12", "direction": "0"})
 	game.World().Parameters.Set("viscosity", "0.5")
@@ -1494,17 +1496,17 @@ func TestSliderLabelsIncludeCurrentValues(t *testing.T) {
 	game.simulationSpeed = 2
 
 	tests := map[string]string{
-		"gravity slider":   "Gravity 12",
-		"viscosity slider": "Viscosity 0.5",
-		"speed slider":     "Speed 2x",
+		"Gravity":   "12.0",
+		"Viscosity": "0.5",
+		"Speed":     "2.0",
 	}
 	for name, expected := range tests {
-		control, ok := visibleControlWithName(name)
+		frame, ok := game.NumericSettingReport(name)
 		if !ok {
 			t.Fatalf("missing %s", name)
 		}
-		if got := game.sliderLabel(control); got != expected {
-			t.Fatalf("%s label = %q, want %q", name, got, expected)
+		if got := frame.Text; got != expected {
+			t.Fatalf("%s text = %q, want %q", name, got, expected)
 		}
 	}
 }
