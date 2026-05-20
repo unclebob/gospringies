@@ -107,6 +107,10 @@ func TestRunFeatureExecutesDomainModelFeature(t *testing.T) {
 	runFeatureFile(t, "features/003_domain_model.feature")
 }
 
+func TestRunFeatureExecutesRightPanelNumericFeature(t *testing.T) {
+	runFeatureFile(t, "features/027_right_panel_slider_text_fields.feature")
+}
+
 func TestStepPrerequisitesReturnHelpfulErrors(t *testing.T) {
 	cases := []gherkin.Step{
 		{Text: "the <package> package should not import <graphics_library>"},

@@ -3,6 +3,8 @@ package acceptance
 import (
 	"fmt"
 	"image"
+
+	"springs/internal/app"
 )
 
 func renderRightInspector(w *world, _ map[string]string) error {
@@ -15,73 +17,53 @@ func renderRightInspector(w *world, _ map[string]string) error {
 }
 
 func assertNumericSettingVisibleSlider(w *world, example map[string]string) error {
-	report, err := numericSettingFrame(w, example)
-	if err != nil {
-		return err
-	}
-	if report.SliderRect.Empty() {
-		return fmt.Errorf("numeric setting slider was not visible")
-	}
-	return nil
+	return assertNumericSettingRectVisible(w, example, "slider", numericSettingSliderRect)
 }
 
 func assertNumericSettingVisibleTextField(w *world, example map[string]string) error {
+	return assertNumericSettingRectVisible(w, example, "text field", numericSettingTextFieldRect)
+}
+
+func assertNumericSettingRectVisible(w *world, example map[string]string, name string, rect func(imageSettingFrame) image.Rectangle) error {
 	report, err := numericSettingFrame(w, example)
 	if err != nil {
 		return err
 	}
-	if report.TextFieldRect.Empty() {
-		return fmt.Errorf("numeric setting text field was not visible")
+	if rect(report).Empty() {
+		return fmt.Errorf("numeric setting %s was not visible", name)
 	}
 	return nil
 }
 
 func assertNumericSettingTextFieldShowsValue(w *world, example map[string]string) error {
-	setting, value, err := stringPair(example, "setting", "value")
-	if err != nil {
-		return err
-	}
-	return assertNumericSettingText(w, setting, value)
+	return assertNumericSettingTextFromExample(w, example, "value")
 }
 
 func assertNumericSettingTextFieldShowsNewValue(w *world, example map[string]string) error {
-	setting, value, err := stringPair(example, "setting", "new_value")
-	if err != nil {
-		return err
-	}
-	return assertNumericSettingText(w, setting, value)
+	return assertNumericSettingTextFromExample(w, example, "new_value")
 }
 
 func assertStickTextFieldShowsNewValue(w *world, example map[string]string) error {
-	value, err := stringValue(example, "new_value")
-	if err != nil {
-		return err
-	}
-	return assertNumericSettingText(w, "Stick", value)
+	return assertFixedNumericSettingTextFromExample(w, example, "Stick", "new_value")
 }
 
 func assertEveryNumericSettingLabelFitsInspector(w *world, _ map[string]string) error {
-	for name, report := range w.visibleControlsFrame.NumericSettings {
-		if !report.LabelRect.In(report.InspectorRect) {
-			return fmt.Errorf("%s label outside inspector: %#v", name, report.LabelRect)
-		}
-	}
-	return nil
+	return assertEveryNumericSettingRectFitsInspector(w, "label", numericSettingLabelRect)
 }
 
 func assertEveryNumericSettingSliderFitsInspector(w *world, _ map[string]string) error {
-	for name, report := range w.visibleControlsFrame.NumericSettings {
-		if !report.SliderRect.In(report.InspectorRect) {
-			return fmt.Errorf("%s slider outside inspector: %#v", name, report.SliderRect)
-		}
-	}
-	return nil
+	return assertEveryNumericSettingRectFitsInspector(w, "slider", numericSettingSliderRect)
 }
 
 func assertEveryNumericSettingTextFieldFitsInspector(w *world, _ map[string]string) error {
-	for name, report := range w.visibleControlsFrame.NumericSettings {
-		if !report.TextFieldRect.In(report.InspectorRect) {
-			return fmt.Errorf("%s text field outside inspector: %#v", name, report.TextFieldRect)
+	return assertEveryNumericSettingRectFitsInspector(w, "text field", numericSettingTextFieldRect)
+}
+
+func assertEveryNumericSettingRectFitsInspector(w *world, controlName string, rect func(imageSettingFrame) image.Rectangle) error {
+	for settingName, report := range w.visibleControlsFrame.NumericSettings {
+		settingRect := rect(imageSettingFrame(report))
+		if !settingRect.In(report.InspectorRect) {
+			return fmt.Errorf("%s %s outside inspector: %#v", settingName, controlName, settingRect)
 		}
 	}
 	return nil
@@ -113,7 +95,7 @@ func assertNumericSettingControlsDoNotOverlap(w *world, _ map[string]string) err
 func assertNumericSettingControlsDoNotOverlapHeadings(w *world, _ map[string]string) error {
 	for name, report := range w.visibleControlsFrame.NumericSettings {
 		for section, rect := range w.visibleControlsFrame.InspectorSectionRects {
-			if rectanglesOverlap(report.LabelRect, rect) || rectanglesOverlap(report.SliderRect, rect) || rectanglesOverlap(report.TextFieldRect, rect) {
+			if numericSettingControlsOverlap(report, rect) {
 				return fmt.Errorf("%s controls overlap %s heading", name, section)
 			}
 		}
@@ -174,19 +156,11 @@ func assertNumericSettingTextFieldFitsValue(w *world, example map[string]string)
 }
 
 func changeNumericSettingWithSlider(w *world, example map[string]string) error {
-	setting, value, err := stringPair(example, "setting", "new_value")
-	if err != nil {
-		return err
-	}
-	return changeNumericSettingWithSliderValue(w, setting, value)
+	return changeNumericSettingWithSliderFromExample(w, example, "new_value")
 }
 
 func changeStickWithSlider(w *world, example map[string]string) error {
-	value, err := stringValue(example, "new_value")
-	if err != nil {
-		return err
-	}
-	return changeNumericSettingWithSliderValue(w, "Stick", value)
+	return changeFixedNumericSettingWithSliderFromExample(w, example, "Stick", "new_value")
 }
 
 func changeNumericSettingWithSliderValue(w *world, setting string, value string) error {
@@ -199,6 +173,18 @@ func changeNumericSettingWithSliderValue(w *world, setting string, value string)
 	}
 	w.visibleControlsFrame = game.DrawFrameReport()
 	return nil
+}
+
+func changeNumericSettingWithSliderFromExample(w *world, example map[string]string, valueKey string) error {
+	return changeNumericSettingWithSliderFromSetting(w, example, "", valueKey)
+}
+
+func changeFixedNumericSettingWithSliderFromExample(w *world, example map[string]string, setting string, valueKey string) error {
+	return changeNumericSettingWithSliderFromSetting(w, example, setting, valueKey)
+}
+
+func changeNumericSettingWithSliderFromSetting(w *world, example map[string]string, fixedSetting string, valueKey string) error {
+	return applyNumericSettingValue(w, example, fixedSetting, []string{valueKey}, changeNumericSettingWithSliderValue)
 }
 
 func assertParameterValueFromExample(w *world, example map[string]string) error {
@@ -260,10 +246,7 @@ func assertNumericSettingCursorBlinks(w *world, example map[string]string) error
 }
 
 func enterNumericTextValue(w *world, example map[string]string) error {
-	value, err := stringValue(example, "new_value")
-	if err != nil {
-		value, err = stringValue(example, "final_value")
-	}
+	value, err := numericTextEntryValue(example)
 	if err != nil {
 		return err
 	}
@@ -271,10 +254,7 @@ func enterNumericTextValue(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	if setting, settingErr := stringValue(example, "setting"); settingErr == nil {
-		_, _ = game.NumericSettingText(setting)
-		game.FocusNumericSettingTextField(setting)
-	}
+	focusNumericSettingFromExample(game, example)
 	if !game.EnterNumericSettingText(value) {
 		return fmt.Errorf("numeric text entry %q was not handled", value)
 	}
@@ -283,18 +263,11 @@ func enterNumericTextValue(w *world, example map[string]string) error {
 }
 
 func assertNumericSettingHasValue(w *world, example map[string]string) error {
-	setting, value, err := stringPair(example, "setting", "new_value")
-	if err != nil {
-		return err
-	}
-	return assertNumericSettingText(w, setting, value)
+	return assertNumericSettingTextFromExample(w, example, "new_value")
 }
 
 func assertNumericSettingSliderShowsValue(w *world, example map[string]string) error {
-	setting, value, err := stringPair(example, "setting", "new_value")
-	if err != nil {
-		setting, value, err = stringPair(example, "setting", "final_value")
-	}
+	setting, value, err := numericSettingValueFromExample(example, "new_value", "final_value")
 	if err != nil {
 		return err
 	}
@@ -310,6 +283,50 @@ func assertNumericSettingSliderShowsValue(w *world, example map[string]string) e
 		return fmt.Errorf("%s slider value = %q, want %q", setting, got, value)
 	}
 	return nil
+}
+
+func assertNumericSettingTextFromExample(w *world, example map[string]string, valueKey string) error {
+	return assertNumericSettingTextFromSetting(w, example, "", valueKey)
+}
+
+func assertFixedNumericSettingTextFromExample(w *world, example map[string]string, setting string, valueKey string) error {
+	return assertNumericSettingTextFromSetting(w, example, setting, valueKey)
+}
+
+func numericSettingValueFromExample(example map[string]string, valueKeys ...string) (string, string, error) {
+	return numericSettingValueWithFallback(example, "", valueKeys...)
+}
+
+func assertNumericSettingTextFromSetting(w *world, example map[string]string, fixedSetting string, valueKey string) error {
+	return applyNumericSettingValue(w, example, fixedSetting, []string{valueKey}, assertNumericSettingText)
+}
+
+func applyNumericSettingValue(w *world, example map[string]string, fixedSetting string, valueKeys []string, action func(*world, string, string) error) error {
+	setting, value, err := numericSettingValueWithFallback(example, fixedSetting, valueKeys...)
+	if err != nil {
+		return err
+	}
+	return action(w, setting, value)
+}
+
+func numericSettingValueWithFallback(example map[string]string, fixedSetting string, valueKeys ...string) (string, string, error) {
+	var lastErr error
+	for _, valueKey := range valueKeys {
+		setting, value, err := numericSettingValueForKey(example, fixedSetting, valueKey)
+		if err == nil {
+			return setting, value, nil
+		}
+		lastErr = err
+	}
+	return "", "", lastErr
+}
+
+func numericSettingValueForKey(example map[string]string, fixedSetting string, valueKey string) (string, string, error) {
+	if fixedSetting != "" {
+		value, err := stringValue(example, valueKey)
+		return fixedSetting, value, err
+	}
+	return stringPair(example, "setting", valueKey)
 }
 
 func numericSettingFrame(w *world, example map[string]string) (imageSettingFrame, error) {
@@ -335,6 +352,18 @@ type imageSettingFrame struct {
 	LabelFitsInspector bool
 }
 
+func numericSettingLabelRect(report imageSettingFrame) image.Rectangle {
+	return report.LabelRect
+}
+
+func numericSettingSliderRect(report imageSettingFrame) image.Rectangle {
+	return report.SliderRect
+}
+
+func numericSettingTextFieldRect(report imageSettingFrame) image.Rectangle {
+	return report.TextFieldRect
+}
+
 func assertNumericSettingText(w *world, setting string, value string) error {
 	report, ok := w.visibleControlsFrame.NumericSettings[setting]
 	if !ok {
@@ -348,4 +377,27 @@ func assertNumericSettingText(w *world, setting string, value string) error {
 
 func rectanglesOverlap(a image.Rectangle, b image.Rectangle) bool {
 	return a.Min.X < b.Max.X && a.Max.X > b.Min.X && a.Min.Y < b.Max.Y && a.Max.Y > b.Min.Y
+}
+
+func numericSettingControlsOverlap(report app.NumericSettingFrame, rect image.Rectangle) bool {
+	return rectanglesOverlap(report.LabelRect, rect) ||
+		rectanglesOverlap(report.SliderRect, rect) ||
+		rectanglesOverlap(report.TextFieldRect, rect)
+}
+
+func numericTextEntryValue(example map[string]string) (string, error) {
+	value, err := stringValue(example, "new_value")
+	if err == nil {
+		return value, nil
+	}
+	return stringValue(example, "final_value")
+}
+
+func focusNumericSettingFromExample(game *app.Game, example map[string]string) {
+	setting, err := stringValue(example, "setting")
+	if err != nil {
+		return
+	}
+	_, _ = game.NumericSettingText(setting)
+	game.FocusNumericSettingTextField(setting)
 }

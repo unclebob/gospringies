@@ -57,6 +57,94 @@ func TestAppUnitVisibleControlsAndSliders(t *testing.T) {
 	}
 }
 
+func TestAppUnitNumericSettingTextInputBranches(t *testing.T) {
+	game := NewGame()
+
+	game.appendNumericSettingInput([]rune("7"))
+	if game.EnterNumericSettingText("7") {
+		t.Fatal("unfocused numeric entry should not be handled")
+	}
+	if !game.FocusNumericSettingTextField("Mass") {
+		t.Fatal("mass text field focus should be handled")
+	}
+	if game.FocusNumericSettingTextField("Missing") {
+		t.Fatal("missing text field focus should not be handled")
+	}
+	if !game.numericTextCursorVisible("Mass") {
+		t.Fatal("focused mass cursor should start visible")
+	}
+
+	game.appendNumericSettingInput([]rune("x2.5"))
+	if got := game.numericInputText; got != "2.5" {
+		t.Fatalf("numeric input text = %q, want 2.5", got)
+	}
+	if got := game.World().Parameters.Value("current mass"); got != "2.5" {
+		t.Fatalf("current mass = %q, want 2.5", got)
+	}
+	game.deleteNumericSettingCharacter()
+	if got := game.numericInputText; got != "2." {
+		t.Fatalf("numeric input after delete = %q, want 2.", got)
+	}
+	game.focusedNumeric = "Missing"
+	game.appendNumericSettingInput([]rune("9"))
+	game.deleteNumericSettingCharacter()
+
+	if !game.SetNumericSettingValue("Speed", "99") || game.simulationSpeed != maxSpeed {
+		t.Fatalf("speed = %f, want %f", game.simulationSpeed, maxSpeed)
+	}
+	if game.SetNumericSettingValue("Speed", "not numeric") {
+		t.Fatal("invalid numeric value should not be handled")
+	}
+	if !game.SetNumericSettingValue("Gravity", "12.5") {
+		t.Fatal("gravity numeric setting should be handled")
+	}
+	force, _ := game.World().Parameters.Force("gravity")
+	if force.Enabled != "true" || force.Values["magnitude"] != "12.5" {
+		t.Fatalf("gravity force = %#v", force)
+	}
+	if game.ChangeNumericSettingWithSlider("Missing", "1") {
+		t.Fatal("missing slider setting should not be handled")
+	}
+	if game.ChangeNumericSettingWithSlider("Mass", "not numeric") {
+		t.Fatal("invalid slider value should not be handled")
+	}
+	if !game.ChangeNumericSettingWithSlider("Mass", "5") {
+		t.Fatal("mass slider change should be handled")
+	}
+
+	control, ok := visibleControlWithName("mass text field")
+	if !ok {
+		t.Fatal("missing mass text field")
+	}
+	if !game.ClickAt(control.Rect.Min.X+1, control.Rect.Min.Y+1) || game.focusedNumeric != "Mass" {
+		t.Fatalf("text field click focused %q", game.focusedNumeric)
+	}
+
+	if !game.activateVisibleControl(controlBox{Name: "edit menu"}) || !game.editMenuOpen {
+		t.Fatal("edit menu activation should open menu")
+	}
+	if !game.ClickAt(10, 32) || game.lastCommand != "cut" {
+		t.Fatalf("edit menu item click command = %q", game.lastCommand)
+	}
+	game.editMenuOpen = true
+	if !game.ClickAt(0, screenHeight-1) || game.editMenuOpen {
+		t.Fatal("outside click should close edit menu")
+	}
+	game.focusedNumeric = "Mass"
+	if game.ClickAt(0, screenHeight-1) || game.focusedNumeric != "" {
+		t.Fatalf("outside click handled=%t focused=%q", true, game.focusedNumeric)
+	}
+	if !game.activateVisibleControl(controlBox{Name: "run command"}) || game.lastCommand != "run" {
+		t.Fatalf("run activation command = %q", game.lastCommand)
+	}
+	if !game.activateVisibleControl(controlBox{Name: "fixed mass toggle"}) {
+		t.Fatal("inspector toggle activation should be handled")
+	}
+	if game.activateVisibleControl(controlBox{Name: "missing"}) {
+		t.Fatal("missing activation should not be handled")
+	}
+}
+
 func TestAppUnitVisibleControlLayoutAndReport(t *testing.T) {
 	game := appUnitGameWithMasses(
 		sim.Mass{ID: 1, Position: sim.Vec2{X: 120, Y: 120}, Mass: 1},
