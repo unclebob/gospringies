@@ -264,13 +264,17 @@ func (g *Game) setNumericSettingValue(setting numericSetting, text string) bool 
 	case setting.Force != "":
 		g.setForceValue(setting.Force, setting.ForceKey, value)
 	default:
-		g.simulation.Parameters.Set(setting.Parameter, text)
-		if setting.Control != "" {
-			_ = g.editing().ChangeControl(setting.Control, text)
-		}
+		g.setParameterNumericSetting(setting, text)
 	}
 	g.dirty = true
 	return true
+}
+
+func (g *Game) setParameterNumericSetting(setting numericSetting, text string) {
+	g.simulation.Parameters.Set(setting.Parameter, text)
+	if setting.Control != "" {
+		_ = g.editing().ChangeControl(setting.Control, text)
+	}
 }
 
 func (g *Game) focusNumericSettingTextField(setting numericSetting) {
@@ -281,23 +285,21 @@ func (g *Game) focusNumericSettingTextField(setting numericSetting) {
 }
 
 func (g *Game) appendNumericSettingInput(chars []rune) {
-	if g.focusedNumeric == "" {
+	setting, ok := g.focusedNumericSetting()
+	if !ok {
 		return
 	}
 	for _, char := range chars {
-		if !strings.ContainsRune("0123456789.-", char) {
-			continue
-		}
-		if g.numericInputFresh {
-			g.numericInputText = ""
-			g.numericInputFresh = false
-		}
-		g.numericInputText += string(char)
+		g.appendNumericSettingCharacter(setting, char)
 	}
 }
 
 func (g *Game) deleteNumericSettingCharacter() {
 	if g.focusedNumeric == "" || len(g.numericInputText) == 0 {
+		return
+	}
+	if _, ok := g.focusedNumericSetting(); !ok {
+		g.cancelNumericSettingInput()
 		return
 	}
 	g.numericInputText = g.numericInputText[:len(g.numericInputText)-1]
@@ -308,7 +310,7 @@ func (g *Game) commitNumericSettingInput() bool {
 	if g.focusedNumeric == "" {
 		return false
 	}
-	setting, ok := numericSettingByName(g.focusedNumeric)
+	setting, ok := g.focusedNumericSetting()
 	if !ok {
 		g.cancelNumericSettingInput()
 		return false
@@ -325,6 +327,28 @@ func (g *Game) cancelNumericSettingInput() {
 	g.focusedNumeric = ""
 	g.numericInputText = ""
 	g.numericInputFresh = false
+}
+
+func (g *Game) focusedNumericSetting() (numericSetting, bool) {
+	if g.focusedNumeric == "" {
+		return numericSetting{}, false
+	}
+	return numericSettingByName(g.focusedNumeric)
+}
+
+func (g *Game) appendNumericSettingCharacter(setting numericSetting, char rune) {
+	if !isNumericInputCharacter(char) {
+		return
+	}
+	if g.numericInputFresh {
+		g.numericInputText = ""
+		g.numericInputFresh = false
+	}
+	g.numericInputText += string(char)
+}
+
+func isNumericInputCharacter(char rune) bool {
+	return strings.ContainsRune("0123456789.-", char)
 }
 
 func (g *Game) tickNumericTextField() {

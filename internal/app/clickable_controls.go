@@ -32,15 +32,13 @@ func (g *Game) ClickAt(x int, y int) bool {
 	if control, ok := g.editMenuControlAt(image.Pt(x, y)); ok {
 		return g.activateVisibleControl(control)
 	}
-	control, ok := visibleControlAt(image.Pt(x, y))
-	if !ok {
-		if g.editMenuOpen {
-			g.editMenuOpen = false
-			return true
-		}
-		g.cancelNumericSettingInput()
-		return false
+	if control, ok := visibleControlAt(image.Pt(x, y)); ok {
+		return g.clickVisibleControl(control, x)
 	}
+	return g.clickAwayFromVisibleControls()
+}
+
+func (g *Game) clickVisibleControl(control controlBox, x int) bool {
 	if setting, ok := numericSettingForTextField(control.Name); ok {
 		g.focusNumericSettingTextField(setting)
 		return true
@@ -57,6 +55,15 @@ func (g *Game) ClickAt(x int, y int) bool {
 		return true
 	}
 	return g.activateVisibleControl(control)
+}
+
+func (g *Game) clickAwayFromVisibleControls() bool {
+	if g.editMenuOpen {
+		g.editMenuOpen = false
+		return true
+	}
+	g.cancelNumericSettingInput()
+	return false
 }
 
 func (g *Game) ClickVisibleControl(label string) bool {

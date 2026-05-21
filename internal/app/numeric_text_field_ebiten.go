@@ -12,13 +12,37 @@ func (g *Game) pollNumericTextFieldKeyboard() {
 		return
 	}
 	g.appendNumericSettingInput(ebiten.AppendInputChars(nil))
+	g.handleNumericTextFieldControlKeys()
+}
+
+func (g *Game) handleNumericTextFieldControlKeys() {
+	g.handleNumericTextFieldBackspace()
+	g.handleNumericTextFieldBlur()
+}
+
+func (g *Game) handleNumericTextFieldBackspace() {
 	if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
 		g.deleteNumericSettingCharacter()
 	}
+}
+
+func (g *Game) handleNumericTextFieldCancel() {
 	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
 		g.cancelNumericSettingInput()
 	}
+}
+
+func (g *Game) handleNumericTextFieldSubmit() {
 	if valueDialogSubmitPressed() {
 		g.commitNumericSettingInput()
 	}
+}
+
+func (g *Game) handleNumericTextFieldBlur() {
+	g.handleNumericTextFieldCancel()
+	g.handleNumericTextFieldSubmit()
+}
+
+func numericTextFieldBlurPressed() bool {
+	return inpututil.IsKeyJustPressed(ebiten.KeyEscape) || valueDialogSubmitPressed()
 }
