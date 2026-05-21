@@ -13,19 +13,6 @@ import (
 	"springs/internal/sim"
 )
 
-func appUnitGameWithMasses(masses ...sim.Mass) *Game {
-	game := NewGame()
-	world := sim.NewWorld()
-	for _, mass := range masses {
-		if mass.Mass == 0 {
-			mass.Mass = 1
-		}
-		_ = world.AddMass(mass)
-	}
-	game.ReplaceWorld(world)
-	return game
-}
-
 func TestAppUnitVisibleControlsAndSliders(t *testing.T) {
 	game := NewGame()
 	game.World().Parameters.Forces["gravity"] = sim.ForceConfig{Enabled: "false", Values: map[string]string{"magnitude": "0", "direction": "90"}}
