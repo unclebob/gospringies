@@ -942,6 +942,27 @@ func assertNear(t *testing.T, got float64, want float64) {
 	}
 }
 
+func TestAppUnitSpringTemperatureValueDialog(t *testing.T) {
+	game := appUnitGameWithMasses(
+		sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1},
+		sim.Mass{ID: 2, Position: sim.Vec2{X: 30, Y: 10}, Mass: 1},
+	)
+	_ = game.World().AddSpring(sim.Spring{ID: 3, MassA: 1, MassB: 2, Temperature: 2.5})
+
+	if !game.SelectSpringContextMenuItem(3, "Temperature") {
+		t.Fatal("Temperature spring menu item was not handled")
+	}
+	if !game.valueDialog.Open || game.valueDialog.Title != "Temperature Spring #3" || game.valueDialog.Text != "2.5" || game.valueDialog.Min != 0 || game.valueDialog.Max != 10 {
+		t.Fatalf("temperature dialog = %#v", game.valueDialog)
+	}
+	game.valueDialog.Text = "7.5"
+	game.applyValueDialog()
+	spring, _ := game.World().SpringByID(3)
+	if spring.Temperature != 7.5 {
+		t.Fatalf("spring temperature = %#v", spring)
+	}
+}
+
 func TestAppUnitDemoPickerSelection(t *testing.T) {
 	dir := t.TempDir()
 	first := filepath.Join(dir, "first.xsp")
@@ -1444,7 +1465,7 @@ func TestAppUnitSpringContextMenuActionsAndGeometry(t *testing.T) {
 	}
 
 	labels := game.SpringContextMenuLabelsForSpring(3)
-	if len(labels) != 4 || labels[3] != "Wall" {
+	if len(labels) != 5 || labels[3] != "Wall" || labels[4] != "Temperature" {
 		t.Fatalf("spring menu labels = %#v", labels)
 	}
 	if !game.SelectSpringContextMenuItem(3, "Wall") || game.springMenu.Open || game.SelectSpringContextMenuItem(3, "Missing") {

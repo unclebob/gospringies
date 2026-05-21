@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/rand"
 )
 
 var (
@@ -63,6 +64,7 @@ type Spring struct {
 	SpringConstant float64
 	Damping        float64
 	Wall           bool
+	Temperature    float64
 }
 
 type Simulation struct {
@@ -72,6 +74,7 @@ type Simulation struct {
 	Bounds           Bounds
 	Time             float64
 	LastAdvanceSteps int
+	temperatureRand  *rand.Rand
 }
 
 type Bounds struct {
@@ -138,6 +141,17 @@ func (s *Simulation) LoadFrom(other *Simulation) {
 	s.Time = other.Time
 	s.Bounds = other.Bounds
 	s.LastAdvanceSteps = other.LastAdvanceSteps
+}
+
+func (s *Simulation) SetTemperatureSeed(seed int64) {
+	s.temperatureRand = rand.New(rand.NewSource(seed))
+}
+
+func (s *Simulation) temperatureRandom() *rand.Rand {
+	if s.temperatureRand == nil {
+		s.SetTemperatureSeed(1)
+	}
+	return s.temperatureRand
 }
 
 func (s *Simulation) InsertFrom(other *Simulation) {

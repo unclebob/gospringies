@@ -14,11 +14,12 @@ type Mass struct {
 }
 
 type Spring struct {
-	A          int     `json:"a"`
-	B          int     `json:"b"`
-	RestLength float64 `json:"rest_length"`
-	Stiffness  float64 `json:"stiffness"`
-	Wall       bool    `json:"wall"`
+	A           int     `json:"a"`
+	B           int     `json:"b"`
+	RestLength  float64 `json:"rest_length"`
+	Stiffness   float64 `json:"stiffness"`
+	Wall        bool    `json:"wall"`
+	Temperature float64 `json:"temperature"`
 }
 
 func FromSimulation(s *sim.Simulation) Document {
@@ -31,11 +32,12 @@ func FromSimulation(s *sim.Simulation) Document {
 	}
 	for i, spring := range s.Springs {
 		document.Springs[i] = Spring{
-			A:          spring.A,
-			B:          spring.B,
-			RestLength: spring.RestLength,
-			Stiffness:  spring.Stiffness,
-			Wall:       spring.Wall,
+			A:           spring.A,
+			B:           spring.B,
+			RestLength:  spring.RestLength,
+			Stiffness:   spring.Stiffness,
+			Wall:        spring.Wall,
+			Temperature: spring.Temperature,
 		}
 	}
 	return document

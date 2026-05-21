@@ -14,6 +14,7 @@ func init() {
 		"the wall spring barriers task is accepted":                                                          acceptStep,
 		"spring <spring_id> connects mass <mass_a> to mass <mass_b>":                                         addBarrierSpring,
 		"spring <spring_id> has Wall value <wall>":                                                           setBarrierSpringWall,
+		"spring <spring_id> has Wall value false":                                                            setBarrierSpringWallFalse,
 		"spring <spring_id> has Kspring <kspring> Kdamp <kdamp> RestLen <rest_len>":                          setBarrierSpringParameters,
 		"the coder evaluates spring <spring_id> forces":                                                      evaluateBarrierSpringForces,
 		"spring <spring_id> should apply spring force state <spring_force_state>":                            assertBarrierSpringForceState,
@@ -34,9 +35,18 @@ func init() {
 		"the coder resolves the wall spring collision":                                                       resolveWallSpringCollision,
 		"wall spring endpoint <endpoint_a> should receive impulse share <impulse_share_a>":                   assertWallSpringEndpointImpulseShare,
 		"wall spring endpoint <endpoint_b> should receive impulse share <impulse_share_b>":                   assertWallSpringEndpointBImpulseShare,
+		"wall spring <spring_id> has Temperature <temperature>":                                              createWallSpringWithTemperature,
+		"temperature random seed is <seed>":                                                                  setTemperatureRandomSeed,
+		"mass <mass_id> should receive temperature kick <kick_behavior>":                                     assertMassTemperatureKick,
+		"spring <spring_id> has Temperature <temperature>":                                                   setSpringTemperature,
+		"moving mass <mass_id> collides with spring <spring_id>":                                             createMassCollidingWithSpring,
+		"the coder resolves spring collision":                                                                resolveSpringCollision,
 		"XSP input contains spring <spring_id> with Wall value <input_wall>":                                 createWallSpringXSPInput,
 		"loaded spring <spring_id> should have Wall value <loaded_wall>":                                     assertLoadedWallSpringXSP,
 		"saved spring <spring_id> should include Wall value <saved_wall>":                                    assertSavedWallSpringXSP,
+		"XSP input contains spring <spring_id> with Temperature value <input_temperature>":                   createTemperatureSpringXSPInput,
+		"loaded spring <spring_id> should have Temperature value <loaded_temperature>":                       assertLoadedSpringTemperatureXSP,
+		"saved spring <spring_id> should include Temperature value <saved_temperature>":                      assertSavedSpringTemperatureXSP,
 		"selected spring <spring_id> has Wall value <old_wall>":                                              createSelectedSpringWithWall,
 		"selected springs <spring_ids> have Wall values <old_walls>":                                         createSelectedSpringsWithWalls,
 		"the coder changes spring control Wall to <new_wall>":                                                changeSpringWallControl,
@@ -45,6 +55,11 @@ func init() {
 		"spring <spring_id> has Wall value <old_wall>":                                                       createMenuSpringWithWall,
 		"spring <spring_id> right-click menu includes item <menu_item>":                                      assertSpringMenuIncludesItem,
 		"the coder selects spring menu item Wall for spring <spring_id>":                                     selectSpringMenuWallItem,
+		"spring <spring_id> has Temperature value <old_temperature>":                                         createMenuSpringWithTemperature,
+		"the coder selects spring menu item Temperature for spring <spring_id>":                              selectSpringMenuTemperatureItem,
+		"spring Temperature dialog should open with range <minimum> to <maximum>":                            assertSpringTemperatureDialogRange,
+		"the coder changes the spring Temperature dialog value to <new_temperature>":                         changeSpringTemperatureDialogValue,
+		"spring <spring_id> should have Temperature value <new_temperature>":                                 assertSpringTemperatureValue,
 		"the coder renders spring <spring_id>":                                                               renderWallSpring,
 		"spring <spring_id> should use spring rendering style <rendering_style>":                             assertWallSpringRenderingStyle,
 	} {
@@ -90,6 +105,10 @@ func setBarrierSpringWall(w *world, example map[string]string) error {
 		return err
 	}
 	return updateBarrierSpring(w, example, func(spring *sim.Spring) { spring.Wall = wall })
+}
+
+func setBarrierSpringWallFalse(w *world, example map[string]string) error {
+	return setBarrierSpringWall(w, withExampleValue(example, "wall", "false"))
 }
 
 func setBarrierSpringParameters(w *world, example map[string]string) error {
@@ -460,6 +479,101 @@ func assertWallSpringNamedEndpointImpulseShare(w *world, example map[string]stri
 	return nil
 }
 
+func createWallSpringWithTemperature(w *world, example map[string]string) error {
+	if err := createWallSpringByEndpointIDs(w, map[string]string{"spring_id": example["spring_id"], "endpoint_a": "1", "endpoint_b": "2"}); err != nil {
+		return err
+	}
+	return setSpringTemperature(w, example)
+}
+
+func setTemperatureRandomSeed(w *world, example map[string]string) error {
+	if err := requireWallSpringExampleValues(example, map[string]string{"seed": "11"}); err != nil {
+		return err
+	}
+	seed, err := intValue(example, "seed")
+	if err != nil {
+		return err
+	}
+	ensureDomainWorld(w).SetTemperatureSeed(int64(seed))
+	return nil
+}
+
+func setSpringTemperature(w *world, example map[string]string) error {
+	if err := requireSupportedTemperatureExample(example); err != nil {
+		return err
+	}
+	temperature, err := floatValue(example, "temperature")
+	if err != nil {
+		return err
+	}
+	return updateBarrierSpring(w, example, func(spring *sim.Spring) {
+		spring.Temperature = temperature
+	})
+}
+
+func requireSupportedTemperatureExample(example map[string]string) error {
+	temperature, err := stringValue(example, "temperature")
+	if err != nil {
+		return err
+	}
+	if temperature == "0" || temperature == "10" {
+		return nil
+	}
+	return fmt.Errorf("unsupported temperature example %q", temperature)
+}
+
+func createMassCollidingWithSpring(w *world, example map[string]string) error {
+	return createMassCollidingWithWallSpring(w, withContactFraction(example, "0.50"))
+}
+
+func resolveSpringCollision(w *world, _ map[string]string) error {
+	return advanceWallSpringWorld(w)
+}
+
+func assertMassTemperatureKick(w *world, example map[string]string) error {
+	massID, err := intValue(example, "mass_id")
+	if err != nil {
+		return err
+	}
+	behavior, err := stringValue(example, "kick_behavior")
+	if err != nil {
+		return err
+	}
+	mass, ok := ensureDomainWorld(w).MassByID(massID)
+	if !ok {
+		return fmt.Errorf("mass %d not found", massID)
+	}
+	kick := mass.Velocity.Sub(expectedWallSpringCollisionVelocity(example))
+	switch behavior {
+	case "none":
+		return assertVec("temperature kick", kick, 0, 0)
+	case "full screen height against gravity 10":
+		return assertFloat("temperature kick magnitude", math.Sqrt(kick.X*kick.X+kick.Y*kick.Y), math.Sqrt(2*10*ensureDomainWorld(w).Bounds.Height))
+	default:
+		return fmt.Errorf("unsupported temperature kick behavior %q", behavior)
+	}
+}
+
+func expectedWallSpringCollisionVelocity(example map[string]string) sim.Vec2 {
+	if _, ok := example["contact_fraction"]; ok {
+		return sim.Vec2{X: -10}
+	}
+	return sim.Vec2{X: 10}
+}
+
+func withContactFraction(example map[string]string, contactFraction string) map[string]string {
+	return withExampleValue(example, "contact_fraction", contactFraction)
+}
+
+func withExampleValue(example map[string]string, key string, value string) map[string]string {
+	copy := map[string]string{}
+	for existingKey, existingValue := range example {
+		copy[existingKey] = existingValue
+	}
+	copy[key] = value
+	return copy
+}
+
 func actualWallSpringEndpointImpulseShare(w *world, example map[string]string, endpoint int) (float64, error) {
 	endpointDelta, err := wallSpringVelocityDelta(w, endpoint, "endpoint")
 	if err != nil {
@@ -545,7 +659,52 @@ func assertSavedWallSpringXSP(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	needle := fmt.Sprintf("spng %d 1 2 12 0.7 10 %s\n", springID, expected)
+	needle := fmt.Sprintf("spng %d 1 2 12 0.7 10 %s 0\n", springID, expected)
+	if !strings.Contains(w.xspSavedFirst, needle) {
+		return fmt.Errorf("saved XSP missing %q in:\n%s", needle, w.xspSavedFirst)
+	}
+	return nil
+}
+
+func createTemperatureSpringXSPInput(w *world, example map[string]string) error {
+	temperature, err := stringValue(example, "input_temperature")
+	if err != nil {
+		return err
+	}
+	suffix := " true"
+	if temperature != "absent" {
+		suffix += " " + temperature
+	}
+	w.xspInput = "#1.0\nmass 1 0 0 1 0.8\nmass 2 10 0 1 0.8\nspng 1 1 2 12 0.7 10" + suffix + "\n"
+	return nil
+}
+
+func assertLoadedSpringTemperatureXSP(w *world, example map[string]string) error {
+	springID, err := intValue(example, "spring_id")
+	if err != nil {
+		return err
+	}
+	expected, err := floatValue(example, "loaded_temperature")
+	if err != nil {
+		return err
+	}
+	spring, ok := w.xspWorld.SpringByID(springID)
+	if !ok {
+		return fmt.Errorf("spring %d not found", springID)
+	}
+	return assertFloat("loaded spring temperature", spring.Temperature, expected)
+}
+
+func assertSavedSpringTemperatureXSP(w *world, example map[string]string) error {
+	springID, err := intValue(example, "spring_id")
+	if err != nil {
+		return err
+	}
+	expected, err := stringValue(example, "saved_temperature")
+	if err != nil {
+		return err
+	}
+	needle := fmt.Sprintf("spng %d 1 2 12 0.7 10 true %s\n", springID, expected)
 	if !strings.Contains(w.xspSavedFirst, needle) {
 		return fmt.Errorf("saved XSP missing %q in:\n%s", needle, w.xspSavedFirst)
 	}
@@ -655,6 +814,24 @@ func createMenuSpringWithWall(w *world, example map[string]string) error {
 	return createAppSpringWithWall(w, example, "old_wall", false)
 }
 
+func createMenuSpringWithTemperature(w *world, example map[string]string) error {
+	springID, err := intValue(example, "spring_id")
+	if err != nil {
+		return err
+	}
+	temperature, err := floatValue(example, "old_temperature")
+	if err != nil {
+		return err
+	}
+	game, err := newAppGameWithSpring(springID, false)
+	if err != nil {
+		return err
+	}
+	game.World().Springs[0].Temperature = temperature
+	w.appGame = game
+	return nil
+}
+
 func assertSpringMenuIncludesItem(w *world, example map[string]string) error {
 	springID, err := intValue(example, "spring_id")
 	if err != nil {
@@ -672,6 +849,79 @@ func assertSpringMenuIncludesItem(w *world, example map[string]string) error {
 		return nil
 	}
 	return fmt.Errorf("spring menu did not include %q", item)
+}
+
+func selectSpringMenuTemperatureItem(w *world, example map[string]string) error {
+	springID, err := intValue(example, "spring_id")
+	if err != nil {
+		return err
+	}
+	game, ok := w.appGame.(*app.Game)
+	if !ok {
+		return fmt.Errorf("application game is not concrete")
+	}
+	if !game.SelectSpringContextMenuItem(springID, "Temperature") {
+		return fmt.Errorf("Temperature spring menu item was not handled")
+	}
+	return nil
+}
+
+func assertSpringTemperatureDialogRange(w *world, example map[string]string) error {
+	game, ok := w.appGame.(*app.Game)
+	if !ok {
+		return fmt.Errorf("application game is not concrete")
+	}
+	minimum, maximum, open := game.SpringTemperatureDialogRange()
+	if !open {
+		return fmt.Errorf("spring Temperature dialog was not open")
+	}
+	expectedMinimum, err := floatValue(example, "minimum")
+	if err != nil {
+		return err
+	}
+	expectedMaximum, err := floatValue(example, "maximum")
+	if err != nil {
+		return err
+	}
+	if err := assertFloat("temperature dialog minimum", minimum, expectedMinimum); err != nil {
+		return err
+	}
+	return assertFloat("temperature dialog maximum", maximum, expectedMaximum)
+}
+
+func changeSpringTemperatureDialogValue(w *world, example map[string]string) error {
+	game, ok := w.appGame.(*app.Game)
+	if !ok {
+		return fmt.Errorf("application game is not concrete")
+	}
+	value, err := stringValue(example, "new_temperature")
+	if err != nil {
+		return err
+	}
+	if !game.ApplyValueDialogText(value) {
+		return fmt.Errorf("spring Temperature dialog value was not handled")
+	}
+	return nil
+}
+
+func assertSpringTemperatureValue(w *world, example map[string]string) error {
+	springID, err := intValue(example, "spring_id")
+	if err != nil {
+		return err
+	}
+	expected, err := floatValue(example, "new_temperature")
+	if err != nil {
+		return err
+	}
+	game, ok := w.appGame.(*app.Game)
+	if !ok {
+		return fmt.Errorf("application game is not concrete")
+	}
+	spring, ok := game.World().SpringByID(springID)
+	if !ok {
+		return fmt.Errorf("spring %d not found", springID)
+	}
+	return assertFloat("spring temperature", spring.Temperature, expected)
 }
 
 func selectSpringMenuWallItem(w *world, example map[string]string) error {

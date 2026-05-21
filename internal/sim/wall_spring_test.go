@@ -53,6 +53,43 @@ func TestWallSpringDoesNotMoveFixedEndpoint(t *testing.T) {
 	}
 }
 
+func TestWallSpringTemperatureKicksCollidingMass(t *testing.T) {
+	world := wallSpringCollisionWorld(false, false, 50)
+	world.Springs[0].Temperature = 10
+	world.SetTemperatureSeed(11)
+
+	world.Step(1)
+
+	mass, _ := world.MassByID(3)
+	kick := mass.Velocity.Sub(Vec2{X: -10})
+	if length(kick) < fullScreenGravityKick(world)-0.00001 {
+		t.Fatalf("temperature kick = %#v length %f, expected full-screen kick", kick, length(kick))
+	}
+}
+
+func TestWallSpringTemperatureZeroAndNonWallApplyNoKick(t *testing.T) {
+	for _, wall := range []bool{true, false} {
+		world := wallSpringCollisionWorld(false, false, 50)
+		world.Springs[0].Wall = wall
+		world.Springs[0].Temperature = 0
+		if !wall {
+			world.Springs[0].Temperature = 10
+		}
+		world.SetTemperatureSeed(11)
+
+		world.Step(1)
+
+		mass, _ := world.MassByID(3)
+		expectedX := 10.0
+		if wall {
+			expectedX = -10
+		}
+		if !closeWallSpringLength(mass.Velocity.X, expectedX) || !closeWallSpringLength(mass.Velocity.Y, 0) {
+			t.Fatalf("wall=%t velocity=%#v, expected no temperature kick", wall, mass.Velocity)
+		}
+	}
+}
+
 func TestWallSpringRestoresEndpointDistanceToRestLength(t *testing.T) {
 	world := wallSpringLengthWorld(120, 100, false, false)
 

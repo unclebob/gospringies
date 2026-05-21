@@ -85,7 +85,7 @@ func TestXSPPersistsSpringWallAttribute(t *testing.T) {
 	if !spring.Wall {
 		t.Fatalf("loaded spring wall = %t", spring.Wall)
 	}
-	if saved := SaveXSP(world); !strings.Contains(saved, "spng 1 1 2 12 0.7 10 true\n") {
+	if saved := SaveXSP(world); !strings.Contains(saved, "spng 1 1 2 12 0.7 10 true 0\n") {
 		t.Fatalf("saved XSP missing wall attribute:\n%s", saved)
 	}
 }
@@ -99,8 +99,36 @@ func TestXSPDefaultsMissingSpringWallAttributeToFalse(t *testing.T) {
 	if spring.Wall {
 		t.Fatal("missing wall attribute should load as false")
 	}
-	if saved := SaveXSP(world); !strings.Contains(saved, "spng 1 1 2 12 0.7 10 false\n") {
+	if saved := SaveXSP(world); !strings.Contains(saved, "spng 1 1 2 12 0.7 10 false 0\n") {
 		t.Fatalf("saved XSP missing false wall attribute:\n%s", saved)
+	}
+}
+
+func TestXSPPersistsSpringTemperatureAttribute(t *testing.T) {
+	world, err := LoadXSP("#1.0\nmass 1 0 0 1 0.8\nmass 2 10 0 1 0.8\nspng 1 1 2 12 0.7 10 true 7.5\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	spring, _ := world.SpringByID(1)
+	if spring.Temperature != 7.5 {
+		t.Fatalf("loaded spring temperature = %f", spring.Temperature)
+	}
+	if saved := SaveXSP(world); !strings.Contains(saved, "spng 1 1 2 12 0.7 10 true 7.5\n") {
+		t.Fatalf("saved XSP missing temperature:\n%s", saved)
+	}
+}
+
+func TestXSPDefaultsMissingSpringTemperatureAttributeToZero(t *testing.T) {
+	world, err := LoadXSP("#1.0\nmass 1 0 0 1 0.8\nmass 2 10 0 1 0.8\nspng 1 1 2 12 0.7 10 true\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	spring, _ := world.SpringByID(1)
+	if spring.Temperature != 0 {
+		t.Fatalf("loaded spring temperature = %f", spring.Temperature)
+	}
+	if saved := SaveXSP(world); !strings.Contains(saved, "spng 1 1 2 12 0.7 10 true 0\n") {
+		t.Fatalf("saved XSP missing default temperature:\n%s", saved)
 	}
 }
 
@@ -369,7 +397,7 @@ func TestSaveXSPWritesDocumentedCommands(t *testing.T) {
 	if !strings.Contains(output, "\nfrce gravity true magnitude=10 direction=90\n") {
 		t.Fatalf("saved output missing force values:\n%s", output)
 	}
-	if !strings.Contains(output, "\nspng 7 1 2 12.5 0.7 15 false\n") {
+	if !strings.Contains(output, "\nspng 7 1 2 12.5 0.7 15 false 0\n") {
 		t.Fatalf("saved output should use original spring order:\n%s", output)
 	}
 }

@@ -165,7 +165,7 @@ func (s *Simulation) applyWallSpringCollisions(dt float64) {
 		}
 		for i := range s.Masses {
 			if s.shouldApplyWallSpringCollision(i, aIndex, bIndex) {
-				s.applyWallSpringCollision(&s.Masses[i], &s.Masses[aIndex], &s.Masses[bIndex], dt)
+				s.applyWallSpringCollision(spring, &s.Masses[i], &s.Masses[aIndex], &s.Masses[bIndex], dt)
 			}
 		}
 	}
@@ -191,7 +191,7 @@ func (s *Simulation) springEndpointIndexes(spring Spring) (int, int, bool) {
 	return spring.A, spring.B, s.validSpringMassIndexes(spring)
 }
 
-func (s *Simulation) applyWallSpringCollision(mass, endpointA, endpointB *Mass, dt float64) {
+func (s *Simulation) applyWallSpringCollision(spring Spring, mass, endpointA, endpointB *Mass, dt float64) {
 	segment := endpointB.Position.Sub(endpointA.Position)
 	lengthSquared := dot(segment, segment)
 	if lengthSquared == 0 {
@@ -210,8 +210,23 @@ func (s *Simulation) applyWallSpringCollision(mass, endpointA, endpointB *Mass, 
 	contact := closestPointOnSegment(mass.Position, endpointA.Position, segment, lengthSquared)
 	mass.Position = contact.Add(normal.Scale(side * MassRadius(*mass)))
 	resolveWallSpringVelocity(mass, normal, side)
+	s.applyWallSpringTemperatureKick(spring, mass)
 	shareWallSpringImpulse(endpointA, oldVelocity.Sub(mass.Velocity).Scale(1-contactFraction))
 	shareWallSpringImpulse(endpointB, oldVelocity.Sub(mass.Velocity).Scale(contactFraction))
+}
+
+func (s *Simulation) applyWallSpringTemperatureKick(spring Spring, mass *Mass) {
+	if spring.Temperature <= 0 {
+		return
+	}
+	temperature := math.Min(10, spring.Temperature)
+	angle := s.temperatureRandom().Float64() * 2 * math.Pi
+	kick := fullScreenGravityKick(s) * temperature / 10
+	mass.Velocity = mass.Velocity.Add(Vec2{X: math.Cos(angle) * kick, Y: math.Sin(angle) * kick})
+}
+
+func fullScreenGravityKick(s *Simulation) float64 {
+	return math.Sqrt(2 * 10 * s.Bounds.Height)
 }
 
 func wallSpringContactFraction(previous, current, start, segment Vec2, lengthSquared float64, previousSide, currentSide float64) (float64, bool) {
