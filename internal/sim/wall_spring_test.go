@@ -2,6 +2,7 @@ package sim
 
 import (
 	"math"
+	"math/rand"
 	"testing"
 )
 
@@ -54,16 +55,48 @@ func TestWallSpringDoesNotMoveFixedEndpoint(t *testing.T) {
 }
 
 func TestWallSpringTemperatureKicksCollidingMass(t *testing.T) {
+	for _, temperature := range []float64{10, 1} {
+		world := wallSpringCollisionWorld(false, false, 50)
+		world.Springs[0].Temperature = temperature
+		seed := int64(11)
+		world.SetTemperatureSeed(seed)
+
+		world.Step(1)
+
+		assertWallSpringTemperatureKick(t, world, temperature, seed, "temperature kick")
+	}
+}
+
+func expectedTemperatureKick(height float64, temperature float64, seed int64) Vec2 {
+	angle := rand.New(rand.NewSource(seed)).Float64() * 2 * math.Pi
+	kick := math.Sqrt(2*10*height) * temperature / 10
+	return Vec2{X: math.Cos(angle) * kick, Y: math.Sin(angle) * kick}
+}
+
+func assertWallSpringTemperatureKick(t *testing.T, world *Simulation, temperature float64, seed int64, description string) {
+	t.Helper()
+	mass, _ := world.MassByID(3)
+	kick := mass.Velocity.Sub(Vec2{X: -10})
+	expected := expectedTemperatureKick(world.Bounds.Height, temperature, seed)
+	if !closeWallSpringLength(kick.X, expected.X) || !closeWallSpringLength(kick.Y, expected.Y) {
+		t.Fatalf("%s = %#v, expected %#v", description, kick, expected)
+	}
+}
+
+func TestWallSpringTemperatureKickDoesNotChangeEndpointImpulseShare(t *testing.T) {
 	world := wallSpringCollisionWorld(false, false, 50)
 	world.Springs[0].Temperature = 10
 	world.SetTemperatureSeed(11)
 
 	world.Step(1)
 
-	mass, _ := world.MassByID(3)
-	kick := mass.Velocity.Sub(Vec2{X: -10})
-	if length(kick) < fullScreenGravityKick(world)-0.00001 {
-		t.Fatalf("temperature kick = %#v length %f, expected full-screen kick", kick, length(kick))
+	a, _ := world.MassByID(1)
+	b, _ := world.MassByID(2)
+	if !closeWallSpringLength(a.Velocity.X, 10) || !closeWallSpringLength(a.Velocity.Y, 0) {
+		t.Fatalf("endpoint A velocity = %#v, expected collision impulse only", a.Velocity)
+	}
+	if !closeWallSpringLength(b.Velocity.X, 10) || !closeWallSpringLength(b.Velocity.Y, 0) {
+		t.Fatalf("endpoint B velocity = %#v, expected collision impulse only", b.Velocity)
 	}
 }
 
@@ -88,6 +121,28 @@ func TestWallSpringTemperatureZeroAndNonWallApplyNoKick(t *testing.T) {
 			t.Fatalf("wall=%t velocity=%#v, expected no temperature kick", wall, mass.Velocity)
 		}
 	}
+}
+
+func TestWallSpringTemperatureZeroDoesNotAdvanceRandomSource(t *testing.T) {
+	world := wallSpringCollisionWorld(false, false, 50)
+	seed := int64(11)
+	world.SetTemperatureSeed(seed)
+
+	world.Step(1)
+	resetWallSpringCollisionWorld(world)
+	world.Springs[0].Temperature = 10
+	world.Step(1)
+
+	assertWallSpringTemperatureKick(t, world, 10, seed, "temperature kick after zero-temperature collision")
+}
+
+func resetWallSpringCollisionWorld(world *Simulation) {
+	world.Masses[0].Position = Vec2{X: 0, Y: 0}
+	world.Masses[0].Velocity = Vec2{}
+	world.Masses[1].Position = Vec2{X: 0, Y: 100}
+	world.Masses[1].Velocity = Vec2{}
+	world.Masses[2].Position = Vec2{X: -5, Y: 50}
+	world.Masses[2].Velocity = Vec2{X: 10}
 }
 
 func TestWallSpringRestoresEndpointDistanceToRestLength(t *testing.T) {

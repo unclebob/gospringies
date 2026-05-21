@@ -680,19 +680,7 @@ func assertLoadedWallSpringXSP(w *world, example map[string]string) error {
 }
 
 func assertSavedWallSpringXSP(w *world, example map[string]string) error {
-	springID, err := intValue(example, "spring_id")
-	if err != nil {
-		return err
-	}
-	expected, err := stringValue(example, "saved_wall")
-	if err != nil {
-		return err
-	}
-	needle := fmt.Sprintf("spng %d 1 2 12 0.7 10 %s 0\n", springID, expected)
-	if !strings.Contains(w.xspSavedFirst, needle) {
-		return fmt.Errorf("saved XSP missing %q in:\n%s", needle, w.xspSavedFirst)
-	}
-	return nil
+	return assertSavedSpringXSPValue(w, example, "saved_wall", savedWallSpringXSPNeedle)
 }
 
 func createTemperatureSpringXSPInput(w *world, example map[string]string) error {
@@ -725,15 +713,30 @@ func assertLoadedSpringTemperatureXSP(w *world, example map[string]string) error
 }
 
 func assertSavedSpringTemperatureXSP(w *world, example map[string]string) error {
+	return assertSavedSpringXSPValue(w, example, "saved_temperature", savedTemperatureSpringXSPNeedle)
+}
+
+func assertSavedSpringXSPValue(w *world, example map[string]string, valueKey string, needleFor func(int, string) string) error {
 	springID, err := intValue(example, "spring_id")
 	if err != nil {
 		return err
 	}
-	expected, err := stringValue(example, "saved_temperature")
+	expected, err := stringValue(example, valueKey)
 	if err != nil {
 		return err
 	}
-	needle := fmt.Sprintf("spng %d 1 2 12 0.7 10 true %s\n", springID, expected)
+	return assertSavedSpringXSPContains(w, needleFor(springID, expected))
+}
+
+func savedWallSpringXSPNeedle(springID int, expected string) string {
+	return fmt.Sprintf("spng %d 1 2 12 0.7 10 %s 0\n", springID, expected)
+}
+
+func savedTemperatureSpringXSPNeedle(springID int, expected string) string {
+	return fmt.Sprintf("spng %d 1 2 12 0.7 10 true %s\n", springID, expected)
+}
+
+func assertSavedSpringXSPContains(w *world, needle string) error {
 	if !strings.Contains(w.xspSavedFirst, needle) {
 		return fmt.Errorf("saved XSP missing %q in:\n%s", needle, w.xspSavedFirst)
 	}
@@ -888,18 +891,7 @@ func assertSpringMenuIncludesItem(w *world, example map[string]string) error {
 }
 
 func selectSpringMenuTemperatureItem(w *world, example map[string]string) error {
-	springID, err := intValue(example, "spring_id")
-	if err != nil {
-		return err
-	}
-	game, ok := w.appGame.(*app.Game)
-	if !ok {
-		return fmt.Errorf("application game is not concrete")
-	}
-	if !game.SelectSpringContextMenuItem(springID, "Temperature") {
-		return fmt.Errorf("Temperature spring menu item was not handled")
-	}
-	return nil
+	return selectSpringMenuItem(w, example, "Temperature")
 }
 
 func assertSpringTemperatureDialogRange(w *world, example map[string]string) error {
@@ -982,6 +974,10 @@ func assertSpringTemperatureValue(w *world, example map[string]string) error {
 }
 
 func selectSpringMenuWallItem(w *world, example map[string]string) error {
+	return selectSpringMenuItem(w, example, "Wall")
+}
+
+func selectSpringMenuItem(w *world, example map[string]string, item string) error {
 	springID, err := intValue(example, "spring_id")
 	if err != nil {
 		return err
@@ -990,8 +986,8 @@ func selectSpringMenuWallItem(w *world, example map[string]string) error {
 	if !ok {
 		return fmt.Errorf("application game is not concrete")
 	}
-	if !game.SelectSpringContextMenuItem(springID, "Wall") {
-		return fmt.Errorf("Wall spring menu item was not handled")
+	if !game.SelectSpringContextMenuItem(springID, item) {
+		return fmt.Errorf("%s spring menu item was not handled", item)
 	}
 	return nil
 }

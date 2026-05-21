@@ -252,40 +252,54 @@ func (g *Game) valueDialogOKRect() image.Rectangle {
 }
 
 func (g *Game) setSpringConstant(id int, value float64) {
-	for i := range g.simulation.Springs {
-		if g.simulation.Springs[i].ID == id {
-			g.simulation.Springs[i].SpringConstant = value
-			g.simulation.Springs[i].Stiffness = value
-			g.dirty = true
-			return
-		}
-	}
+	g.setSpringFloat(id, springFloatConstant, value)
 }
 
 func (g *Game) setSpringDamping(id int, value float64) {
-	for i := range g.simulation.Springs {
-		if g.simulation.Springs[i].ID == id {
-			g.simulation.Springs[i].Damping = value
-			g.dirty = true
-			return
-		}
-	}
+	g.setSpringFloat(id, springFloatDamping, value)
 }
 
 func (g *Game) setSpringRestLength(id int, value float64) {
-	for i := range g.simulation.Springs {
-		if g.simulation.Springs[i].ID == id {
-			g.simulation.Springs[i].RestLength = value
-			g.dirty = true
-			return
-		}
-	}
+	g.setSpringFloat(id, springFloatRestLength, value)
 }
 
 func (g *Game) setSpringTemperature(id int, value float64) {
+	g.setSpringFloat(id, springFloatTemperature, value)
+}
+
+type springFloatField string
+
+const (
+	springFloatConstant    springFloatField = "constant"
+	springFloatDamping     springFloatField = "damping"
+	springFloatRestLength  springFloatField = "rest length"
+	springFloatTemperature springFloatField = "temperature"
+)
+
+func (g *Game) setSpringFloat(id int, field springFloatField, value float64) {
+	g.updateSpring(id, func(spring *sim.Spring) {
+		applySpringFloat(spring, field, value)
+	})
+}
+
+func applySpringFloat(spring *sim.Spring, field springFloatField, value float64) {
+	switch field {
+	case springFloatConstant:
+		spring.SpringConstant = value
+		spring.Stiffness = value
+	case springFloatDamping:
+		spring.Damping = value
+	case springFloatRestLength:
+		spring.RestLength = value
+	case springFloatTemperature:
+		spring.Temperature = value
+	}
+}
+
+func (g *Game) updateSpring(id int, update func(*sim.Spring)) {
 	for i := range g.simulation.Springs {
 		if g.simulation.Springs[i].ID == id {
-			g.simulation.Springs[i].Temperature = value
+			update(&g.simulation.Springs[i])
 			g.dirty = true
 			return
 		}
