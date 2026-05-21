@@ -1,4 +1,3 @@
-# mutation-stamp: sha256=c126924cd7dea2f7e9ac536654fc048dc7ae029d58d2def3ba61475d7924380b
 Feature: Wall spring barriers
 
 Background:
@@ -52,6 +51,19 @@ Scenario Outline: moving wall springs stop stationary masses from crossing their
 Examples:
   | spring_id | wall_x1 | wall_y1 | wall_x2 | wall_y2 | wall_vx | wall_vy | mass_id | mass_x | mass_y |
   | 1         | -5      | 0       | -5      | 100     | 10      | 0       | 3       | 0      | 50     |
+
+Scenario Outline: wall spring length constraints cannot move endpoints through other wall springs
+  Given wall spring <barrier_spring> spans from <barrier_x1>, <barrier_y1> to <barrier_x2>, <barrier_y2>
+  And constrained wall spring <moving_spring> endpoint <endpoint_a> starts at <endpoint_a_x>, <endpoint_a_y>
+  And constrained wall spring <moving_spring> endpoint <endpoint_b> starts at <endpoint_b_x>, <endpoint_b_y>
+  And constrained wall spring <moving_spring> has RestLen <rest_len>
+  When the coder advances wall spring length constraints and collisions
+  Then wall spring endpoint <endpoint_a> should remain on the starting side of wall spring <barrier_spring>
+  And wall spring endpoint <endpoint_b> should remain on the starting side of wall spring <barrier_spring>
+
+Examples:
+  | barrier_spring | barrier_x1 | barrier_y1 | barrier_x2 | barrier_y2 | moving_spring | endpoint_a | endpoint_a_x | endpoint_a_y | endpoint_b | endpoint_b_x | endpoint_b_y | rest_len |
+  | 1              | 0          | 0          | 0          | 100        | 2             | 3          | -5           | 40           | 4          | -80          | 40           | 150      |
 
 Scenario Outline: wall spring collision response is shared by endpoint masses
   Given wall spring <spring_id> spans from mass <endpoint_a> to mass <endpoint_b>

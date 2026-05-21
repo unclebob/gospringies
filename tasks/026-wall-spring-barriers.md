@@ -30,6 +30,8 @@ A wall spring should be treated as having zero mass for collision purposes.
 
 Collision detection must use relative motion between the wall spring segment and each mass. A wall spring whose segment sweeps across a stationary mass must collide with that mass instead of passing over it.
 
+A mass that is an endpoint of one wall spring must still collide with every other wall spring for which it is not an endpoint. This includes endpoint motion caused by wall spring fixed-length correction, not only endpoint motion represented by velocity.
+
 When a mass collides with a wall spring:
 
 - The colliding mass is prevented from crossing the wall segment.
