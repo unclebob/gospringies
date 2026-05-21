@@ -30,9 +30,10 @@ type valueDialog struct {
 type springValueKind string
 
 const (
-	springValueKspring springValueKind = "Kspring"
-	springValueKdamp   springValueKind = "Kdamp"
-	springValueRestLen springValueKind = "RestLen"
+	springValueKspring     springValueKind = "Kspring"
+	springValueKdamp       springValueKind = "Kdamp"
+	springValueRestLen     springValueKind = "RestLen"
+	springValueTemperature springValueKind = "Temperature"
 )
 
 func (g *Game) openMassValueDialog(id int) {
@@ -89,6 +90,10 @@ func (g *Game) springValueDialogSpec(id int, spring sim.Spring, kind springValue
 		return formatControlFloat(spring.RestLength), 1000, func(value float64) {
 			g.setSpringRestLength(id, value)
 		}
+	case springValueTemperature:
+		return formatControlFloat(spring.Temperature), 10, func(value float64) {
+			g.setSpringTemperature(id, value)
+		}
 	default:
 		return formatControlFloat(spring.SpringConstant), 1000, func(value float64) {
 			g.setSpringConstant(id, value)
@@ -108,6 +113,19 @@ func (g *Game) valueDialogCursorVisible() bool {
 		return false
 	}
 	return (g.valueDialog.Ticks/valueCursorPeriod)%2 == 0
+}
+
+func (g *Game) SpringTemperatureDialogRange() (float64, float64, bool) {
+	return g.valueDialog.Min, g.valueDialog.Max, g.valueDialog.Open && strings.HasPrefix(g.valueDialog.Title, string(springValueTemperature)+" Spring #")
+}
+
+func (g *Game) ApplyValueDialogText(text string) bool {
+	if !g.valueDialog.Open {
+		return false
+	}
+	g.valueDialog.Text = text
+	g.applyValueDialog()
+	return true
 }
 
 func (g *Game) clickValueDialog(x int, y int) {
@@ -234,30 +252,54 @@ func (g *Game) valueDialogOKRect() image.Rectangle {
 }
 
 func (g *Game) setSpringConstant(id int, value float64) {
-	for i := range g.simulation.Springs {
-		if g.simulation.Springs[i].ID == id {
-			g.simulation.Springs[i].SpringConstant = value
-			g.simulation.Springs[i].Stiffness = value
-			g.dirty = true
-			return
-		}
-	}
+	g.setSpringFloat(id, springFloatConstant, value)
 }
 
 func (g *Game) setSpringDamping(id int, value float64) {
-	for i := range g.simulation.Springs {
-		if g.simulation.Springs[i].ID == id {
-			g.simulation.Springs[i].Damping = value
-			g.dirty = true
-			return
-		}
-	}
+	g.setSpringFloat(id, springFloatDamping, value)
 }
 
 func (g *Game) setSpringRestLength(id int, value float64) {
+	g.setSpringFloat(id, springFloatRestLength, value)
+}
+
+func (g *Game) setSpringTemperature(id int, value float64) {
+	g.setSpringFloat(id, springFloatTemperature, value)
+}
+
+type springFloatField string
+
+const (
+	springFloatConstant    springFloatField = "constant"
+	springFloatDamping     springFloatField = "damping"
+	springFloatRestLength  springFloatField = "rest length"
+	springFloatTemperature springFloatField = "temperature"
+)
+
+func (g *Game) setSpringFloat(id int, field springFloatField, value float64) {
+	g.updateSpring(id, func(spring *sim.Spring) {
+		applySpringFloat(spring, field, value)
+	})
+}
+
+func applySpringFloat(spring *sim.Spring, field springFloatField, value float64) {
+	switch field {
+	case springFloatConstant:
+		spring.SpringConstant = value
+		spring.Stiffness = value
+	case springFloatDamping:
+		spring.Damping = value
+	case springFloatRestLength:
+		spring.RestLength = value
+	case springFloatTemperature:
+		spring.Temperature = value
+	}
+}
+
+func (g *Game) updateSpring(id int, update func(*sim.Spring)) {
 	for i := range g.simulation.Springs {
 		if g.simulation.Springs[i].ID == id {
-			g.simulation.Springs[i].RestLength = value
+			update(&g.simulation.Springs[i])
 			g.dirty = true
 			return
 		}

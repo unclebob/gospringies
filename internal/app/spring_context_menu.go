@@ -39,6 +39,9 @@ func (g *Game) springContextMenuItems() []contextMenuItem {
 	}, {
 		Label:  "Wall",
 		Action: func() { g.toggleSpringWall(id) },
+	}, {
+		Label:  "Temperature",
+		Action: func() { g.openSpringValueDialog(id, springValueTemperature) },
 	}}
 }
 
