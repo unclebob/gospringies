@@ -204,8 +204,7 @@ func createBarrierMovingMass(w *world, example map[string]string) error {
 }
 
 func advanceThroughWallSpringCollision(w *world, _ map[string]string) error {
-	ensureDomainWorld(w).Step(1)
-	return nil
+	return advanceWallSpringWorld(w)
 }
 
 func assertMassOnStartingWallSpringSide(w *world, example map[string]string) error {
@@ -307,6 +306,10 @@ func createMassCollidingWithWallSpring(w *world, example map[string]string) erro
 }
 
 func resolveWallSpringCollision(w *world, _ map[string]string) error {
+	return advanceWallSpringWorld(w)
+}
+
+func advanceWallSpringWorld(w *world) error {
 	ensureDomainWorld(w).Step(1)
 	return nil
 }
@@ -386,26 +389,7 @@ func assertSavedWallSpringXSP(w *world, example map[string]string) error {
 }
 
 func createSelectedSpringWithWall(w *world, example map[string]string) error {
-	if err := requireWallSpringExampleValues(example, map[string]string{"spring_id": "1"}); err != nil {
-		return err
-	}
-	springID, oldWall, err := springIDAndWall(example, "old_wall")
-	if err != nil {
-		return err
-	}
-	game := app.NewGame()
-	world := sim.NewWorld()
-	ensureWallSpringMass(world, 1, sim.Vec2{})
-	ensureWallSpringMass(world, 2, sim.Vec2{X: 20})
-	if err := world.AddSpring(sim.Spring{ID: springID, MassA: 1, MassB: 2, Wall: oldWall}); err != nil {
-		return err
-	}
-	game.ReplaceWorld(world)
-	if err := game.SelectSpring(springID); err != nil {
-		return err
-	}
-	w.appGame = game
-	return nil
+	return createAppSpringWithWall(w, example, "old_wall", true)
 }
 
 func changeSpringWallControl(w *world, _ map[string]string) error {
@@ -442,23 +426,7 @@ func assertSpringWallValue(w *world, example map[string]string) error {
 }
 
 func createMenuSpringWithWall(w *world, example map[string]string) error {
-	if err := requireWallSpringExampleValues(example, map[string]string{"spring_id": "1"}); err != nil {
-		return err
-	}
-	springID, oldWall, err := springIDAndWall(example, "old_wall")
-	if err != nil {
-		return err
-	}
-	game := app.NewGame()
-	world := sim.NewWorld()
-	ensureWallSpringMass(world, 1, sim.Vec2{})
-	ensureWallSpringMass(world, 2, sim.Vec2{X: 20})
-	if err := world.AddSpring(sim.Spring{ID: springID, MassA: 1, MassB: 2, Wall: oldWall}); err != nil {
-		return err
-	}
-	game.ReplaceWorld(world)
-	w.appGame = game
-	return nil
+	return createAppSpringWithWall(w, example, "old_wall", false)
 }
 
 func assertSpringMenuIncludesItem(w *world, example map[string]string) error {
@@ -496,23 +464,49 @@ func selectSpringMenuWallItem(w *world, example map[string]string) error {
 }
 
 func createRenderableWallSpring(w *world, example map[string]string) error {
-	if err := requireWallSpringExampleValues(example, map[string]string{"spring_id": "1"}); err != nil {
-		return err
-	}
-	springID, wall, err := springIDAndWall(example, "wall")
+	return createAppSpringWithWall(w, example, "wall", false)
+}
+
+func createAppSpringWithWall(w *world, example map[string]string, wallKey string, selectSpring bool) error {
+	springID, wall, err := appSpringWallExample(example, wallKey)
 	if err != nil {
 		return err
 	}
+	game, err := newAppGameWithSpring(springID, wall)
+	if err != nil {
+		return err
+	}
+	if err := selectAppSpringIfRequested(game, springID, selectSpring); err != nil {
+		return err
+	}
+	w.appGame = game
+	return nil
+}
+
+func appSpringWallExample(example map[string]string, wallKey string) (int, bool, error) {
+	if err := requireWallSpringExampleValues(example, map[string]string{"spring_id": "1"}); err != nil {
+		return 0, false, err
+	}
+	return springIDAndWall(example, wallKey)
+}
+
+func newAppGameWithSpring(springID int, wall bool) (*app.Game, error) {
 	game := app.NewGame()
 	world := sim.NewWorld()
 	ensureWallSpringMass(world, 1, sim.Vec2{})
 	ensureWallSpringMass(world, 2, sim.Vec2{X: 20})
 	if err := world.AddSpring(sim.Spring{ID: springID, MassA: 1, MassB: 2, Wall: wall}); err != nil {
-		return err
+		return nil, err
 	}
 	game.ReplaceWorld(world)
-	w.appGame = game
-	return nil
+	return game, nil
+}
+
+func selectAppSpringIfRequested(game *app.Game, springID int, selectSpring bool) error {
+	if !selectSpring {
+		return nil
+	}
+	return game.SelectSpring(springID)
 }
 
 func renderWallSpring(w *world, _ map[string]string) error {
@@ -544,18 +538,23 @@ var wallSpringRenderingAssertions = map[string]func(map[string]string) error{
 }
 
 func assertNormalSpringRendering(representations map[string]string) error {
-	if got := representations["spring"]; got != "cyan line" {
-		return fmt.Errorf("normal spring representation = %q", got)
-	}
-	if got := representations["wall spring"]; got != "" {
-		return fmt.Errorf("normal spring should not have wall representation %q", got)
-	}
-	return nil
+	return assertSpringRenderRepresentations(representations, map[string]string{
+		"spring":      "cyan line",
+		"wall spring": "",
+	})
 }
 
 func assertWallSpringRendering(representations map[string]string) error {
-	if got := representations["wall spring"]; got != "heavy orange line" {
-		return fmt.Errorf("wall spring representation = %q", got)
+	return assertSpringRenderRepresentations(representations, map[string]string{
+		"wall spring": "heavy orange line",
+	})
+}
+
+func assertSpringRenderRepresentations(representations map[string]string, expected map[string]string) error {
+	for key, want := range expected {
+		if got := representations[key]; got != want {
+			return fmt.Errorf("%s representation = %q, expected %q", key, got, want)
+		}
 	}
 	return nil
 }
