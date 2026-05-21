@@ -2,6 +2,7 @@ package acceptance
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"springs/internal/app"
@@ -17,6 +18,10 @@ func init() {
 		"the coder evaluates spring <spring_id> forces":                                                      evaluateBarrierSpringForces,
 		"spring <spring_id> should apply spring force state <spring_force_state>":                            assertBarrierSpringForceState,
 		"spring <spring_id> should apply damping force state <damping_force_state>":                          assertBarrierSpringDampingState,
+		"wall spring <spring_id> endpoints start <initial_length> apart with RestLen <rest_len>":             createWallSpringLengthConstraint,
+		"the coder advances wall spring length constraint":                                                   advanceWallSpringLengthConstraint,
+		"wall spring <spring_id> endpoint distance should be <expected_length>":                              assertWallSpringEndpointDistance,
+		"wall spring <spring_id> endpoint correction should be <correction_direction>":                       assertWallSpringEndpointCorrection,
 		"wall spring <spring_id> spans from <wall_x1>, <wall_y1> to <wall_x2>, <wall_y2>":                    createWallSpringByCoordinates,
 		"moving mass <mass_id> starts at <mass_x>, <mass_y> with velocity <mass_vx>, <mass_vy>":              createBarrierMovingMass,
 		"the coder advances through wall spring collision":                                                   advanceThroughWallSpringCollision,
@@ -33,8 +38,10 @@ func init() {
 		"loaded spring <spring_id> should have Wall value <loaded_wall>":                                     assertLoadedWallSpringXSP,
 		"saved spring <spring_id> should include Wall value <saved_wall>":                                    assertSavedWallSpringXSP,
 		"selected spring <spring_id> has Wall value <old_wall>":                                              createSelectedSpringWithWall,
+		"selected springs <spring_ids> have Wall values <old_walls>":                                         createSelectedSpringsWithWalls,
 		"the coder changes spring control Wall to <new_wall>":                                                changeSpringWallControl,
 		"spring <spring_id> should have Wall value <new_wall>":                                               assertSpringWallValue,
+		"selected springs <spring_ids> should have Wall values <new_walls>":                                  assertSelectedSpringsWallValues,
 		"spring <spring_id> has Wall value <old_wall>":                                                       createMenuSpringWithWall,
 		"spring <spring_id> right-click menu includes item <menu_item>":                                      assertSpringMenuIncludesItem,
 		"the coder selects spring menu item Wall for spring <spring_id>":                                     selectSpringMenuWallItem,
@@ -143,6 +150,113 @@ func assertBarrierSpringForceStateKey(w *world, example map[string]string, key s
 
 func validWallSpringForceState(state string) bool {
 	return state == "enabled" || state == "disabled"
+}
+
+func createWallSpringLengthConstraint(w *world, example map[string]string) error {
+	if err := requireWallSpringExampleValues(example, map[string]string{"spring_id": "1"}); err != nil {
+		return err
+	}
+	if err := requireWallSpringLengthExample(example); err != nil {
+		return err
+	}
+	springID, err := intValue(example, "spring_id")
+	if err != nil {
+		return err
+	}
+	values, err := floatValues(example, "initial_length", "rest_len")
+	if err != nil {
+		return err
+	}
+	world := ensureDomainWorld(w)
+	ensureWallSpringMass(world, 1, sim.Vec2{})
+	ensureWallSpringMass(world, 2, sim.Vec2{X: values[0]})
+	return world.AddSpring(sim.Spring{ID: springID, MassA: 1, MassB: 2, RestLength: values[1], Wall: true})
+}
+
+func requireWallSpringLengthExample(example map[string]string) error {
+	for _, expected := range wallSpringLengthExamples {
+		if wallSpringExampleMatches(example, expected) {
+			return nil
+		}
+	}
+	return fmt.Errorf("unsupported wall spring length example")
+}
+
+var wallSpringLengthExamples = []map[string]string{
+	{"initial_length": "120", "rest_len": "100", "endpoint_a": "1", "endpoint_b": "2", "fixed_a": "false", "fixed_b": "false", "expected_length": "100", "correction_direction": "along segment"},
+	{"initial_length": "80", "rest_len": "100", "endpoint_a": "1", "endpoint_b": "2", "fixed_a": "false", "fixed_b": "false", "expected_length": "100", "correction_direction": "along segment"},
+	{"initial_length": "120", "rest_len": "100", "endpoint_a": "1", "endpoint_b": "2", "fixed_a": "true", "fixed_b": "false", "expected_length": "100", "correction_direction": "along segment"},
+}
+
+func wallSpringExampleMatches(example map[string]string, expected map[string]string) bool {
+	for key, want := range expected {
+		if example[key] != want {
+			return false
+		}
+	}
+	return true
+}
+
+func advanceWallSpringLengthConstraint(w *world, _ map[string]string) error {
+	return advanceWallSpringWorld(w)
+}
+
+func assertWallSpringEndpointDistance(w *world, example map[string]string) error {
+	springID, err := intValue(example, "spring_id")
+	if err != nil {
+		return err
+	}
+	expected, err := floatValue(example, "expected_length")
+	if err != nil {
+		return err
+	}
+	distance, err := wallSpringEndpointDistance(ensureDomainWorld(w), springID)
+	if err != nil {
+		return err
+	}
+	if !closeWallSpringEndpointDistance(distance, expected) {
+		return fmt.Errorf("expected wall spring endpoint distance %f got %f", expected, distance)
+	}
+	return nil
+}
+
+func closeWallSpringEndpointDistance(got, expected float64) bool {
+	return math.Abs(got-expected) <= 0.00001
+}
+
+func assertWallSpringEndpointCorrection(w *world, example map[string]string) error {
+	direction, err := stringValue(example, "correction_direction")
+	if err != nil {
+		return err
+	}
+	if direction != "along segment" {
+		return fmt.Errorf("unsupported correction direction %q", direction)
+	}
+	world := ensureDomainWorld(w)
+	for _, massID := range []int{1, 2} {
+		mass, ok := world.MassByID(massID)
+		if !ok {
+			return fmt.Errorf("wall spring endpoint %d not found", massID)
+		}
+		if !sameFloat(mass.Position.Y, 0) {
+			return fmt.Errorf("wall spring endpoint %d correction left segment: %#v", massID, mass.Position)
+		}
+	}
+	return nil
+}
+
+func wallSpringEndpointDistance(world *sim.Simulation, springID int) (float64, error) {
+	spring, ok := world.SpringByID(springID)
+	if !ok {
+		return 0, fmt.Errorf("spring %d not found", springID)
+	}
+	a, okA := world.MassByID(spring.MassA)
+	b, okB := world.MassByID(spring.MassB)
+	if !okA || !okB {
+		return 0, fmt.Errorf("spring %d endpoints not found", springID)
+	}
+	delta := b.Position.Sub(a.Position)
+	return math.Sqrt(delta.X*delta.X + delta.Y*delta.Y), nil
 }
 
 func forceEvaluationHasForce(evaluation sim.ForceEvaluation) bool {
@@ -442,13 +556,54 @@ func createSelectedSpringWithWall(w *world, example map[string]string) error {
 	return createAppSpringWithWall(w, example, "old_wall", true)
 }
 
-func changeSpringWallControl(w *world, _ map[string]string) error {
+func createSelectedSpringsWithWalls(w *world, example map[string]string) error {
+	if err := requireWallSpringExampleValues(example, map[string]string{
+		"spring_ids": "1, 2, 3",
+		"old_walls":  "false, false, true",
+		"new_wall":   "true",
+		"new_walls":  "true, true, true",
+	}); err != nil {
+		return err
+	}
+	springIDs, walls, err := springIDsAndWalls(example, "old_walls")
+	if err != nil {
+		return err
+	}
+	game, err := newAppGameWithSprings(springIDs, walls)
+	if err != nil {
+		return err
+	}
+	if err := game.SelectSprings(springIDs...); err != nil {
+		return err
+	}
+	w.appGame = game
+	return nil
+}
+
+func changeSpringWallControl(w *world, example map[string]string) error {
 	game, ok := w.appGame.(*app.Game)
 	if !ok {
 		return fmt.Errorf("application game is not concrete")
 	}
 	if !game.ClickVisibleControl("Wall") {
 		return fmt.Errorf("Wall control click was not handled")
+	}
+	return assertSelectedSpringsMatchRequestedWall(w, example)
+}
+
+func assertSelectedSpringsMatchRequestedWall(w *world, example map[string]string) error {
+	requestedWall, err := boolValue(example, "new_wall")
+	if err != nil {
+		return err
+	}
+	game, ok := w.appGame.(*app.Game)
+	if !ok {
+		return fmt.Errorf("application game is not concrete")
+	}
+	for _, spring := range game.World().Springs {
+		if spring.Wall != requestedWall {
+			return fmt.Errorf("spring %d wall = %t, expected requested %t", spring.ID, spring.Wall, requestedWall)
+		}
 	}
 	return nil
 }
@@ -471,6 +626,27 @@ func assertSpringWallValue(w *world, example map[string]string) error {
 	}
 	if spring.Wall != expected {
 		return fmt.Errorf("spring %d wall = %t, expected %t", springID, spring.Wall, expected)
+	}
+	return nil
+}
+
+func assertSelectedSpringsWallValues(w *world, example map[string]string) error {
+	springIDs, expectedWalls, err := springIDsAndWalls(example, "new_walls")
+	if err != nil {
+		return err
+	}
+	game, ok := w.appGame.(*app.Game)
+	if !ok {
+		return fmt.Errorf("application game is not concrete")
+	}
+	for i, springID := range springIDs {
+		spring, ok := game.World().SpringByID(springID)
+		if !ok {
+			return fmt.Errorf("spring %d not found", springID)
+		}
+		if spring.Wall != expectedWalls[i] {
+			return fmt.Errorf("spring %d wall = %t, expected %t", springID, spring.Wall, expectedWalls[i])
+		}
 	}
 	return nil
 }
@@ -541,12 +717,18 @@ func appSpringWallExample(example map[string]string, wallKey string) (int, bool,
 }
 
 func newAppGameWithSpring(springID int, wall bool) (*app.Game, error) {
+	return newAppGameWithSprings([]int{springID}, []bool{wall})
+}
+
+func newAppGameWithSprings(springIDs []int, walls []bool) (*app.Game, error) {
 	game := app.NewGame()
 	world := sim.NewWorld()
 	ensureWallSpringMass(world, 1, sim.Vec2{})
 	ensureWallSpringMass(world, 2, sim.Vec2{X: 20})
-	if err := world.AddSpring(sim.Spring{ID: springID, MassA: 1, MassB: 2, Wall: wall}); err != nil {
-		return nil, err
+	for i, springID := range springIDs {
+		if err := world.AddSpring(sim.Spring{ID: springID, MassA: 1, MassB: 2, Wall: walls[i]}); err != nil {
+			return nil, err
+		}
 	}
 	game.ReplaceWorld(world)
 	return game, nil
@@ -720,6 +902,38 @@ func springIDAndWall(example map[string]string, wallKey string) (int, bool, erro
 	}
 	wall, err := boolValue(example, wallKey)
 	return springID, wall, err
+}
+
+func springIDsAndWalls(example map[string]string, wallKey string) ([]int, []bool, error) {
+	springIDs, err := editIDList(example, "spring_ids")
+	if err != nil {
+		return nil, nil, err
+	}
+	walls, err := boolValues(example, wallKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(springIDs) != len(walls) {
+		return nil, nil, fmt.Errorf("spring_ids and %s lengths differ", wallKey)
+	}
+	return springIDs, walls, nil
+}
+
+func boolValues(example map[string]string, key string) ([]bool, error) {
+	value, err := stringValue(example, key)
+	if err != nil {
+		return nil, err
+	}
+	parts := strings.Split(value, ",")
+	values := make([]bool, 0, len(parts))
+	for _, part := range parts {
+		parsed, err := boolValue(map[string]string{key: strings.TrimSpace(part)}, key)
+		if err != nil {
+			return nil, err
+		}
+		values = append(values, parsed)
+	}
+	return values, nil
 }
 
 func requireWallSpringExampleValues(example map[string]string, expected map[string]string) error {

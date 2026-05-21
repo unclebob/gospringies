@@ -116,6 +116,44 @@ func MassRadius(mass Mass) float64 {
 	return math.Min(64, math.Max(1, float64(radius)))
 }
 
+func (s *Simulation) applyWallSpringLengthConstraints() {
+	for i := range s.Springs {
+		aIndex, bIndex, ok := s.wallSpringEndpointIndexes(s.Springs[i])
+		if !ok {
+			continue
+		}
+		s.applyWallSpringLengthConstraint(&s.Springs[i], &s.Masses[aIndex], &s.Masses[bIndex])
+	}
+}
+
+func (s *Simulation) applyWallSpringLengthConstraint(spring *Spring, endpointA, endpointB *Mass) {
+	segment := endpointB.Position.Sub(endpointA.Position)
+	distance := length(segment)
+	if distance == 0 {
+		return
+	}
+	if spring.RestLength <= 0 {
+		spring.RestLength = distance
+		return
+	}
+	correction := segment.Normalize().Scale(distance - spring.RestLength)
+	applyWallSpringLengthCorrection(endpointA, endpointB, correction)
+}
+
+func applyWallSpringLengthCorrection(endpointA, endpointB *Mass, correction Vec2) {
+	switch {
+	case endpointA.Fixed && endpointB.Fixed:
+		return
+	case endpointA.Fixed:
+		endpointB.Position = endpointB.Position.Sub(correction)
+	case endpointB.Fixed:
+		endpointA.Position = endpointA.Position.Add(correction)
+	default:
+		endpointA.Position = endpointA.Position.Add(correction.Scale(0.5))
+		endpointB.Position = endpointB.Position.Sub(correction.Scale(0.5))
+	}
+}
+
 func (s *Simulation) applyWallSpringCollisions(dt float64) {
 	if dt <= 0 {
 		return
