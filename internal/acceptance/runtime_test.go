@@ -586,6 +586,49 @@ func TestWallCollisionHelperContracts(t *testing.T) {
 	}
 }
 
+func TestSweptScreenWallCollisionSteps(t *testing.T) {
+	for _, example := range []map[string]string{
+		{"wall": "right", "mass_id": "1", "start_x": "790", "start_y": "400", "velocity_x": "300", "velocity_y": "0", "duration": "1 step"},
+		{"wall": "top", "mass_id": "2", "start_x": "400", "start_y": "590", "velocity_x": "0", "velocity_y": "300", "duration": "1 step"},
+	} {
+		w := &world{}
+		for _, step := range []func(*world, map[string]string) error{
+			enableWall,
+			startMassAtPositionWithVelocity,
+			advanceThroughWallBoundaryByDuration,
+			assertMassOnStartingScreenWallSide,
+			assertWallNormalVelocityTowardStartingSide,
+		} {
+			if err := step(w, example); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+}
+
+func TestScreenWallSideHelpersCoverEveryWall(t *testing.T) {
+	for _, tc := range []struct {
+		wall     string
+		position sim.Vec2
+		velocity sim.Vec2
+		side     float64
+		sideRate float64
+	}{
+		{wall: "left", position: sim.Vec2{X: 12}, velocity: sim.Vec2{X: 3}, side: 12, sideRate: 3},
+		{wall: "right", position: sim.Vec2{X: 780}, velocity: sim.Vec2{X: -4}, side: 20, sideRate: 4},
+		{wall: "bottom", position: sim.Vec2{Y: 9}, velocity: sim.Vec2{Y: 5}, side: 9, sideRate: 5},
+		{wall: "top", position: sim.Vec2{Y: 590}, velocity: sim.Vec2{Y: -6}, side: 10, sideRate: 6},
+		{wall: "unknown", position: sim.Vec2{X: 1, Y: 2}, velocity: sim.Vec2{X: 3, Y: 4}, side: 0, sideRate: 0},
+	} {
+		if got := screenWallSide(tc.wall, tc.position); got != tc.side {
+			t.Fatalf("%s side = %f, expected %f", tc.wall, got, tc.side)
+		}
+		if got := screenWallSideVelocity(tc.wall, tc.velocity); got != tc.sideRate {
+			t.Fatalf("%s side velocity = %f, expected %f", tc.wall, got, tc.sideRate)
+		}
+	}
+}
+
 func TestWallCollisionSetupHelpers(t *testing.T) {
 	w := &world{}
 	mass := ensureCollisionMass(w, 7)

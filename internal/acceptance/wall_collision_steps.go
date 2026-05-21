@@ -124,7 +124,6 @@ func startMassAtPositionWithVelocity(w *world, example map[string]string) error 
 	world := collisionWorld(w)
 	world.Bounds = sim.Bounds{Width: 800, Height: 600}
 	mass := ensureCollisionMass(w, id)
-	world.Bounds = sim.Bounds{Width: 800, Height: 600}
 	mass.Position = sim.Vec2{X: values[0], Y: values[1]}
 	mass.Velocity = sim.Vec2{X: values[2], Y: values[3]}
 	rememberScreenWallStartingSide(w, id, wall, mass.Position)
