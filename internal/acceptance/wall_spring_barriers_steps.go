@@ -34,6 +34,13 @@ func init() {
 		"the coder advances through moving wall spring collision":                                                                   advanceThroughWallSpringCollision,
 		"mass <mass_id> should remain on the starting side of moving wall spring <spring_id>":                                       assertMassOnStartingWallSpringSide,
 		"moving wall spring <spring_id> velocity should be resolved away from mass <mass_id>":                                       assertMovingWallSpringVelocityResolvedAwayFromMass,
+		"wall spring <barrier_spring> spans from <barrier_x1>, <barrier_y1> to <barrier_x2>, <barrier_y2>":                          createBarrierWallSpringByCoordinates,
+		"constrained wall spring <moving_spring> endpoint <endpoint_a> starts at <endpoint_a_x>, <endpoint_a_y>":                    createConstrainedWallSpringEndpointA,
+		"constrained wall spring <moving_spring> endpoint <endpoint_b> starts at <endpoint_b_x>, <endpoint_b_y>":                    createConstrainedWallSpringEndpointB,
+		"constrained wall spring <moving_spring> has RestLen <rest_len>":                                                            createConstrainedWallSpring,
+		"the coder advances wall spring length constraints and collisions":                                                          advanceWallSpringLengthConstraintsAndCollisions,
+		"wall spring endpoint <endpoint_a> should remain on the starting side of wall spring <barrier_spring>":                      assertWallSpringEndpointAOnStartingBarrierSide,
+		"wall spring endpoint <endpoint_b> should remain on the starting side of wall spring <barrier_spring>":                      assertWallSpringEndpointBOnStartingBarrierSide,
 		"wall spring <spring_id> spans from mass <endpoint_a> to mass <endpoint_b>":                                                 createWallSpringByEndpointIDs,
 		"wall spring endpoint <endpoint_a> fixed state is <fixed_a>":                                                                setWallSpringEndpointFixed,
 		"wall spring endpoint <endpoint_b> fixed state is <fixed_b>":                                                                setWallSpringEndpointBFixed,
@@ -352,6 +359,67 @@ func createMovingWallSpringByCoordinates(w *world, example map[string]string) er
 	return world.AddSpring(sim.Spring{ID: springID, MassA: 1, MassB: 2, Wall: true})
 }
 
+func createBarrierWallSpringByCoordinates(w *world, example map[string]string) error {
+	if err := requireWallSpringExampleValues(example, map[string]string{
+		"barrier_spring": "1",
+		"barrier_x1":     "0",
+		"barrier_y1":     "0",
+		"barrier_x2":     "0",
+		"barrier_y2":     "100",
+	}); err != nil {
+		return err
+	}
+	springID, err := intValue(example, "barrier_spring")
+	if err != nil {
+		return err
+	}
+	values, err := floatValues(example, "barrier_x1", "barrier_y1", "barrier_x2", "barrier_y2")
+	if err != nil {
+		return err
+	}
+	world := ensureDomainWorld(w)
+	ensureWallSpringMass(world, 1, sim.Vec2{X: values[0], Y: values[1]})
+	ensureWallSpringMass(world, 2, sim.Vec2{X: values[2], Y: values[3]})
+	return world.AddSpring(sim.Spring{ID: springID, MassA: 1, MassB: 2, Wall: true})
+}
+
+func createConstrainedWallSpringEndpointA(w *world, example map[string]string) error {
+	return createConstrainedWallSpringEndpoint(w, example, "endpoint_a", "endpoint_a_x", "endpoint_a_y")
+}
+
+func createConstrainedWallSpringEndpointB(w *world, example map[string]string) error {
+	return createConstrainedWallSpringEndpoint(w, example, "endpoint_b", "endpoint_b_x", "endpoint_b_y")
+}
+
+func createConstrainedWallSpringEndpoint(w *world, example map[string]string, endpointKey, xKey, yKey string) error {
+	id, err := intValue(example, endpointKey)
+	if err != nil {
+		return err
+	}
+	values, err := floatValues(example, xKey, yKey)
+	if err != nil {
+		return err
+	}
+	ensureWallSpringMass(ensureDomainWorld(w), id, sim.Vec2{X: values[0], Y: values[1]})
+	return nil
+}
+
+func createConstrainedWallSpring(w *world, example map[string]string) error {
+	springID, err := intValue(example, "moving_spring")
+	if err != nil {
+		return err
+	}
+	endpointA, endpointB, err := intPair(example, "endpoint_a", "endpoint_b")
+	if err != nil {
+		return err
+	}
+	restLength, err := floatValue(example, "rest_len")
+	if err != nil {
+		return err
+	}
+	return ensureDomainWorld(w).AddSpring(sim.Spring{ID: springID, MassA: endpointA, MassB: endpointB, RestLength: restLength, Wall: true})
+}
+
 func createBarrierMovingMass(w *world, example map[string]string) error {
 	if err := requireWallSpringExampleValues(example, map[string]string{
 		"mass_id": "3",
@@ -404,6 +472,28 @@ func advanceThroughWallSpringCollision(w *world, _ map[string]string) error {
 	return advanceWallSpringWorld(w)
 }
 
+func advanceWallSpringLengthConstraintsAndCollisions(w *world, example map[string]string) error {
+	if err := rememberWallSpringEndpointStartingSide(w, example, "endpoint_a"); err != nil {
+		return err
+	}
+	if err := rememberWallSpringEndpointStartingSide(w, example, "endpoint_b"); err != nil {
+		return err
+	}
+	return advanceWallSpringWorld(w)
+}
+
+func rememberWallSpringEndpointStartingSide(w *world, example map[string]string, endpointKey string) error {
+	endpointID, err := intValue(example, endpointKey)
+	if err != nil {
+		return err
+	}
+	return rememberWallSpringStartingSide(w, withBarrierSpringID(example), endpointID)
+}
+
+func withBarrierSpringID(example map[string]string) map[string]string {
+	return withExampleValue(example, "spring_id", example["barrier_spring"])
+}
+
 func assertMassOnStartingWallSpringSide(w *world, example map[string]string) error {
 	state, err := wallSpringMassState(w, example)
 	if err != nil {
@@ -417,6 +507,22 @@ func assertMassOnStartingWallSpringSide(w *world, example map[string]string) err
 		return fmt.Errorf("mass %d crossed wall spring %d: side %f started %f", state.massID, state.springID, current, state.side)
 	}
 	return nil
+}
+
+func assertWallSpringEndpointAOnStartingBarrierSide(w *world, example map[string]string) error {
+	return assertWallSpringEndpointOnStartingBarrierSide(w, example, "endpoint_a")
+}
+
+func assertWallSpringEndpointBOnStartingBarrierSide(w *world, example map[string]string) error {
+	return assertWallSpringEndpointOnStartingBarrierSide(w, example, "endpoint_b")
+}
+
+func assertWallSpringEndpointOnStartingBarrierSide(w *world, example map[string]string, endpointKey string) error {
+	endpointID, err := intValue(example, endpointKey)
+	if err != nil {
+		return err
+	}
+	return assertMassOnStartingWallSpringSide(w, withExampleValue(withBarrierSpringID(example), "mass_id", fmt.Sprintf("%d", endpointID)))
 }
 
 func assertMassVelocityResolvedAwayFromWallSpring(w *world, example map[string]string) error {
