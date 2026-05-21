@@ -306,7 +306,7 @@ func wallSpringCollisionMass(example map[string]string) (int, sim.Mass, error) {
 	if err := requireWallSpringExampleValues(example, map[string]string{"spring_id": "1", "mass_id": "3"}); err != nil {
 		return 0, sim.Mass{}, err
 	}
-	massID, contactFraction, err := intAndFloatValue(example, "mass_id", "contact_fraction")
+	massID, contactFraction, err := intAndFloat(example, "mass_id", "contact_fraction")
 	if err != nil {
 		return 0, sim.Mass{}, err
 	}
@@ -336,17 +336,42 @@ func assertWallSpringNamedEndpointImpulseShare(w *world, example map[string]stri
 	if err != nil {
 		return err
 	}
-	world := ensureDomainWorld(w)
-	mass, ok := world.MassByID(endpoint)
-	if !ok {
-		return fmt.Errorf("endpoint %d not found", endpoint)
+	actualShare, err := actualWallSpringEndpointImpulseShare(w, example, endpoint)
+	if err != nil {
+		return err
 	}
-	before := w.wallSpringImpulses[endpoint]
-	actualShare := (mass.Velocity.X - before.X) / 20
 	if actualShare < expectedShare-0.000001 || actualShare > expectedShare+0.000001 {
 		return fmt.Errorf("endpoint %d impulse share = %f, expected %f", endpoint, actualShare, expectedShare)
 	}
 	return nil
+}
+
+func actualWallSpringEndpointImpulseShare(w *world, example map[string]string, endpoint int) (float64, error) {
+	endpointDelta, err := wallSpringVelocityDelta(w, endpoint, "endpoint")
+	if err != nil {
+		return 0, err
+	}
+	movingMassID, err := intValue(example, "mass_id")
+	if err != nil {
+		return 0, err
+	}
+	movingDelta, err := wallSpringVelocityDelta(w, movingMassID, "moving mass")
+	if err != nil {
+		return 0, err
+	}
+	impulse := -movingDelta
+	if impulse == 0 {
+		return 0, nil
+	}
+	return endpointDelta / impulse, nil
+}
+
+func wallSpringVelocityDelta(w *world, massID int, label string) (float64, error) {
+	mass, ok := ensureDomainWorld(w).MassByID(massID)
+	if !ok {
+		return 0, fmt.Errorf("%s %d not found", label, massID)
+	}
+	return mass.Velocity.X - w.wallSpringImpulses[massID].X, nil
 }
 
 func parseExpectedImpulseShare(value string) (float64, error) {
@@ -758,15 +783,6 @@ func intPair(example map[string]string, firstKey string, secondKey string) (int,
 	}
 	second, err := intValue(example, secondKey)
 	return first, second, err
-}
-
-func intAndFloatValue(example map[string]string, intKey string, floatKey string) (int, float64, error) {
-	intValue, err := intValue(example, intKey)
-	if err != nil {
-		return 0, 0, err
-	}
-	floatValue, err := floatValue(example, floatKey)
-	return intValue, floatValue, err
 }
 
 func floatValues(example map[string]string, keys ...string) ([]float64, error) {
