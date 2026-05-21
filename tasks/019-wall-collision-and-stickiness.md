@@ -8,6 +8,8 @@ Match XSpringies wall collision, one-way wall, elasticity, and stickiness behavi
 
 - Enabled walls are located at current window boundaries.
 - A mass moving from inside the screen toward an enabled wall bounces.
+- Enabled walls use swept-path collision detection: if the segment from a mass's previous position to its current timestep position crosses an enabled wall, the mass collides even when its final position is already beyond the wall.
+- The wall collision response uses the side from the previous position, so the mass is resolved back toward the side it came from.
 - The wall-normal velocity component reverses on bounce.
 - Bounced wall-normal velocity is scaled by mass Elasticity.
 - Walls are one-way: a mass moving from off-screen toward the screen passes through.

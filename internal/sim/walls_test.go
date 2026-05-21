@@ -15,6 +15,20 @@ func TestEnabledWallsBounceWithElasticity(t *testing.T) {
 	}
 }
 
+func TestEnabledWallsBounceWhenTimestepPathCrossesBoundary(t *testing.T) {
+	world := NewWorld()
+	world.Bounds = Bounds{Width: 800, Height: 600}
+	world.Parameters.EnableWall("right")
+	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: 790, Y: 400}, Velocity: Vec2{X: 300}, Mass: 1, Elasticity: 1})
+
+	world.Step(1)
+
+	mass, _ := world.MassByID(1)
+	if mass.Position.X != 800 || mass.Velocity.X >= 0 {
+		t.Fatalf("swept right wall collision mass = %#v", mass)
+	}
+}
+
 func TestOneWayWallsAllowOutsideMassesToEnter(t *testing.T) {
 	world := NewWorld()
 	world.Parameters.EnableWall("left")

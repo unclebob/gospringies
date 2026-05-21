@@ -20,6 +20,24 @@ func TestWallSpringStopsMassCrossingSegment(t *testing.T) {
 	}
 }
 
+func TestWallSpringStopsFastMassPathCrossingSegment(t *testing.T) {
+	world := NewWorld()
+	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: 0, Y: 0}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 2, Position: Vec2{X: 0, Y: 100}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 3, Position: Vec2{X: -50, Y: 50}, Velocity: Vec2{X: 1000}, Mass: 1})
+	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, Wall: true})
+
+	world.Step(1)
+
+	mass, _ := world.MassByID(3)
+	if mass.Position.X > 0 {
+		t.Fatalf("fast mass crossed wall spring: %#v", mass)
+	}
+	if mass.Velocity.X > 0 {
+		t.Fatalf("fast mass velocity still penetrates wall spring: %#v", mass.Velocity)
+	}
+}
+
 func TestMovingWallSpringStopsStationaryMassCrossingSegment(t *testing.T) {
 	world := movingWallSpringCollisionWorld()
 

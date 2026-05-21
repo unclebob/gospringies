@@ -109,6 +109,122 @@ func advanceThroughWallBoundary(w *world, _ map[string]string) error {
 	return advanceThroughWallCollision(w, nil)
 }
 
+func startMassAtPositionWithVelocity(w *world, example map[string]string) error {
+	id, wall, err := collisionMassAndWall(example)
+	if err != nil {
+		return err
+	}
+	if err := requireSweptWallExample(wall, example); err != nil {
+		return err
+	}
+	values, err := floatValues(example, "start_x", "start_y", "velocity_x", "velocity_y")
+	if err != nil {
+		return err
+	}
+	world := collisionWorld(w)
+	world.Bounds = sim.Bounds{Width: 800, Height: 600}
+	mass := ensureCollisionMass(w, id)
+	world.Bounds = sim.Bounds{Width: 800, Height: 600}
+	mass.Position = sim.Vec2{X: values[0], Y: values[1]}
+	mass.Velocity = sim.Vec2{X: values[2], Y: values[3]}
+	rememberScreenWallStartingSide(w, id, wall, mass.Position)
+	return nil
+}
+
+func requireSweptWallExample(wall string, example map[string]string) error {
+	expected := map[string]map[string]string{
+		"right": {"mass_id": "1", "start_x": "790", "start_y": "400", "velocity_x": "300", "velocity_y": "0", "duration": "1 step"},
+		"top":   {"mass_id": "2", "start_x": "400", "start_y": "590", "velocity_x": "0", "velocity_y": "300", "duration": "1 step"},
+	}
+	for key, value := range expected[wall] {
+		if example[key] != value {
+			return fmt.Errorf("%s = %q, expected %q", key, example[key], value)
+		}
+	}
+	return nil
+}
+
+func rememberScreenWallStartingSide(w *world, massID int, wall string, position sim.Vec2) {
+	if w.wallSpringSides == nil {
+		w.wallSpringSides = map[int]float64{}
+	}
+	w.wallSpringSides[massID] = screenWallSide(wall, position)
+}
+
+func screenWallSide(wall string, position sim.Vec2) float64 {
+	switch wall {
+	case "right":
+		return 800 - position.X
+	case "top":
+		return 600 - position.Y
+	case "left":
+		return position.X
+	case "bottom":
+		return position.Y
+	default:
+		return 0
+	}
+}
+
+func screenWallSideVelocity(wall string, velocity sim.Vec2) float64 {
+	switch wall {
+	case "right":
+		return -velocity.X
+	case "top":
+		return -velocity.Y
+	case "left":
+		return velocity.X
+	case "bottom":
+		return velocity.Y
+	default:
+		return 0
+	}
+}
+
+func advanceThroughWallBoundaryByDuration(w *world, example map[string]string) error {
+	duration, err := stringValue(example, "duration")
+	if err != nil {
+		return err
+	}
+	if duration != "1 step" {
+		return fmt.Errorf("unsupported wall boundary duration %q", duration)
+	}
+	world := collisionWorld(w)
+	world.Bounds = sim.Bounds{Width: 800, Height: 600}
+	world.Step(1)
+	return nil
+}
+
+func assertMassOnStartingScreenWallSide(w *world, example map[string]string) error {
+	mass, wall, err := collisionMassByExample(w, example)
+	if err != nil {
+		return err
+	}
+	startingSide, ok := w.wallSpringSides[mass.ID]
+	if !ok {
+		return fmt.Errorf("starting side for mass %d was not recorded", mass.ID)
+	}
+	if screenWallSide(wall, mass.Position)*startingSide < 0 {
+		return fmt.Errorf("mass %d crossed wall %s: %#v", mass.ID, wall, mass.Position)
+	}
+	return nil
+}
+
+func assertWallNormalVelocityTowardStartingSide(w *world, example map[string]string) error {
+	mass, wall, err := collisionMassByExample(w, example)
+	if err != nil {
+		return err
+	}
+	startingSide, ok := w.wallSpringSides[mass.ID]
+	if !ok {
+		return fmt.Errorf("starting side for mass %d was not recorded", mass.ID)
+	}
+	if screenWallSideVelocity(wall, mass.Velocity)*startingSide < 0 {
+		return fmt.Errorf("mass %d velocity not resolved toward starting side of %s: %#v", mass.ID, wall, mass.Velocity)
+	}
+	return nil
+}
+
 func assertMassPassedThroughWall(w *world, example map[string]string) error {
 	mass, wall, err := collisionMassByExample(w, example)
 	if err != nil {

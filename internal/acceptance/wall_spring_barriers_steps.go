@@ -26,7 +26,9 @@ func init() {
 		"wall spring <spring_id> endpoint correction should be <correction_direction>":                                              assertWallSpringEndpointCorrection,
 		"wall spring <spring_id> spans from <wall_x1>, <wall_y1> to <wall_x2>, <wall_y2>":                                           createWallSpringByCoordinates,
 		"moving mass <mass_id> starts at <mass_x>, <mass_y> with velocity <mass_vx>, <mass_vy>":                                     createBarrierMovingMass,
+		"fast moving mass <mass_id> starts at <mass_x>, <mass_y> with velocity <mass_vx>, <mass_vy>":                                createFastBarrierMovingMass,
 		"the coder advances through wall spring collision":                                                                          advanceThroughWallSpringCollision,
+		"the coder advances through wall spring collision by <duration>":                                                            advanceThroughWallSpringCollisionByDuration,
 		"mass <mass_id> should remain on the starting side of wall spring <spring_id>":                                              assertMassOnStartingWallSpringSide,
 		"mass <mass_id> velocity should be resolved away from wall spring <spring_id>":                                              assertMassVelocityResolvedAwayFromWallSpring,
 		"moving wall spring <spring_id> spans from <wall_x1>, <wall_y1> to <wall_x2>, <wall_y2> with velocity <wall_vx>, <wall_vy>": createMovingWallSpringByCoordinates,
@@ -445,6 +447,36 @@ func createBarrierMovingMass(w *world, example map[string]string) error {
 	return rememberWallSpringStartingSide(w, example, id)
 }
 
+func createFastBarrierMovingMass(w *world, example map[string]string) error {
+	if err := requireWallSpringExampleValues(example, map[string]string{
+		"mass_id":  "3",
+		"mass_x":   "-50",
+		"mass_y":   "50",
+		"mass_vx":  "1000",
+		"mass_vy":  "0",
+		"duration": "1 step",
+	}); err != nil {
+		return err
+	}
+	return createBarrierMovingMassWithoutExampleRestriction(w, example)
+}
+
+func createBarrierMovingMassWithoutExampleRestriction(w *world, example map[string]string) error {
+	id, err := intValue(example, "mass_id")
+	if err != nil {
+		return err
+	}
+	values, err := floatValues(example, "mass_x", "mass_y", "mass_vx", "mass_vy")
+	if err != nil {
+		return err
+	}
+	world := ensureDomainWorld(w)
+	if err := world.AddMass(sim.Mass{ID: id, Position: sim.Vec2{X: values[0], Y: values[1]}, Velocity: sim.Vec2{X: values[2], Y: values[3]}, Mass: 1}); err != nil {
+		return err
+	}
+	return rememberWallSpringStartingSide(w, example, id)
+}
+
 func createBarrierStationaryMass(w *world, example map[string]string) error {
 	if err := requireWallSpringExampleValues(example, map[string]string{
 		"mass_id": "3",
@@ -469,6 +501,17 @@ func createBarrierStationaryMass(w *world, example map[string]string) error {
 }
 
 func advanceThroughWallSpringCollision(w *world, _ map[string]string) error {
+	return advanceWallSpringWorld(w)
+}
+
+func advanceThroughWallSpringCollisionByDuration(w *world, example map[string]string) error {
+	duration, err := stringValue(example, "duration")
+	if err != nil {
+		return err
+	}
+	if duration != "1 step" {
+		return fmt.Errorf("unsupported wall spring collision duration %q", duration)
+	}
 	return advanceWallSpringWorld(w)
 }
 
