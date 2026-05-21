@@ -71,7 +71,8 @@ Behavior:
 
 - If one selected spring is a wall, the toggle shows active.
 - If multiple selected springs are selected, use the existing multi-selection toggle convention.
-- Clicking the toggle changes the selected springs' `Wall` value.
+- Clicking the toggle changes every selected spring's `Wall` value.
+- If many springs are selected and the toggle is turned on, every selected spring becomes a wall.
 
 ## Spring Right-Click Menu
 

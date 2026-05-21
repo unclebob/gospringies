@@ -78,6 +78,15 @@ Examples:
   | 1         | false    | true     |
   | 1         | true     | false    |
 
+Scenario Outline: visible spring controls edit every selected spring wall state
+  Given selected springs <spring_ids> have Wall values <old_walls>
+  When the coder changes spring control Wall to <new_wall>
+  Then selected springs <spring_ids> should have Wall values <new_walls>
+
+Examples:
+  | spring_ids | old_walls          | new_wall | new_walls       |
+  | 1, 2, 3    | false, false, true | true     | true, true, true |
+
 Scenario Outline: spring right-click menu toggles wall state
   Given spring <spring_id> has Wall value <old_wall>
   And spring <spring_id> right-click menu includes item <menu_item>
