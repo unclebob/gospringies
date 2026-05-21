@@ -306,6 +306,7 @@ func positiveAdvanceStep(step, remaining float64) float64 {
 func (s *Simulation) stepRK4(dt float64) {
 	active := s.activeMasses()
 	start := append([]Mass{}, s.Masses...)
+	startPositions := massPositions(start)
 	k1 := s.derivatives(start, active)
 	k2 := s.derivatives(offsetMasses(start, k1, dt/2), active)
 	k3 := s.derivatives(offsetMasses(start, k2, dt/2), active)
@@ -318,9 +319,8 @@ func (s *Simulation) stepRK4(dt float64) {
 		s.Masses[i].Velocity = start[i].Velocity.Add(weightedDerivative(k1[i].Acceleration, k2[i].Acceleration, k3[i].Acceleration, k4[i].Acceleration, dt))
 		s.applyWallCollision(&s.Masses[i])
 	}
-	beforeLengthConstraints := massPositions(s.Masses)
 	s.applyWallSpringLengthConstraints()
-	s.applyWallSpringCollisions(dt, beforeLengthConstraints)
+	s.applyWallSpringCollisions(dt, startPositions)
 	s.applyMassCollisions()
 }
 
