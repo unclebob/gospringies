@@ -24,23 +24,35 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		return 2
 	}
-	if mutationstamp.Valid(options.featurePath) {
+	content, _ := os.ReadFile(options.featurePath)
+	_, hasScenarioManifest, _ := acceptancemutation.ParseScenarioManifest(string(content))
+	if !hasScenarioManifest && mutationstamp.Valid(options.featurePath) {
 		fmt.Fprintf(stdout, "mutation stamp valid; skipping %s\n", options.featurePath)
 		return 0
 	}
-	summary, results, err := runFeatureMutations(options, progressWriter(options, stdout, stderr))
+	implementationHash, err := acceptancemutation.CurrentImplementationHash()
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
+	summary, results, skipPlan, manifest, feature, err := runFeatureMutations(options, implementationHash, progressWriter(options, stdout, stderr))
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	printSkipReport(stdout, skipPlan)
 	printReport(stdout, stderr, options.jsonReport, summary, results)
-	return finishRun(options.featurePath, summary, stderr)
+	return finishRun(options.featurePath, summary, manifest, skipPlan, results, feature, implementationHash, stderr)
 }
 
-func finishRun(featurePath string, summary acceptancemutation.MutationSummary, stderr io.Writer) int {
+func finishRun(featurePath string, summary acceptancemutation.MutationSummary, manifest acceptancemutation.ScenarioManifest, skipPlan acceptancemutation.ScenarioSkipPlan, results []acceptancemutation.MutationResult, feature gherkin.Feature, implementationHash string, stderr io.Writer) int {
 	code := exitCodeFromSummary(summary)
 	if code != 0 {
 		return code
+	}
+	if err := acceptancemutation.WriteScenarioManifestFile(featurePath, feature, manifest, skipPlan, results, implementationHash, time.Now()); err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
 	}
 	if err := mutationstamp.Stamp(featurePath); err != nil {
 		fmt.Fprintln(stderr, err)
@@ -80,11 +92,20 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	}, nil
 }
 
-func runFeatureMutations(options options, progress io.Writer) (acceptancemutation.MutationSummary, []acceptancemutation.MutationResult, error) {
+func runFeatureMutations(options options, implementationHash string, progress io.Writer) (acceptancemutation.MutationSummary, []acceptancemutation.MutationResult, acceptancemutation.ScenarioSkipPlan, acceptancemutation.ScenarioManifest, gherkin.Feature, error) {
 	feature, err := gherkin.ReadFile(options.featurePath)
 	if err != nil {
-		return acceptancemutation.MutationSummary{}, nil, err
+		return acceptancemutation.MutationSummary{}, nil, acceptancemutation.ScenarioSkipPlan{}, acceptancemutation.ScenarioManifest{}, gherkin.Feature{}, err
 	}
+	content, err := os.ReadFile(options.featurePath)
+	if err != nil {
+		return acceptancemutation.MutationSummary{}, nil, acceptancemutation.ScenarioSkipPlan{}, acceptancemutation.ScenarioManifest{}, gherkin.Feature{}, err
+	}
+	manifest, _, err := acceptancemutation.ParseScenarioManifest(string(content))
+	if err != nil {
+		return acceptancemutation.MutationSummary{}, nil, acceptancemutation.ScenarioSkipPlan{}, acceptancemutation.ScenarioManifest{}, gherkin.Feature{}, err
+	}
+	skipPlan := acceptancemutation.ScenarioSkipPlanFor(feature, options.featurePath, manifest, implementationHash)
 	ctx, cancel := mutationContext(options.timeout)
 	defer cancel()
 	results, err := acceptancemutation.RunMutationsWithOptions(feature, options.workDir, acceptancemutation.RunMutationOptions{
@@ -93,11 +114,14 @@ func runFeatureMutations(options options, progress io.Writer) (acceptancemutatio
 		MutantTimeout: options.mutantTimeout,
 		ProgressEvery: 20,
 		Progress:      printProgress(progress),
+		MutationFilter: func(mutation acceptancemutation.Mutation) bool {
+			return !skipPlan.SkipScenarios[mutation.Scenario]
+		},
 	})
 	if err != nil {
-		return acceptancemutation.MutationSummary{}, nil, err
+		return acceptancemutation.MutationSummary{}, nil, acceptancemutation.ScenarioSkipPlan{}, acceptancemutation.ScenarioManifest{}, gherkin.Feature{}, err
 	}
-	return acceptancemutation.Summarize(results), results, nil
+	return acceptancemutation.Summarize(results), results, skipPlan, manifest, feature, nil
 }
 
 func mutationContext(timeout time.Duration) (context.Context, context.CancelFunc) {
@@ -132,6 +156,14 @@ func printReport(stdout, stderr io.Writer, jsonReport bool, summary acceptancemu
 	} else {
 		printText(stdout, summary, results)
 	}
+}
+
+func printSkipReport(stdout io.Writer, skipPlan acceptancemutation.ScenarioSkipPlan) {
+	if skipPlan.SkippedScenarios == 0 {
+		return
+	}
+	fmt.Fprintf(stdout, "skipped_scenarios=%d skipped_mutations=%d\n", skipPlan.SkippedScenarios, skipPlan.SkippedMutations)
+	fmt.Fprintln(stdout, "scenario manifest valid for skipped scenarios")
 }
 
 func exitCodeFromSummary(summary acceptancemutation.MutationSummary) int {

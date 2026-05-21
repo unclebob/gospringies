@@ -478,6 +478,21 @@ func TestRunMutationsReturnsNoResultsWhenFeatureHasNoExamples(t *testing.T) {
 	}
 }
 
+func TestFilterMutationsKeepsOnlyMatchingMutations(t *testing.T) {
+	mutations := []Mutation{
+		{ID: "m1", Scenario: 0},
+		{ID: "m2", Scenario: 1},
+	}
+
+	filtered := filterMutations(mutations, func(mutation Mutation) bool {
+		return mutation.Scenario == 1
+	})
+
+	if len(filtered) != 1 || filtered[0].ID != "m2" {
+		t.Fatalf("filtered mutations = %#v", filtered)
+	}
+}
+
 func TestRunMutationsReturnsWorkDirCreationError(t *testing.T) {
 	workDir := filepath.Join(t.TempDir(), "not-a-directory")
 	if err := os.WriteFile(workDir, []byte("x"), 0o644); err != nil {

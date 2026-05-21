@@ -63,11 +63,12 @@ type MutationProgress struct {
 }
 
 type RunMutationOptions struct {
-	Context       context.Context
-	Workers       int
-	MutantTimeout time.Duration
-	ProgressEvery int
-	Progress      func(MutationProgress)
+	Context        context.Context
+	Workers        int
+	MutantTimeout  time.Duration
+	ProgressEvery  int
+	Progress       func(MutationProgress)
+	MutationFilter func(Mutation) bool
 }
 
 func BuildMutations(feature gherkin.Feature) []Mutation {
@@ -282,10 +283,23 @@ func RunMutations(feature gherkin.Feature, workDir string) ([]MutationResult, er
 
 func RunMutationsWithOptions(feature gherkin.Feature, workDir string, options RunMutationOptions) ([]MutationResult, error) {
 	mutations := BuildMutations(feature)
+	if options.MutationFilter != nil {
+		mutations = filterMutations(mutations, options.MutationFilter)
+	}
 	if err := os.MkdirAll(workDir, 0o755); err != nil {
 		return nil, err
 	}
 	return runMutationJobs(feature, mutations, workDir, withMutationContext(options))
+}
+
+func filterMutations(mutations []Mutation, keep func(Mutation) bool) []Mutation {
+	filtered := make([]Mutation, 0, len(mutations))
+	for _, mutation := range mutations {
+		if keep(mutation) {
+			filtered = append(filtered, mutation)
+		}
+	}
+	return filtered
 }
 
 type mutationJob struct {
