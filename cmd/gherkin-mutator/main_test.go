@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"springs/internal/acceptancemutation"
+	"springs/internal/gherkin"
 	"springs/internal/mutationstamp"
 )
 
@@ -144,7 +145,7 @@ func TestMutationContextUsesDeadlineOnlyForPositiveTimeout(t *testing.T) {
 }
 
 func TestRunFeatureMutationsReturnsReadError(t *testing.T) {
-	_, _, err := runFeatureMutations(options{featurePath: "missing.feature"}, io.Discard)
+	_, _, _, _, _, err := runFeatureMutations(options{featurePath: "missing.feature"}, "impl", io.Discard)
 	if err == nil {
 		t.Fatal("expected missing feature error")
 	}
@@ -173,7 +174,7 @@ func TestRunFeatureMutationsReturnsWorkDirError(t *testing.T) {
 	writeFile(t, featurePath, "Feature: Empty\n\nScenario: no examples\n  Given nothing\n")
 	writeFile(t, workDir, "x")
 
-	_, _, err := runFeatureMutations(options{featurePath: featurePath, workDir: workDir, workers: 1}, io.Discard)
+	_, _, _, _, _, err := runFeatureMutations(options{featurePath: featurePath, workDir: workDir, workers: 1}, "impl", io.Discard)
 	if err == nil {
 		t.Fatal("expected work dir error")
 	}
@@ -181,7 +182,7 @@ func TestRunFeatureMutationsReturnsWorkDirError(t *testing.T) {
 
 func TestFinishRunReportsStampError(t *testing.T) {
 	var stderr bytes.Buffer
-	code := finishRun(filepath.Join(t.TempDir(), "missing.feature"), acceptancemutation.MutationSummary{}, &stderr)
+	code := finishRun(filepath.Join(t.TempDir(), "missing.feature"), acceptancemutation.MutationSummary{}, acceptancemutation.ScenarioManifest{}, acceptancemutation.ScenarioSkipPlan{}, nil, gherkin.Feature{}, "impl", &stderr)
 
 	if code != 1 {
 		t.Fatalf("exit code = %d, stderr = %s", code, stderr.String())
@@ -284,6 +285,58 @@ func TestRunSkipsStampedFeature(t *testing.T) {
 	}
 	if after := readFile(t, featurePath); after != before {
 		t.Fatalf("stamped feature changed:\nbefore:\n%s\nafter:\n%s", before, after)
+	}
+}
+
+func TestRunSkipsScenariosFromManifest(t *testing.T) {
+	dir := t.TempDir()
+	featurePath := filepath.Join(dir, "manifest.feature")
+	writeFile(t, featurePath, strings.Join([]string{
+		"Feature: Manifest skip",
+		"",
+		"Scenario Outline: first",
+		"  Then value <value>",
+		"",
+		"Examples:",
+		"  | value |",
+		"  | 1     |",
+		"",
+		"Scenario Outline: second",
+		"  Then name <name>",
+		"",
+		"Examples:",
+		"  | name |",
+		"  | Ada  |",
+		"",
+	}, "\n"))
+	feature, err := gherkin.ReadFile(featurePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	implementationHash, err := acceptancemutation.CurrentImplementationHash()
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest := acceptancemutation.BuildScenarioManifest(featurePath, feature, acceptancemutation.ScenarioManifest{}, acceptancemutation.ScenarioSkipPlan{SkipScenarios: map[int]bool{}}, []acceptancemutation.MutationResult{
+		{Mutation: acceptancemutation.Mutation{Scenario: 0}, Status: acceptancemutation.MutationKilled},
+		{Mutation: acceptancemutation.Mutation{Scenario: 1}, Status: acceptancemutation.MutationKilled},
+	}, implementationHash, time.Unix(1, 0).UTC())
+	if err := acceptancemutation.WriteScenarioManifestFile(featurePath, feature, manifest, acceptancemutation.ScenarioSkipPlan{SkipScenarios: map[int]bool{0: true, 1: true}}, nil, implementationHash, time.Unix(1, 0).UTC()); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	code := run([]string{"-feature", featurePath, "-work-dir", filepath.Join(dir, "mutations")}, &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, stderr = %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "skipped_scenarios=2") || !strings.Contains(stdout.String(), "scenario manifest valid") {
+		t.Fatalf("stdout = %s", stdout.String())
+	}
+	if !strings.Contains(readFile(t, featurePath), mutationstamp.Prefix) {
+		t.Fatal("feature was not stamped after manifest skip")
 	}
 }
 
