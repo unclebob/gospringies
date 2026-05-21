@@ -1,3 +1,4 @@
+# mutation-stamp: sha256=bdce169436a55773c6b4c5886bd153d6476b460cca9edfe740ce7661c350392e
 Feature: Off-canvas cleanup
 
 Background:
