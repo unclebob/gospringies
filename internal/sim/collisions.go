@@ -172,7 +172,7 @@ func moveWallSpringEndpoint(endpoint *Mass, correction Vec2) {
 	endpoint.Position = endpoint.Position.Add(correction)
 }
 
-func (s *Simulation) applyWallSpringCollisions(dt float64, beforeLengthConstraints []Vec2) {
+func (s *Simulation) applyWallSpringCollisions(dt float64, startPositions []Vec2) {
 	if dt <= 0 {
 		return
 	}
@@ -183,15 +183,15 @@ func (s *Simulation) applyWallSpringCollisions(dt float64, beforeLengthConstrain
 		}
 		for i := range s.Masses {
 			if s.shouldApplyWallSpringCollision(i, aIndex, bIndex) {
-				s.applyWallSpringCollision(spring, &s.Masses[i], &s.Masses[aIndex], &s.Masses[bIndex], wallSpringPreviousPosition(s.Masses[i], beforeLengthConstraints, i, dt), wallSpringPreviousPosition(s.Masses[aIndex], beforeLengthConstraints, aIndex, dt))
+				s.applyWallSpringCollision(spring, &s.Masses[i], &s.Masses[aIndex], &s.Masses[bIndex], wallSpringPreviousPosition(s.Masses[i], startPositions, i, dt), wallSpringPreviousPosition(s.Masses[aIndex], startPositions, aIndex, dt))
 			}
 		}
 	}
 }
 
-func wallSpringPreviousPosition(mass Mass, beforeLengthConstraints []Vec2, index int, dt float64) Vec2 {
-	if index >= 0 && index < len(beforeLengthConstraints) && beforeLengthConstraints[index] != mass.Position {
-		return beforeLengthConstraints[index]
+func wallSpringPreviousPosition(mass Mass, startPositions []Vec2, index int, dt float64) Vec2 {
+	if index >= 0 && index < len(startPositions) {
+		return startPositions[index]
 	}
 	return mass.Position.Sub(mass.Velocity.Scale(dt))
 }
