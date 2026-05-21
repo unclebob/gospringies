@@ -151,6 +151,47 @@ func TestWriteScenarioManifestFileWritesDeterministicCommentManifest(t *testing.
 	}
 }
 
+func TestImplementationHashHelpersUseProductionSources(t *testing.T) {
+	hash, err := CurrentImplementationHash()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hash == "" || hash == DefaultImplementationHash {
+		t.Fatalf("implementation hash = %q", hash)
+	}
+
+	root := t.TempDir()
+	dir := filepath.Join(root, "internal", "acceptancemutation")
+	if err := os.MkdirAll(filepath.Join(dir, "nested"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for path, content := range map[string]string{
+		filepath.Join(dir, "a.go"):           "package acceptancemutation\n",
+		filepath.Join(dir, "a_test.go"):      "package acceptancemutation\n",
+		filepath.Join(dir, "notes.txt"):      "ignore",
+		filepath.Join(dir, "nested", "b.go"): "package acceptancemutation\n",
+	} {
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	files, err := goSourceFiles(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 2 {
+		t.Fatalf("go source files = %#v", files)
+	}
+	hashed, err := hashImplementationFiles(root, files)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hashed == "" || hashed == DefaultImplementationHash {
+		t.Fatalf("hashed implementation files = %q", hashed)
+	}
+}
+
 func manifestFeature() gherkin.Feature {
 	return gherkin.Feature{
 		Name:       "F",

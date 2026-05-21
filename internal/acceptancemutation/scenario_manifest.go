@@ -102,29 +102,42 @@ func RemoveScenarioManifest(content string) string {
 
 func ScenarioSkipPlanFor(feature gherkin.Feature, featurePath string, manifest ScenarioManifest, implementationHash string) ScenarioSkipPlan {
 	plan := ScenarioSkipPlan{SkipScenarios: map[int]bool{}}
-	if manifest.Version != ScenarioManifestVersion ||
-		manifest.FeatureName != feature.Name ||
-		manifest.FeaturePath != featurePath ||
-		manifest.BackgroundHash != BackgroundHash(feature) ||
-		manifest.ImplementationHash != implementationHash {
+	if !scenarioManifestMatches(feature, featurePath, manifest, implementationHash) {
 		return plan
 	}
-	entries := map[int]ScenarioManifestEntry{}
-	for _, entry := range manifest.Scenarios {
-		entries[entry.Index] = entry
-	}
+	entries := scenarioManifestEntriesByIndex(manifest)
 	for index, scenario := range feature.Scenarios {
-		entry, ok := entries[index]
-		if !ok || entry.Name != scenario.Name || entry.ScenarioHash != ScenarioHash(scenario) {
-			continue
-		}
-		if entry.Result.Survived == 0 && entry.Result.Errors == 0 {
+		if entry, ok := skippableScenarioEntry(entries, index, scenario); ok {
 			plan.SkipScenarios[index] = true
 			plan.SkippedScenarios++
 			plan.SkippedMutations += entry.MutationCount
 		}
 	}
 	return plan
+}
+
+func scenarioManifestMatches(feature gherkin.Feature, featurePath string, manifest ScenarioManifest, implementationHash string) bool {
+	return manifest.Version == ScenarioManifestVersion &&
+		manifest.FeatureName == feature.Name &&
+		manifest.FeaturePath == featurePath &&
+		manifest.BackgroundHash == BackgroundHash(feature) &&
+		manifest.ImplementationHash == implementationHash
+}
+
+func scenarioManifestEntriesByIndex(manifest ScenarioManifest) map[int]ScenarioManifestEntry {
+	entries := map[int]ScenarioManifestEntry{}
+	for _, entry := range manifest.Scenarios {
+		entries[entry.Index] = entry
+	}
+	return entries
+}
+
+func skippableScenarioEntry(entries map[int]ScenarioManifestEntry, index int, scenario gherkin.Scenario) (ScenarioManifestEntry, bool) {
+	entry, ok := entries[index]
+	if !ok || entry.Name != scenario.Name || entry.ScenarioHash != ScenarioHash(scenario) {
+		return ScenarioManifestEntry{}, false
+	}
+	return entry, entry.Result.Survived == 0 && entry.Result.Errors == 0
 }
 
 func WriteScenarioManifestFile(path string, feature gherkin.Feature, previous ScenarioManifest, plan ScenarioSkipPlan, results []MutationResult, implementationHash string, now time.Time) error {
@@ -151,28 +164,52 @@ func CurrentImplementationHash() (string, error) {
 		return DefaultImplementationHash, nil
 	}
 	root := filepath.Dir(filepath.Dir(filepath.Dir(sourceFile)))
-	dirs := []string{
+	files, err := implementationHashFiles(root)
+	if err != nil {
+		return "", err
+	}
+	return hashImplementationFiles(root, files)
+}
+
+func implementationHashFiles(root string) ([]string, error) {
+	dirs := implementationHashDirs(root)
+	var files []string
+	for _, dir := range dirs {
+		dirFiles, err := goSourceFiles(dir)
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, dirFiles...)
+	}
+	sort.Strings(files)
+	return files, nil
+}
+
+func implementationHashDirs(root string) []string {
+	return []string{
 		filepath.Join(root, "cmd", "gherkin-mutator"),
 		filepath.Join(root, "internal", "acceptance"),
 		filepath.Join(root, "internal", "acceptancemutation"),
 		filepath.Join(root, "internal", "gherkin"),
 	}
+}
+
+func goSourceFiles(dir string) ([]string, error) {
 	var files []string
-	for _, dir := range dirs {
-		if err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-			if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
-				return nil
-			}
-			files = append(files, path)
-			return nil
-		}); err != nil {
-			return "", err
+	err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
 		}
-	}
-	sort.Strings(files)
+		if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		files = append(files, path)
+		return nil
+	})
+	return files, err
+}
+
+func hashImplementationFiles(root string, files []string) (string, error) {
 	parts := []string{DefaultImplementationHash}
 	for _, path := range files {
 		relative, err := filepath.Rel(root, path)
