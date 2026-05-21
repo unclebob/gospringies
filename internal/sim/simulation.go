@@ -260,6 +260,7 @@ func (s *Simulation) AdvanceDuration(duration float64) {
 
 func (s *Simulation) Step(dt float64) {
 	s.stepRK4(dt)
+	s.cleanupOffCanvasObjects()
 	s.Time += dt
 }
 
@@ -300,6 +301,72 @@ func positiveAdvanceStep(step, remaining float64) float64 {
 		return math.Min(remaining, defaultStepDuration)
 	}
 	return step
+}
+
+func (s *Simulation) cleanupOffCanvasObjects() {
+	s.assignSpringEndpointIDs()
+	deleted := map[int]bool{}
+	keptMasses := make([]Mass, 0, len(s.Masses))
+	for _, mass := range s.Masses {
+		if s.massBeyondCleanupBoundary(mass) {
+			deleted[mass.ID] = true
+			continue
+		}
+		keptMasses = append(keptMasses, mass)
+	}
+	if len(deleted) == 0 {
+		return
+	}
+	s.Masses = keptMasses
+	s.removeSpringsAttachedTo(deleted)
+	s.reindexSprings()
+}
+
+func (s *Simulation) assignSpringEndpointIDs() {
+	for i := range s.Springs {
+		if s.Springs[i].MassA == 0 && s.validMassIndex(s.Springs[i].A) {
+			s.Springs[i].MassA = s.Masses[s.Springs[i].A].ID
+		}
+		if s.Springs[i].MassB == 0 && s.validMassIndex(s.Springs[i].B) {
+			s.Springs[i].MassB = s.Masses[s.Springs[i].B].ID
+		}
+	}
+}
+
+func (s *Simulation) validMassIndex(index int) bool {
+	return index >= 0 && index < len(s.Masses)
+}
+
+func (s *Simulation) massBeyondCleanupBoundary(mass Mass) bool {
+	margin := s.Bounds.Height
+	return mass.Position.X < s.Bounds.MinX()-margin ||
+		mass.Position.X > s.Bounds.MaxX()+margin ||
+		mass.Position.Y < s.Bounds.MinY()-margin ||
+		mass.Position.Y > s.Bounds.MaxY()+margin
+}
+
+func (s *Simulation) removeSpringsAttachedTo(deleted map[int]bool) {
+	keptSprings := make([]Spring, 0, len(s.Springs))
+	for _, spring := range s.Springs {
+		if deleted[spring.MassA] || deleted[spring.MassB] {
+			continue
+		}
+		keptSprings = append(keptSprings, spring)
+	}
+	s.Springs = keptSprings
+}
+
+func (s *Simulation) reindexSprings() {
+	for i := range s.Springs {
+		a, okA := s.massIndexByID(s.Springs[i].MassA)
+		b, okB := s.massIndexByID(s.Springs[i].MassB)
+		if okA {
+			s.Springs[i].A = a
+		}
+		if okB {
+			s.Springs[i].B = b
+		}
+	}
 }
 
 func (s *Simulation) stepRK4(dt float64) {
