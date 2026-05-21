@@ -28,6 +28,8 @@ Masses collide with wall springs.
 
 A wall spring should be treated as having zero mass for collision purposes.
 
+Collision detection must use relative motion between the wall spring segment and each mass. A wall spring whose segment sweeps across a stationary mass must collide with that mass instead of passing over it.
+
 When a mass collides with a wall spring:
 
 - The colliding mass is prevented from crossing the wall segment.
