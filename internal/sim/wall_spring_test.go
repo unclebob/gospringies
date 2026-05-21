@@ -390,10 +390,10 @@ func TestWallSpringPreviousPositionUsesCorrectBoundarySource(t *testing.T) {
 		{
 			name:           "first index uses timestep start position",
 			mass:           Mass{Position: Vec2{X: 2}, Velocity: Vec2{X: 10}},
-			startPositions: []Vec2{{X: -8}},
+			startPositions: []Vec2{{X: 1}},
 			index:          0,
 			dt:             1,
-			want:           Vec2{X: -8},
+			want:           Vec2{X: 1},
 		},
 		{
 			name:           "index at length falls back to velocity",
