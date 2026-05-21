@@ -303,6 +303,23 @@ func TestWallSpringRestoresEndpointDistanceToRestLength(t *testing.T) {
 	}
 }
 
+func TestWallSpringLengthCorrectionDoesNotMoveEndpointThroughOtherWallSpring(t *testing.T) {
+	world := NewWorld()
+	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: 0, Y: 0}, Mass: 1, Fixed: true})
+	_ = world.AddMass(Mass{ID: 2, Position: Vec2{X: 0, Y: 100}, Mass: 1, Fixed: true})
+	_ = world.AddMass(Mass{ID: 3, Position: Vec2{X: -5, Y: 40}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 4, Position: Vec2{X: -80, Y: 40}, Mass: 1})
+	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, Wall: true})
+	_ = world.AddSpring(Spring{ID: 2, MassA: 3, MassB: 4, RestLength: 150, Wall: true})
+
+	world.Step(1)
+
+	endpointA, _ := world.MassByID(3)
+	if endpointA.Position.X > 0 {
+		t.Fatalf("wall spring endpoint crossed barrier after length correction: %#v", endpointA)
+	}
+}
+
 func TestWallSpringLengthCorrectionAbsorbsFixedEndpointShare(t *testing.T) {
 	world := wallSpringLengthWorld(120, 100, true, false)
 
