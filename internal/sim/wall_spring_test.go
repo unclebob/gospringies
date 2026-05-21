@@ -20,6 +20,146 @@ func TestWallSpringStopsMassCrossingSegment(t *testing.T) {
 	}
 }
 
+func TestMovingWallSpringStopsStationaryMassCrossingSegment(t *testing.T) {
+	world := movingWallSpringCollisionWorld()
+
+	world.Step(1)
+
+	mass, _ := world.MassByID(3)
+	if mass.Position.X < 0 {
+		t.Fatalf("stationary mass crossed moving wall spring: %#v", mass)
+	}
+	endpointA, _ := world.MassByID(1)
+	endpointB, _ := world.MassByID(2)
+	if endpointA.Velocity.X > 0.000001 || endpointB.Velocity.X > 0.000001 {
+		t.Fatalf("wall spring endpoint velocities still penetrate mass: %#v %#v", endpointA.Velocity, endpointB.Velocity)
+	}
+}
+
+func TestWallSpringCollisionPlacesMassAtRadius(t *testing.T) {
+	world := wallSpringCollisionWorld(false, false)
+
+	world.Step(1)
+
+	mass, _ := world.MassByID(3)
+	if !closeWallSpringLength(mass.Position.X, -MassRadius(mass)) {
+		t.Fatalf("mass position X = %f, expected wall radius offset %f", mass.Position.X, -MassRadius(mass))
+	}
+}
+
+func TestUnitLengthWallSpringStillCollides(t *testing.T) {
+	world := NewWorld()
+	_ = world.AddMass(Mass{ID: 1, Position: Vec2{}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 2, Position: Vec2{Y: 1}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 3, Position: Vec2{X: -0.5, Y: 0.5}, Velocity: Vec2{X: 1}, Mass: 1})
+	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, Wall: true})
+
+	world.Step(1)
+
+	mass, _ := world.MassByID(3)
+	if mass.Position.X > 0 || mass.Velocity.X > 0 {
+		t.Fatalf("unit wall spring did not collide: %#v", mass)
+	}
+}
+
+func TestWallSpringContactVelocityInterpolatesEndpointVelocity(t *testing.T) {
+	endpointA := &Mass{Velocity: Vec2{X: 10}}
+	endpointB := &Mass{Velocity: Vec2{X: 20}}
+
+	if got := wallSpringContactVelocity(endpointA, endpointB, 0.25); got != (Vec2{X: 12.5}) {
+		t.Fatalf("contact velocity = %#v, expected 12.5", got)
+	}
+}
+
+func TestWallSpringContactFractionRejectsNonCrossings(t *testing.T) {
+	segment := Vec2{Y: 10}
+	for _, tc := range []struct {
+		name         string
+		previousSide float64
+		currentSide  float64
+	}{
+		{name: "previous on wall", previousSide: 0, currentSide: -1},
+		{name: "current on wall", previousSide: 1, currentSide: 0},
+		{name: "same positive side", previousSide: 1, currentSide: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, ok := wallSpringContactFraction(Vec2{X: tc.previousSide, Y: 5}, Vec2{X: tc.currentSide, Y: 5}, segment, 100, tc.previousSide, tc.currentSide)
+			if ok {
+				t.Fatal("contact fraction accepted non-crossing")
+			}
+		})
+	}
+}
+
+func TestWallSpringContactFractionAcceptsEndpointContacts(t *testing.T) {
+	segment := Vec2{Y: 10}
+	for _, tc := range []struct {
+		name     string
+		previous Vec2
+		current  Vec2
+		want     float64
+	}{
+		{name: "start endpoint", previous: Vec2{X: -1}, current: Vec2{X: 1}, want: 0},
+		{name: "end endpoint", previous: Vec2{X: -1, Y: 10}, current: Vec2{X: 1, Y: 10}, want: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := wallSpringContactFraction(tc.previous, tc.current, segment, 100, tc.previous.X, tc.current.X)
+			if !ok || !closeWallSpringLength(got, tc.want) {
+				t.Fatalf("contact fraction = %f, %t, expected %f", got, ok, tc.want)
+			}
+		})
+	}
+}
+
+func TestWallSpringContactFractionRejectsOutsideSegment(t *testing.T) {
+	segment := Vec2{Y: 10}
+	for _, tc := range []struct {
+		name     string
+		previous Vec2
+		current  Vec2
+	}{
+		{name: "before start", previous: Vec2{X: -1, Y: -0.1}, current: Vec2{X: 1, Y: -0.1}},
+		{name: "after end", previous: Vec2{X: -1, Y: 10.1}, current: Vec2{X: 1, Y: 10.1}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, ok := wallSpringContactFraction(tc.previous, tc.current, segment, 100, tc.previous.X, tc.current.X)
+			if ok {
+				t.Fatal("contact fraction accepted outside segment")
+			}
+		})
+	}
+}
+
+func TestResolveWallSpringVelocityLeavesSeparatingRelativeVelocity(t *testing.T) {
+	mass := Mass{Velocity: Vec2{X: 0.5}}
+
+	resolveWallSpringVelocity(&mass, Vec2{}, Vec2{X: 1}, 1)
+
+	if mass.Velocity != (Vec2{X: 0.5}) {
+		t.Fatalf("separating velocity changed to %#v", mass.Velocity)
+	}
+}
+
+func TestResolveWallSpringVelocityLeavesTangentRelativeVelocity(t *testing.T) {
+	mass := Mass{Velocity: Vec2{Y: 1}}
+
+	resolveWallSpringVelocity(&mass, Vec2{}, Vec2{X: 1}, 1)
+
+	if mass.Velocity != (Vec2{Y: 1}) {
+		t.Fatalf("tangent velocity changed to %#v", mass.Velocity)
+	}
+}
+
+func TestResolveWallSpringVelocityReflectsUnitPenetratingVelocity(t *testing.T) {
+	mass := Mass{Velocity: Vec2{X: 1}}
+
+	resolveWallSpringVelocity(&mass, Vec2{}, Vec2{X: 1}, -1)
+
+	if mass.Velocity.X >= 0 {
+		t.Fatalf("penetrating unit velocity was not reflected: %#v", mass.Velocity)
+	}
+}
+
 func TestWallSpringSharesResponseByContactFraction(t *testing.T) {
 	world := wallSpringCollisionWorld(false, false, 25)
 
@@ -226,6 +366,15 @@ func wallSpringCollisionWorld(fixedA bool, fixedB bool, contactY ...float64) *Si
 	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: 0, Y: 0}, Mass: 1, Fixed: fixedA})
 	_ = world.AddMass(Mass{ID: 2, Position: Vec2{X: 0, Y: 100}, Mass: 1, Fixed: fixedB})
 	_ = world.AddMass(Mass{ID: 3, Position: Vec2{X: -5, Y: y}, Velocity: Vec2{X: 10}, Mass: 1})
+	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, Wall: true})
+	return world
+}
+
+func movingWallSpringCollisionWorld() *Simulation {
+	world := NewWorld()
+	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: -5, Y: 0}, Velocity: Vec2{X: 10}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 2, Position: Vec2{X: -5, Y: 100}, Velocity: Vec2{X: 10}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 3, Position: Vec2{X: 0, Y: 50}, Mass: 1})
 	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, Wall: true})
 	return world
 }
