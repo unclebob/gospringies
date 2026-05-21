@@ -141,17 +141,35 @@ func (s *Simulation) applyWallSpringLengthConstraint(spring *Spring, endpointA, 
 }
 
 func applyWallSpringLengthCorrection(endpointA, endpointB *Mass, correction Vec2) {
-	switch {
-	case endpointA.Fixed && endpointB.Fixed:
+	if endpointA.Fixed && endpointB.Fixed {
 		return
-	case endpointA.Fixed:
-		endpointB.Position = endpointB.Position.Sub(correction)
-	case endpointB.Fixed:
-		endpointA.Position = endpointA.Position.Add(correction)
-	default:
-		endpointA.Position = endpointA.Position.Add(correction.Scale(0.5))
-		endpointB.Position = endpointB.Position.Sub(correction.Scale(0.5))
 	}
+	if moveSingleFixedWallSpringEndpoint(endpointA, endpointB, correction) {
+		return
+	}
+	shareWallSpringLengthCorrection(endpointA, endpointB, correction)
+}
+
+func moveSingleFixedWallSpringEndpoint(endpointA, endpointB *Mass, correction Vec2) bool {
+	if endpointA.Fixed {
+		moveWallSpringEndpoint(endpointB, correction.Scale(-1))
+		return true
+	}
+	if endpointB.Fixed {
+		moveWallSpringEndpoint(endpointA, correction)
+		return true
+	}
+	return false
+}
+
+func shareWallSpringLengthCorrection(endpointA, endpointB *Mass, correction Vec2) {
+	half := correction.Scale(0.5)
+	moveWallSpringEndpoint(endpointA, half)
+	moveWallSpringEndpoint(endpointB, half.Scale(-1))
+}
+
+func moveWallSpringEndpoint(endpoint *Mass, correction Vec2) {
+	endpoint.Position = endpoint.Position.Add(correction)
 }
 
 func (s *Simulation) applyWallSpringCollisions(dt float64) {

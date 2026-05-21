@@ -44,6 +44,52 @@ func TestWallSpringBarrierWallSetterCreatesMissingSpring(t *testing.T) {
 	mustWallSpringStep(t, w, example, assertSpringWallValue)
 }
 
+func TestWallSpringBarrierLengthConstraintSteps(t *testing.T) {
+	for _, example := range []map[string]string{
+		{
+			"spring_id":            "1",
+			"initial_length":       "120",
+			"rest_len":             "100",
+			"endpoint_a":           "1",
+			"endpoint_b":           "2",
+			"fixed_a":              "false",
+			"fixed_b":              "false",
+			"expected_length":      "100",
+			"correction_direction": "along segment",
+		},
+		{
+			"spring_id":            "1",
+			"initial_length":       "80",
+			"rest_len":             "100",
+			"endpoint_a":           "1",
+			"endpoint_b":           "2",
+			"fixed_a":              "false",
+			"fixed_b":              "false",
+			"expected_length":      "100",
+			"correction_direction": "along segment",
+		},
+		{
+			"spring_id":            "1",
+			"initial_length":       "120",
+			"rest_len":             "100",
+			"endpoint_a":           "1",
+			"endpoint_b":           "2",
+			"fixed_a":              "true",
+			"fixed_b":              "false",
+			"expected_length":      "100",
+			"correction_direction": "along segment",
+		},
+	} {
+		w := &world{}
+		mustWallSpringStep(t, w, example, createWallSpringLengthConstraint)
+		mustWallSpringStep(t, w, example, setWallSpringEndpointFixed)
+		mustWallSpringStep(t, w, example, setWallSpringEndpointBFixed)
+		mustWallSpringStep(t, w, example, advanceWallSpringLengthConstraint)
+		mustWallSpringStep(t, w, example, assertWallSpringEndpointDistance)
+		mustWallSpringStep(t, w, example, assertWallSpringEndpointCorrection)
+	}
+}
+
 func TestWallSpringBarrierCollisionSteps(t *testing.T) {
 	example := map[string]string{
 		"spring_id": "1",
@@ -127,6 +173,19 @@ func TestWallSpringBarrierXSPSteps(t *testing.T) {
 
 func TestWallSpringBarrierVisibleControlSteps(t *testing.T) {
 	runWallSpringStepExamples(t, wallSpringTwoStateExamples("old_wall", "new_wall", "false", "true", "true", "false"), createSelectedSpringWithWall, changeSpringWallControl, assertSpringWallValue)
+}
+
+func TestWallSpringBarrierSelectedSpringsWallSteps(t *testing.T) {
+	example := map[string]string{
+		"spring_ids": "1, 2, 3",
+		"old_walls":  "false, false, true",
+		"new_wall":   "true",
+		"new_walls":  "true, true, true",
+	}
+	w := &world{}
+	mustWallSpringStep(t, w, example, createSelectedSpringsWithWalls)
+	mustWallSpringStep(t, w, example, changeSpringWallControl)
+	mustWallSpringStep(t, w, example, assertSelectedSpringsWallValues)
 }
 
 func TestWallSpringBarrierSpringContextMenuSteps(t *testing.T) {

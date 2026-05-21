@@ -233,14 +233,23 @@ func assertWallSpringEndpointCorrection(w *world, example map[string]string) err
 		return fmt.Errorf("unsupported correction direction %q", direction)
 	}
 	world := ensureDomainWorld(w)
-	for _, massID := range []int{1, 2} {
-		mass, ok := world.MassByID(massID)
-		if !ok {
-			return fmt.Errorf("wall spring endpoint %d not found", massID)
+	for _, massID := range wallSpringEndpointMassIDs {
+		if err := assertWallSpringEndpointOnSegment(world, massID); err != nil {
+			return err
 		}
-		if !sameFloat(mass.Position.Y, 0) {
-			return fmt.Errorf("wall spring endpoint %d correction left segment: %#v", massID, mass.Position)
-		}
+	}
+	return nil
+}
+
+var wallSpringEndpointMassIDs = []int{1, 2}
+
+func assertWallSpringEndpointOnSegment(world *sim.Simulation, massID int) error {
+	mass, ok := world.MassByID(massID)
+	if !ok {
+		return fmt.Errorf("wall spring endpoint %d not found", massID)
+	}
+	if !sameFloat(mass.Position.Y, 0) {
+		return fmt.Errorf("wall spring endpoint %d correction left segment: %#v", massID, mass.Position)
 	}
 	return nil
 }
@@ -640,13 +649,20 @@ func assertSelectedSpringsWallValues(w *world, example map[string]string) error 
 		return fmt.Errorf("application game is not concrete")
 	}
 	for i, springID := range springIDs {
-		spring, ok := game.World().SpringByID(springID)
-		if !ok {
-			return fmt.Errorf("spring %d not found", springID)
+		if err := assertAppSpringWallValue(game, springID, expectedWalls[i]); err != nil {
+			return err
 		}
-		if spring.Wall != expectedWalls[i] {
-			return fmt.Errorf("spring %d wall = %t, expected %t", springID, spring.Wall, expectedWalls[i])
-		}
+	}
+	return nil
+}
+
+func assertAppSpringWallValue(game *app.Game, springID int, expected bool) error {
+	spring, ok := game.World().SpringByID(springID)
+	if !ok {
+		return fmt.Errorf("spring %d not found", springID)
+	}
+	if spring.Wall != expected {
+		return fmt.Errorf("spring %d wall = %t, expected %t", springID, spring.Wall, expected)
 	}
 	return nil
 }
