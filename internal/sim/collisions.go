@@ -163,7 +163,8 @@ func (s *Simulation) applyWallSpringCollision(mass, endpointA, endpointB *Mass, 
 	previous := mass.Position.Sub(mass.Velocity.Scale(dt))
 	currentSide := dot(mass.Position.Sub(endpointA.Position), normal)
 	previousSide := dot(previous.Sub(endpointA.Position), normal)
-	if !wallSpringCrossedSegment(previous, mass.Position, endpointA.Position, segment, lengthSquared, previousSide, currentSide) {
+	contactFraction, ok := wallSpringContactFraction(previous, mass.Position, endpointA.Position, segment, lengthSquared, previousSide, currentSide)
+	if !ok {
 		return
 	}
 	side := sideSign(previousSide)
@@ -171,17 +172,18 @@ func (s *Simulation) applyWallSpringCollision(mass, endpointA, endpointB *Mass, 
 	contact := closestPointOnSegment(mass.Position, endpointA.Position, segment, lengthSquared)
 	mass.Position = contact.Add(normal.Scale(side * MassRadius(*mass)))
 	resolveWallSpringVelocity(mass, normal, side)
-	shareWallSpringImpulse(endpointA, endpointB, oldVelocity.Sub(mass.Velocity).Scale(0.5))
+	shareWallSpringImpulse(endpointA, oldVelocity.Sub(mass.Velocity).Scale(1-contactFraction))
+	shareWallSpringImpulse(endpointB, oldVelocity.Sub(mass.Velocity).Scale(contactFraction))
 }
 
-func wallSpringCrossedSegment(previous, current, start, segment Vec2, lengthSquared float64, previousSide, currentSide float64) bool {
+func wallSpringContactFraction(previous, current, start, segment Vec2, lengthSquared float64, previousSide, currentSide float64) (float64, bool) {
 	if previousSide == 0 || currentSide == 0 || sameSign(previousSide, currentSide) {
-		return false
+		return 0, false
 	}
 	intersectionFraction := previousSide / (previousSide - currentSide)
 	crossing := previous.Add(current.Sub(previous).Scale(intersectionFraction))
 	projection := dot(crossing.Sub(start), segment) / lengthSquared
-	return projection >= 0 && projection <= 1
+	return projection, projection >= 0 && projection <= 1
 }
 
 func sameSign(a, b float64) bool {
@@ -209,12 +211,9 @@ func resolveWallSpringVelocity(mass *Mass, normal Vec2, startingSide float64) {
 	mass.Velocity = mass.Velocity.Sub(normal.Scale(elasticity * normalVelocity))
 }
 
-func shareWallSpringImpulse(endpointA, endpointB *Mass, impulse Vec2) {
-	if !endpointA.Fixed {
-		endpointA.Velocity = endpointA.Velocity.Add(impulse)
-	}
-	if !endpointB.Fixed {
-		endpointB.Velocity = endpointB.Velocity.Add(impulse)
+func shareWallSpringImpulse(endpoint *Mass, impulse Vec2) {
+	if !endpoint.Fixed {
+		endpoint.Velocity = endpoint.Velocity.Add(impulse)
 	}
 }
 

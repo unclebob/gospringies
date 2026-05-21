@@ -30,9 +30,10 @@ When a mass collides with a wall spring:
 
 - The colliding mass is prevented from crossing the wall segment.
 - Its velocity is reflected or otherwise resolved so it no longer penetrates the wall.
-- The collision impulse is transmitted equally to the two endpoint masses.
-- Each endpoint mass receives half of the wall's response impulse.
+- The collision impulse is transmitted to the endpoint masses based on the contact point's position along the wall segment.
+- If the contact point is at fraction `t` from the first endpoint to the second endpoint, the first endpoint receives `(1 - t)` of the wall's response impulse and the second endpoint receives `t`.
 - Fixed endpoint masses should not move, consistent with existing fixed-mass behavior.
+- A fixed endpoint's impulse share is absorbed by that fixed endpoint and should not be redistributed to the other endpoint.
 
 The wall itself does not have independent state or position beyond its two endpoint masses.
 

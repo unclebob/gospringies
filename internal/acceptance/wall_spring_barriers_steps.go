@@ -10,36 +10,36 @@ import (
 
 func init() {
 	for step, handler := range map[string]stepHandler{
-		"the wall spring barriers task is accepted":                                             acceptStep,
-		"spring <spring_id> connects mass <mass_a> to mass <mass_b>":                            addBarrierSpring,
-		"spring <spring_id> has Wall value <wall>":                                              setBarrierSpringWall,
-		"spring <spring_id> has Kspring <kspring> Kdamp <kdamp> RestLen <rest_len>":             setBarrierSpringParameters,
-		"the coder evaluates spring <spring_id> forces":                                         evaluateBarrierSpringForces,
-		"spring <spring_id> should apply spring force state <spring_force_state>":               assertBarrierSpringForceState,
-		"spring <spring_id> should apply damping force state <damping_force_state>":             assertBarrierSpringDampingState,
-		"wall spring <spring_id> spans from <wall_x1>, <wall_y1> to <wall_x2>, <wall_y2>":       createWallSpringByCoordinates,
-		"moving mass <mass_id> starts at <mass_x>, <mass_y> with velocity <mass_vx>, <mass_vy>": createBarrierMovingMass,
-		"the coder advances through wall spring collision":                                      advanceThroughWallSpringCollision,
-		"mass <mass_id> should remain on the starting side of wall spring <spring_id>":          assertMassOnStartingWallSpringSide,
-		"mass <mass_id> velocity should be resolved away from wall spring <spring_id>":          assertMassVelocityResolvedAwayFromWallSpring,
-		"wall spring <spring_id> spans from mass <endpoint_a> to mass <endpoint_b>":             createWallSpringByEndpointIDs,
-		"wall spring endpoint <endpoint_a> fixed state is <fixed_a>":                            setWallSpringEndpointFixed,
-		"wall spring endpoint <endpoint_b> fixed state is <fixed_b>":                            setWallSpringEndpointBFixed,
-		"moving mass <mass_id> collides with wall spring <spring_id>":                           createMassCollidingWithWallSpring,
-		"the coder resolves the wall spring collision":                                          resolveWallSpringCollision,
-		"wall spring endpoint <endpoint_a> should receive impulse share <impulse_share_a>":      assertWallSpringEndpointImpulseShare,
-		"wall spring endpoint <endpoint_b> should receive impulse share <impulse_share_b>":      assertWallSpringEndpointBImpulseShare,
-		"XSP input contains spring <spring_id> with Wall value <input_wall>":                    createWallSpringXSPInput,
-		"loaded spring <spring_id> should have Wall value <loaded_wall>":                        assertLoadedWallSpringXSP,
-		"saved spring <spring_id> should include Wall value <saved_wall>":                       assertSavedWallSpringXSP,
-		"selected spring <spring_id> has Wall value <old_wall>":                                 createSelectedSpringWithWall,
-		"the coder changes spring control Wall to <new_wall>":                                   changeSpringWallControl,
-		"spring <spring_id> should have Wall value <new_wall>":                                  assertSpringWallValue,
-		"spring <spring_id> has Wall value <old_wall>":                                          createMenuSpringWithWall,
-		"spring <spring_id> right-click menu includes item <menu_item>":                         assertSpringMenuIncludesItem,
-		"the coder selects spring menu item Wall for spring <spring_id>":                        selectSpringMenuWallItem,
-		"the coder renders spring <spring_id>":                                                  renderWallSpring,
-		"spring <spring_id> should use spring rendering style <rendering_style>":                assertWallSpringRenderingStyle,
+		"the wall spring barriers task is accepted":                                                          acceptStep,
+		"spring <spring_id> connects mass <mass_a> to mass <mass_b>":                                         addBarrierSpring,
+		"spring <spring_id> has Wall value <wall>":                                                           setBarrierSpringWall,
+		"spring <spring_id> has Kspring <kspring> Kdamp <kdamp> RestLen <rest_len>":                          setBarrierSpringParameters,
+		"the coder evaluates spring <spring_id> forces":                                                      evaluateBarrierSpringForces,
+		"spring <spring_id> should apply spring force state <spring_force_state>":                            assertBarrierSpringForceState,
+		"spring <spring_id> should apply damping force state <damping_force_state>":                          assertBarrierSpringDampingState,
+		"wall spring <spring_id> spans from <wall_x1>, <wall_y1> to <wall_x2>, <wall_y2>":                    createWallSpringByCoordinates,
+		"moving mass <mass_id> starts at <mass_x>, <mass_y> with velocity <mass_vx>, <mass_vy>":              createBarrierMovingMass,
+		"the coder advances through wall spring collision":                                                   advanceThroughWallSpringCollision,
+		"mass <mass_id> should remain on the starting side of wall spring <spring_id>":                       assertMassOnStartingWallSpringSide,
+		"mass <mass_id> velocity should be resolved away from wall spring <spring_id>":                       assertMassVelocityResolvedAwayFromWallSpring,
+		"wall spring <spring_id> spans from mass <endpoint_a> to mass <endpoint_b>":                          createWallSpringByEndpointIDs,
+		"wall spring endpoint <endpoint_a> fixed state is <fixed_a>":                                         setWallSpringEndpointFixed,
+		"wall spring endpoint <endpoint_b> fixed state is <fixed_b>":                                         setWallSpringEndpointBFixed,
+		"moving mass <mass_id> collides with wall spring <spring_id> at contact fraction <contact_fraction>": createMassCollidingWithWallSpring,
+		"the coder resolves the wall spring collision":                                                       resolveWallSpringCollision,
+		"wall spring endpoint <endpoint_a> should receive impulse share <impulse_share_a>":                   assertWallSpringEndpointImpulseShare,
+		"wall spring endpoint <endpoint_b> should receive impulse share <impulse_share_b>":                   assertWallSpringEndpointBImpulseShare,
+		"XSP input contains spring <spring_id> with Wall value <input_wall>":                                 createWallSpringXSPInput,
+		"loaded spring <spring_id> should have Wall value <loaded_wall>":                                     assertLoadedWallSpringXSP,
+		"saved spring <spring_id> should include Wall value <saved_wall>":                                    assertSavedWallSpringXSP,
+		"selected spring <spring_id> has Wall value <old_wall>":                                              createSelectedSpringWithWall,
+		"the coder changes spring control Wall to <new_wall>":                                                changeSpringWallControl,
+		"spring <spring_id> should have Wall value <new_wall>":                                               assertSpringWallValue,
+		"spring <spring_id> has Wall value <old_wall>":                                                       createMenuSpringWithWall,
+		"spring <spring_id> right-click menu includes item <menu_item>":                                      assertSpringMenuIncludesItem,
+		"the coder selects spring menu item Wall for spring <spring_id>":                                     selectSpringMenuWallItem,
+		"the coder renders spring <spring_id>":                                                               renderWallSpring,
+		"spring <spring_id> should use spring rendering style <rendering_style>":                             assertWallSpringRenderingStyle,
 	} {
 		stepHandlers[step] = handler
 	}
@@ -288,15 +288,12 @@ func setWallSpringNamedEndpointFixed(w *world, example map[string]string, endpoi
 }
 
 func createMassCollidingWithWallSpring(w *world, example map[string]string) error {
-	if err := requireWallSpringExampleValues(example, map[string]string{"spring_id": "1", "mass_id": "3"}); err != nil {
-		return err
-	}
-	massID, err := intValue(example, "mass_id")
+	massID, mass, err := wallSpringCollisionMass(example)
 	if err != nil {
 		return err
 	}
 	world := ensureDomainWorld(w)
-	if err := world.AddMass(sim.Mass{ID: massID, Position: sim.Vec2{X: -5, Y: 50}, Velocity: sim.Vec2{X: 10}, Mass: 1}); err != nil {
+	if err := world.AddMass(mass); err != nil {
 		return err
 	}
 	w.wallSpringImpulses = map[int]sim.Vec2{}
@@ -304,6 +301,18 @@ func createMassCollidingWithWallSpring(w *world, example map[string]string) erro
 		w.wallSpringImpulses[mass.ID] = mass.Velocity
 	}
 	return rememberWallSpringStartingSide(w, example, massID)
+}
+
+func wallSpringCollisionMass(example map[string]string) (int, sim.Mass, error) {
+	if err := requireWallSpringExampleValues(example, map[string]string{"spring_id": "1", "mass_id": "3"}); err != nil {
+		return 0, sim.Mass{}, err
+	}
+	massID, contactFraction, err := intAndFloatValue(example, "mass_id", "contact_fraction")
+	if err != nil {
+		return 0, sim.Mass{}, err
+	}
+	mass := sim.Mass{ID: massID, Position: sim.Vec2{X: -5, Y: 100 * contactFraction}, Velocity: sim.Vec2{X: 10}, Mass: 1}
+	return massID, mass, nil
 }
 
 func resolveWallSpringCollision(w *world, _ map[string]string) error {
@@ -320,7 +329,7 @@ func assertWallSpringEndpointBImpulseShare(w *world, example map[string]string) 
 }
 
 func assertWallSpringNamedEndpointImpulseShare(w *world, example map[string]string, endpointKey, shareKey string) error {
-	endpoint, expected, err := endpointImpulseExpectation(example, endpointKey, shareKey)
+	endpoint, expectedShare, err := endpointImpulseExpectation(example, endpointKey, shareKey)
 	if err != nil {
 		return err
 	}
@@ -330,11 +339,27 @@ func assertWallSpringNamedEndpointImpulseShare(w *world, example map[string]stri
 		return fmt.Errorf("endpoint %d not found", endpoint)
 	}
 	before := w.wallSpringImpulses[endpoint]
-	received := mass.Velocity != before
-	if (expected != "none") != received {
-		return fmt.Errorf("endpoint %d impulse received = %t, expected %s", endpoint, received, expected)
+	actualShare := (mass.Velocity.X - before.X) / 20
+	if actualShare < expectedShare-0.000001 || actualShare > expectedShare+0.000001 {
+		return fmt.Errorf("endpoint %d impulse share = %f, expected %f", endpoint, actualShare, expectedShare)
 	}
 	return nil
+}
+
+func parseExpectedImpulseShare(value string) (float64, error) {
+	share, ok := expectedImpulseShares[value]
+	if !ok {
+		return 0, fmt.Errorf("unsupported share")
+	}
+	return share, nil
+}
+
+var expectedImpulseShares = map[string]float64{
+	"0.75":     0.75,
+	"0.50":     0.50,
+	"0.25":     0.25,
+	"0":        0,
+	"absorbed": 0,
 }
 
 func createWallSpringXSPInput(w *world, example map[string]string) error {
@@ -711,19 +736,20 @@ func wallSpringMassState(w *world, example map[string]string) (wallSpringMassSta
 	return wallSpringMassStateResult{world: world, mass: mass, massID: massID, springID: springID, side: side}, nil
 }
 
-func endpointImpulseExpectation(example map[string]string, endpointKey string, shareKey string) (int, string, error) {
+func endpointImpulseExpectation(example map[string]string, endpointKey string, shareKey string) (int, float64, error) {
 	endpoint, err := intValue(example, endpointKey)
 	if err != nil {
-		return 0, "", err
+		return 0, 0, err
 	}
 	expected, err := stringValue(example, shareKey)
 	if err != nil {
-		return 0, "", err
+		return 0, 0, err
 	}
-	if expected != "half" && expected != "none" {
-		return 0, "", fmt.Errorf("invalid impulse share %q", expected)
+	expectedShare, err := parseExpectedImpulseShare(expected)
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid impulse share %q", expected)
 	}
-	return endpoint, expected, nil
+	return endpoint, expectedShare, nil
 }
 
 func intPair(example map[string]string, firstKey string, secondKey string) (int, int, error) {
@@ -733,6 +759,15 @@ func intPair(example map[string]string, firstKey string, secondKey string) (int,
 	}
 	second, err := intValue(example, secondKey)
 	return first, second, err
+}
+
+func intAndFloatValue(example map[string]string, intKey string, floatKey string) (int, float64, error) {
+	intValue, err := intValue(example, intKey)
+	if err != nil {
+		return 0, 0, err
+	}
+	floatValue, err := floatValue(example, floatKey)
+	return intValue, floatValue, err
 }
 
 func floatValues(example map[string]string, keys ...string) ([]float64, error) {
