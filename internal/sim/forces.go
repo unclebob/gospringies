@@ -159,10 +159,10 @@ type wallCheck struct {
 func (s *Simulation) wallChecks(mass Mass, magnitude float64) []wallCheck {
 	exponent := forceExponent(s.Parameters.Forces["wall repulsion"])
 	return []wallCheck{
-		{name: "bottom", inside: mass.Position.Y >= 0, force: Vec2{Y: wallMagnitude(magnitude, mass.Position.Y, exponent)}},
-		{name: "left", inside: mass.Position.X >= 0, force: Vec2{X: wallMagnitude(magnitude, mass.Position.X, exponent)}},
-		{name: "right", inside: mass.Position.X <= s.Bounds.Width, force: Vec2{X: -wallMagnitude(magnitude, s.Bounds.Width-mass.Position.X, exponent)}},
-		{name: "top", inside: mass.Position.Y <= s.Bounds.Height, force: Vec2{Y: -wallMagnitude(magnitude, s.Bounds.Height-mass.Position.Y, exponent)}},
+		{name: "bottom", inside: mass.Position.Y >= s.Bounds.MinY(), force: Vec2{Y: wallMagnitude(magnitude, mass.Position.Y-s.Bounds.MinY(), exponent)}},
+		{name: "left", inside: mass.Position.X >= s.Bounds.MinX(), force: Vec2{X: wallMagnitude(magnitude, mass.Position.X-s.Bounds.MinX(), exponent)}},
+		{name: "right", inside: mass.Position.X <= s.Bounds.MaxX(), force: Vec2{X: -wallMagnitude(magnitude, s.Bounds.MaxX()-mass.Position.X, exponent)}},
+		{name: "top", inside: mass.Position.Y <= s.Bounds.MaxY(), force: Vec2{Y: -wallMagnitude(magnitude, s.Bounds.MaxY()-mass.Position.Y, exponent)}},
 	}
 }
 
@@ -192,7 +192,7 @@ func (s *Simulation) forceCenter() Vec2 {
 }
 
 func (s *Simulation) screenCenter() Vec2 {
-	return Vec2{X: s.Bounds.Width / 2, Y: s.Bounds.Height / 2}
+	return s.Bounds.Center()
 }
 
 func (s *Simulation) SetForceCenter(selectedMassIDs []int) {

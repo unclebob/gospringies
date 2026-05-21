@@ -14,7 +14,6 @@ Examples:
   | left toolbar    |
   | top command bar |
   | right inspector |
-  | status line     |
 
 Scenario Outline: visible controls have readable labels
   When the coder draws the application frame
@@ -35,11 +34,12 @@ Scenario Outline: inspector sections are visibly rendered
   Then inspector section <section> should be visible
 
 Examples:
-  | section    |
-  | Mass       |
-  | Spring     |
-  | Forces     |
-  | Simulation |
+  | section                      |
+  | ----- Selected Mass(es) -----  |
+  | ----- Selected Spring(s) ----- |
+  | ----- Forces -----             |
+  | ----- Simulation -----         |
+  | ----- Display -----            |
 
 Scenario Outline: status fields are visibly rendered
   Given application state <state> is active

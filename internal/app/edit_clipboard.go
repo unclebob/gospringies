@@ -56,7 +56,7 @@ func (g *Game) pasteClipboardMasses(offset sim.Vec2, idMap map[int]int) {
 		oldID := mass.ID
 		mass.ID = nextMass
 		nextMass++
-		mass.Position = mass.Position.Add(offset)
+		mass.Position = g.clampToCanvas(mass.Position.Add(offset))
 		idMap[oldID] = mass.ID
 		if err := g.simulation.AddMass(mass); err == nil {
 			g.editing().SelectedMasses[mass.ID] = true

@@ -14,7 +14,6 @@ Examples:
   | left toolbar    |
   | top command bar |
   | right inspector |
-  | status line     |
 
 Scenario Outline: original command controls are visible and clickable
   When the coder renders the top command bar
@@ -57,9 +56,9 @@ Examples:
   | Precision                  |
   | Adaptive Time Step         |
 
-Scenario Outline: status line reports current application state
+Scenario Outline: right inspector reports current application state
   Given application state <state> is active
-  When the coder renders the status line
+  When the coder renders the right inspector
   Then status field <field> should show <state>
 
 Examples:

@@ -30,13 +30,15 @@ func (g *Game) openContextAt(x int, y int) {
 	}
 	g.valueDialog.Open = false
 	if g.openMassContextMenu(x, y) {
+		g.springMenu.Open = false
 		return
 	}
-	if g.openSpringConstantDialogAt(x, y) {
+	if g.openSpringContextMenu(x, y) {
 		g.massMenu.Open = false
 		return
 	}
 	g.massMenu.Open = false
+	g.springMenu.Open = false
 }
 
 func (g *Game) openMassContextMenu(x int, y int) bool {
@@ -83,6 +85,12 @@ func (g *Game) massContextMenuItems() []massMenuItem {
 		Label: "Set Mass",
 		Action: func() {
 			g.openMassValueDialog(g.massMenu.MassID)
+		},
+	}, {
+		Label: "Set Center",
+		Action: func() {
+			g.simulation.SetForceCenter([]int{g.massMenu.MassID})
+			g.dirty = true
 		},
 	}}
 	return items

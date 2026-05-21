@@ -25,7 +25,6 @@ Examples:
   | left toolbar    |
   | top bar         |
   | right inspector |
-  | status line     |
 
 Scenario Outline: startup world contains visible simulation objects
   When the coder starts the desktop application

@@ -19,8 +19,7 @@ Examples:
   | canvas        | edit and view the simulation world           |
   | left toolbar  | run selection commands                       |
   | top bar       | run commands and file commands               |
-  | right inspector | edit selected objects and world parameters |
-  | status line   | show simulation state, counts, and file state |
+  | right inspector | edit selected objects and world parameters and show simulation state |
 
 Scenario Outline: commands are visible controls
   When the coder shows the top command bar

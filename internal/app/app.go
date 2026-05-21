@@ -58,6 +58,7 @@ type Game struct {
 	dragMoved         bool
 	pendingSpringID   int
 	pendingSpringEnd  sim.Vec2
+	springChainActive bool
 	selectionDrag     bool
 	selectionStart    sim.Vec2
 	selectionEnd      sim.Vec2
@@ -68,11 +69,14 @@ type Game struct {
 	activeSlider      string
 	activeNumericStep string
 	numericStepTicks  int
+	activeValueStep   float64
+	valueStepTicks    int
 	focusedNumeric    string
 	numericInputText  string
 	numericInputTicks int
 	numericInputFresh bool
 	massMenu          massContextMenu
+	springMenu        springContextMenu
 	valueDialog       valueDialog
 	saveDialog        saveFilenameDialog
 	editMenuOpen      bool
@@ -100,7 +104,10 @@ type WindowConfig struct {
 
 func NewGame() *Game {
 	world := newDefaultStartupWorld()
-	return &Game{simulation: world, initialState: world.Clone(), simulationSpeed: 1, canvasYUp: true, editor: edit.NewEditor(world)}
+	game := &Game{simulation: world, simulationSpeed: 1, canvasYUp: true, editor: edit.NewEditor(world)}
+	game.applyCanvasWallBounds(world)
+	game.initialState = world.Clone()
+	return game
 }
 
 func DefaultWindowConfig() WindowConfig {
@@ -171,6 +178,7 @@ func (g *Game) pollMouseControls() {
 	rightPressed := ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight)
 	x, y := ebiten.CursorPosition()
 	g.lastCursor = g.screenToWorld(simVec(x, y))
+	g.updateSpringChainEnd(g.lastCursor)
 	g.handleRightPointer(rightPressed, x, y)
 	g.handlePointer(leftPressed, x, y)
 }
@@ -302,11 +310,13 @@ func (g *Game) continuePointerPress(position sim.Vec2, x int) {
 	case g.draggingMassID != 0:
 		g.DragMass(g.draggingMassID, position)
 	case g.pendingSpringID != 0:
-		g.pendingSpringEnd = position
+		g.pendingSpringEnd = g.clampToCanvas(position)
 	case g.selectionDrag:
 		g.selectionEnd = position
 	case g.activeNumericStep != "":
 		g.continueNumericStepHold()
+	case g.activeValueStep != 0:
+		g.continueValueDialogStepHold()
 	case g.activeSlider != "":
 		g.setSliderAt(g.activeSlider, x)
 	}
@@ -321,10 +331,16 @@ func (g *Game) releasePointer(position sim.Vec2) {
 	g.activeSlider = ""
 	g.activeNumericStep = ""
 	g.numericStepTicks = 0
+	g.activeValueStep = 0
+	g.valueStepTicks = 0
 }
 
 func (g *Game) beginPointerPress(position sim.Vec2, x int, y int) {
 	if g.clickOpenOverlay(x, y) {
+		return
+	}
+	if g.springChainActive {
+		g.continueSpringChainAt(position, g.controlKeyPressed())
 		return
 	}
 	if g.controlKeyPressed() {
@@ -349,6 +365,10 @@ func (g *Game) clickOpenOverlay(x int, y int) bool {
 		g.clickMassContextMenu(x, y)
 		return true
 	}
+	if g.springMenu.Open {
+		g.clickSpringContextMenu(x, y)
+		return true
+	}
 	if g.demoPickerOpen {
 		g.clickDemoPicker(x, y)
 		return true
@@ -358,7 +378,7 @@ func (g *Game) clickOpenOverlay(x int, y int) bool {
 
 func (g *Game) controlPointerPress(position sim.Vec2, x int, y int) {
 	if !g.ClickAt(x, y) {
-		g.beginSpringAt(position)
+		g.beginControlPlacementAt(position)
 	}
 }
 
@@ -386,7 +406,7 @@ func (g *Game) finishWorldPointer(position sim.Vec2) {
 	if g.draggingMassID != 0 {
 		g.finishMassDrag(position)
 	}
-	if g.pendingSpringID != 0 {
+	if g.pendingSpringID != 0 && !g.springChainActive {
 		g.finishSpringAt(position)
 	}
 	if g.selectionDrag {
@@ -437,11 +457,14 @@ func (g *Game) throwSingleDraggingMass(velocity sim.Vec2) {
 }
 
 func (g *Game) createMassAt(position sim.Vec2, addToSelection bool) (int, bool) {
+	if !g.positionInCanvas(position) {
+		return 0, false
+	}
 	editor := g.editing()
 	editor.Mode = edit.ModeAddMass
 	editor.GridSnapEnabled = g.gridSnapEnabled()
 	editor.GridSnapSize = g.gridSnapSize()
-	id, err := editor.Click(position)
+	id, err := editor.Click(g.snapToCanvas(position))
 	if err == nil {
 		if addToSelection {
 			_ = editor.AddMassSelection(id)
@@ -504,6 +527,9 @@ func selectionClick(start sim.Vec2, end sim.Vec2) bool {
 }
 
 func (g *Game) beginSpringAt(position sim.Vec2) {
+	if !g.positionInCanvas(position) {
+		return
+	}
 	id, ok := g.massAt(position)
 	if ok {
 		g.pendingSpringID = id
@@ -512,16 +538,15 @@ func (g *Game) beginSpringAt(position sim.Vec2) {
 }
 
 func (g *Game) finishSpringAt(position sim.Vec2) {
-	defer func() { g.pendingSpringID = 0 }()
+	defer g.clearPendingSpring()
+	if !g.positionInCanvas(position) {
+		return
+	}
 	endID, ok := g.massAt(position)
 	if !ok || endID == g.pendingSpringID {
 		return
 	}
-	editor := g.editing()
-	editor.Mode = edit.ModeAddSpring
-	if _, err := editor.CreateSpring(g.pendingSpringID, endID); err == nil {
-		g.dirty = true
-	}
+	g.createSpringBetween(g.pendingSpringID, endID)
 }
 
 func (g *Game) beginMassDrag(position sim.Vec2) {
@@ -619,6 +644,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if g.massMenu.Open {
 		g.drawMassContextMenu(screen)
 	}
+	if g.springMenu.Open {
+		g.drawSpringContextMenu(screen)
+	}
 	if g.valueDialog.Open {
 		g.drawValueDialog(screen)
 	}
@@ -649,9 +677,8 @@ type chromeRect struct {
 func editorChromeRects() []chromeRect {
 	return []chromeRect{
 		{x: 0, y: 0, width: screenWidth, height: topBarHeight, color: chromeColor},
-		{x: 0, y: topBarHeight, width: toolbarWidth, height: screenHeight - topBarHeight - statusHeight, color: panelColor},
-		{x: screenWidth - inspectorWidth, y: topBarHeight, width: inspectorWidth, height: screenHeight - topBarHeight - statusHeight, color: panelColor},
-		{x: 0, y: screenHeight - statusHeight, width: screenWidth, height: statusHeight, color: chromeColor},
+		{x: 0, y: topBarHeight, width: toolbarWidth, height: screenHeight - topBarHeight, color: panelColor},
+		{x: screenWidth - inspectorWidth, y: topBarHeight, width: inspectorWidth, height: screenHeight - topBarHeight, color: panelColor},
 	}
 }
 
@@ -698,9 +725,10 @@ func (g *Game) gridPoints() []sim.Vec2 {
 	}
 	canvas := visibleRegionRects()["canvas"]
 	left := firstGridCoordinateAtOrAfter(float64(canvas.Min.X), size)
-	top := firstGridCoordinateAtOrAfter(0, size)
+	_, _, minY, maxY := g.canvasWorldBounds()
+	top := firstGridCoordinateAtOrAfter(minY, size)
 	points := []sim.Vec2{}
-	for y := top; y <= g.simulation.Bounds.Height; y += size {
+	for y := top; y <= maxY; y += size {
 		for x := left; x < float64(canvas.Max.X); x += size {
 			points = append(points, sim.Vec2{X: x, Y: y})
 		}
@@ -820,10 +848,10 @@ type wallDrawLine struct {
 
 func wallDrawLines(bounds sim.Bounds) []wallDrawLine {
 	return []wallDrawLine{
-		{name: "top", x1: 0, y1: bounds.Height - 1, x2: bounds.Width, y2: bounds.Height - 1},
-		{name: "bottom", x1: 0, y1: 0, x2: bounds.Width, y2: 0},
-		{name: "left", x1: 0, y1: 0, x2: 0, y2: bounds.Height},
-		{name: "right", x1: bounds.Width - 1, y1: 0, x2: bounds.Width - 1, y2: bounds.Height},
+		{name: "top", x1: bounds.MinX(), y1: bounds.MaxY() - 1, x2: bounds.MaxX(), y2: bounds.MaxY() - 1},
+		{name: "bottom", x1: bounds.MinX(), y1: bounds.MinY(), x2: bounds.MaxX(), y2: bounds.MinY()},
+		{name: "left", x1: bounds.MinX(), y1: bounds.MinY(), x2: bounds.MinX(), y2: bounds.MaxY()},
+		{name: "right", x1: bounds.MaxX() - 1, y1: bounds.MinY(), x2: bounds.MaxX() - 1, y2: bounds.MaxY()},
 	}
 }
 

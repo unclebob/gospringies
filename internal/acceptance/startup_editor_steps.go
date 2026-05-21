@@ -124,8 +124,7 @@ func startupDemoWorld(path string) (*sim.Simulation, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load startup demo %s: %w", path, err)
 	}
-	config := app.DefaultWindowConfig()
-	world.Bounds = sim.Bounds{Width: float64(config.Width), Height: float64(config.Height)}
+	world.Bounds = app.NewGame().World().Bounds
 	return world, nil
 }
 
@@ -209,7 +208,7 @@ func sameStringSlices(a, b []string) bool {
 }
 
 func startupRegions() []string {
-	return []string{"canvas", "left toolbar", "top bar", "right inspector", "status line"}
+	return []string{"canvas", "left toolbar", "top bar", "right inspector"}
 }
 
 func concreteStartupGame(w *world) (*app.Game, error) {

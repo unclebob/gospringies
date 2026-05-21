@@ -19,7 +19,7 @@ func (g *Game) drawVisibleControls(screen *ebiten.Image) {
 		g.drawControl(screen, control)
 	}
 	for _, section := range inspectorSections() {
-		drawLabeledRect(screen, section.Rect, sectionColor, section.Label)
+		drawCenteredLabeledRect(screen, section.Rect, sectionColor, section.Label)
 	}
 	for _, field := range g.statusFields() {
 		drawLabeledRect(screen, field.Rect, controlColor, field.Label)
@@ -69,4 +69,13 @@ func (g *Game) drawNumericTextField(screen *ebiten.Image, control controlBox, se
 func drawLabeledRect(screen *ebiten.Image, rect image.Rectangle, fill color.RGBA, label string) {
 	vector.DrawFilledRect(screen, float32(rect.Min.X), float32(rect.Min.Y), float32(rect.Dx()), float32(rect.Dy()), fill, false)
 	ebitenutil.DebugPrintAt(screen, label, rect.Min.X+4, rect.Min.Y+4)
+}
+
+func drawCenteredLabeledRect(screen *ebiten.Image, rect image.Rectangle, fill color.RGBA, label string) {
+	vector.DrawFilledRect(screen, float32(rect.Min.X), float32(rect.Min.Y), float32(rect.Dx()), float32(rect.Dy()), fill, false)
+	x := rect.Min.X + (rect.Dx()-len(label)*debugGlyphWidth)/2
+	if x < rect.Min.X+4 {
+		x = rect.Min.X + 4
+	}
+	ebitenutil.DebugPrintAt(screen, label, x, rect.Min.Y+4)
 }

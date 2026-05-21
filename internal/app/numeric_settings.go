@@ -35,24 +35,24 @@ type numericSetting struct {
 var numericSettings = []numericSetting{
 	{Name: "Mass", Label: "Mass", Parameter: "current mass", Control: "mass", Min: 0, Max: 1000, Decimals: 1, Y: 68},
 	{Name: "Elasticity", Label: "Elasticity", Parameter: "elasticity", Control: "elasticity", Min: 0, Max: 1, Decimals: 1, Y: 94},
-	{Name: "Kspring", Label: "Kspring", Parameter: "spring constant", Control: "Kspring", Min: 0, Max: 1000, Decimals: 1, Y: 172},
-	{Name: "Kdamp", Label: "Kdamp", Parameter: "damping", Control: "Kdamp", Min: 0, Max: 1000, Decimals: 1, Y: 198},
-	{Name: "Gravity", Label: "Gravity", Force: "gravity", ForceKey: "magnitude", Min: 0, Max: 50, Decimals: 1, Y: 278},
-	{Name: "Center Attraction", Label: "Center Attraction", Force: "center attraction", ForceKey: "magnitude", Min: 0, Max: 1000, Decimals: 1, Y: 304},
-	{Name: "Center Of Mass Attraction", Label: "CM Attraction", Force: "center of mass attraction", ForceKey: "magnitude", Min: 0, Max: 1000, Decimals: 1, Y: 330},
-	{Name: "Wall Repulsion", Label: "Wall Rep", Force: "wall repulsion", ForceKey: "magnitude", Min: 0, Max: 100000, Decimals: 1, Y: 356},
-	{Name: "Viscosity", Label: "Viscosity", Parameter: "viscosity", Min: 0, Max: 2, Decimals: 1, Y: 594},
-	{Name: "Stick", Label: "Stick", Parameter: "stickiness", Min: 0, Max: 10, Decimals: 1, Y: 620},
-	{Name: "Speed", Label: "Speed", Speed: true, Min: 0, Max: maxSpeed, Decimals: 1, Y: 646},
-	{Name: "Time Step", Label: "Time Step", Parameter: "timestep", Min: 0.0001, Max: 0.1, Decimals: 3, Y: 672},
-	{Name: "Precision", Label: "Precision", Parameter: "precision", Min: 0.000001, Max: 0.01, Decimals: 3, Y: 698},
+	{Name: "Kspring", Label: "Kspring", Parameter: "spring constant", Control: "Kspring", Min: 0, Max: 1000, Decimals: 1, Y: 177},
+	{Name: "Kdamp", Label: "Kdamp", Parameter: "damping", Control: "Kdamp", Min: 0, Max: 1000, Decimals: 1, Y: 203},
+	{Name: "Gravity", Label: "Gravity", Force: "gravity", ForceKey: "magnitude", Min: 0, Max: 50, Decimals: 1, Y: 286},
+	{Name: "Center Attraction", Label: "Center Attraction", Force: "center attraction", ForceKey: "magnitude", Min: 0, Max: 1000, Decimals: 1, Y: 312},
+	{Name: "Center Of Mass Attraction", Label: "CM Attraction", Force: "center of mass attraction", ForceKey: "magnitude", Min: 0, Max: 1000, Decimals: 1, Y: 338},
+	{Name: "Wall Repulsion", Label: "Wall Rep", Force: "wall repulsion", ForceKey: "magnitude", Min: 0, Max: 100000, Decimals: 1, Y: 364},
+	{Name: "Viscosity", Label: "Viscosity", Parameter: "viscosity", Min: 0, Max: 2, Decimals: 1, Y: 421},
+	{Name: "Stick", Label: "Stick", Parameter: "stickiness", Min: 0, Max: 10, Decimals: 1, Y: 447},
+	{Name: "Speed", Label: "Speed", Speed: true, Min: 0, Max: maxSpeed, Decimals: 1, Y: 473},
+	{Name: "Time Step", Label: "Time Step", Parameter: "timestep", Min: 0.0001, Max: 0.1, Decimals: 3, Y: 499},
+	{Name: "Precision", Label: "Precision", Parameter: "precision", Min: 0.000001, Max: 0.01, Decimals: 3, Y: 525},
 }
 
 func numericSettingControls() []controlBox {
 	var controls []controlBox
 	for _, setting := range numericSettings {
 		checkbox, label, decrement, slider, increment, text := numericSettingRects(setting)
-		if checkboxName := numericSettingForceToggleControl(setting); checkboxName != "" {
+		if checkboxName := numericSettingToggleControl(setting); checkboxName != "" {
 			controls = append(controls, controlBox{Name: checkboxName, Label: "", Region: "right inspector", Rect: checkbox})
 		}
 		controls = append(controls, wallToggleControlsForSetting(setting)...)
@@ -74,7 +74,7 @@ func numericSettingRects(setting numericSetting) (image.Rectangle, image.Rectang
 	labelRight := left + 168
 	controlAnchor := left + 168
 	checkbox := image.Rectangle{}
-	if numericSettingForceToggleControl(setting) != "" {
+	if numericSettingToggleControl(setting) != "" {
 		checkbox = image.Rect(left, setting.Y, left+numericStepButtonWidth, setting.Y+20)
 		labelLeft = checkbox.Max.X + numericStepButtonGap
 	}
@@ -97,11 +97,26 @@ func numericSettingForceToggleControl(setting numericSetting) string {
 	return numericForceToggleControls[setting.Force]
 }
 
+func numericSettingParameterToggleControl(setting numericSetting) string {
+	return numericParameterToggleControls[setting.Name]
+}
+
+func numericSettingToggleControl(setting numericSetting) string {
+	if control := numericSettingForceToggleControl(setting); control != "" {
+		return control
+	}
+	return numericSettingParameterToggleControl(setting)
+}
+
 var numericForceToggleControls = map[string]string{
 	"gravity":                   "gravity force",
 	"center attraction":         "center attraction force",
 	"center of mass attraction": "center mass force",
 	"wall repulsion":            "wall repulsion force",
+}
+
+var numericParameterToggleControls = map[string]string{
+	"Precision": "adaptive timestep toggle",
 }
 
 func wallToggleControlsForSetting(setting numericSetting) []controlBox {
@@ -413,7 +428,7 @@ func (g *Game) NumericSettingSliderValue(settingName string) (string, bool) {
 }
 
 func inspectorRect() image.Rectangle {
-	return image.Rect(screenWidth-inspectorWidth, topBarHeight, screenWidth, screenHeight-statusHeight)
+	return image.Rect(screenWidth-inspectorWidth, topBarHeight, screenWidth, screenHeight)
 }
 
 func numericSettingReports(g *Game) map[string]NumericSettingFrame {

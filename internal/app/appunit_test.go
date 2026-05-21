@@ -184,6 +184,9 @@ func TestAppUnitVisibleControlLayoutAndReport(t *testing.T) {
 	x := inspectorLeft() + 16
 	right := screenWidth - 16
 	half := (right - x - 8) / 2
+	third := (right - x - 16) / 3
+	second := x + third + 8
+	thirdStart := second + third + 8
 	massSetting, _ := numericSettingByName("Mass")
 	_, label, decrement, slider, increment, text := numericSettingRects(massSetting)
 	gravitySetting, _ := numericSettingByName("Gravity")
@@ -195,6 +198,8 @@ func TestAppUnitVisibleControlLayoutAndReport(t *testing.T) {
 	wallSetting, _ := numericSettingByName("Wall Repulsion")
 	wallCheckbox, wallLabel, _, _, _, _ := numericSettingRects(wallSetting)
 	wallToggles := wallToggleControlsForSetting(wallSetting)
+	precisionSetting, _ := numericSettingByName("Precision")
+	precisionCheckbox, precisionLabel, precisionDecrement, precisionSlider, precisionIncrement, precisionText := numericSettingRects(precisionSetting)
 	wantControls := map[string]image.Rectangle{
 		"mass label":               label,
 		"mass decrement":           decrement,
@@ -210,15 +215,22 @@ func TestAppUnitVisibleControlLayoutAndReport(t *testing.T) {
 		"center mass force":        centerMassCheckbox,
 		"wall repulsion force":     wallCheckbox,
 		"wall repulsion label":     wallLabel,
-		"mass collision force":     image.Rect(x, 382, x+numericStepButtonWidth, 402),
-		"mass collision label":     image.Rect(x+numericStepButtonWidth+numericStepButtonGap, 382, x+half, 402),
+		"fixed mass toggle":        image.Rect(x, 120, x+third, 140),
+		"set center command":       image.Rect(second, 120, second+third, 140),
+		"mass collision force":     image.Rect(thirdStart, 120, right, 140),
+		"set rest length command":  image.Rect(x, 229, right, 249),
 		"top wall toggle":          wallToggles[0].Rect,
 		"bottom wall toggle":       wallToggles[1].Rect,
 		"left wall toggle":         wallToggles[2].Rect,
 		"right wall toggle":        wallToggles[3].Rect,
-		"grid snap toggle":         image.Rect(x, 724, x+half, 744),
-		"show springs toggle":      image.Rect(x+half+8, 724, right, 744),
-		"adaptive timestep toggle": image.Rect(x, 750, right, 770),
+		"adaptive timestep toggle": precisionCheckbox,
+		"precision label":          precisionLabel,
+		"precision decrement":      precisionDecrement,
+		"precision slider":         precisionSlider,
+		"precision increment":      precisionIncrement,
+		"precision text field":     precisionText,
+		"grid snap toggle":         image.Rect(x, 608, x+half, 628),
+		"show springs toggle":      image.Rect(x+half+8, 608, right, 628),
 	}
 	controls := map[string]image.Rectangle{}
 	for _, control := range inspectorControls() {
@@ -231,7 +243,7 @@ func TestAppUnitVisibleControlLayoutAndReport(t *testing.T) {
 	}
 
 	sections := inspectorSections()
-	if len(sections) != 5 || sections[0].Rect != image.Rect(x, 44, right, 64) || sections[4].Rect != image.Rect(x, 570, right, 590) {
+	if len(sections) != 5 || sections[0].Rect != image.Rect(x, 44, right, 64) || sections[3].Rect != image.Rect(x, 397, right, 417) || sections[4].Rect != image.Rect(x, 584, right, 604) {
 		t.Fatalf("inspector sections = %#v", sections)
 	}
 
@@ -251,11 +263,8 @@ func TestAppUnitVisibleControlLayoutAndReport(t *testing.T) {
 	if report.RegionPixels["canvas"] != rectPixels(visibleRegionRects()["canvas"]) {
 		t.Fatalf("canvas pixels = %d", report.RegionPixels["canvas"])
 	}
-	if report.RegionControlCounts["right inspector"] != len(inspectorControls())+len(inspectorSections()) {
+	if report.RegionControlCounts["right inspector"] != len(inspectorControls())+len(inspectorSections())+len(game.statusFields()) {
 		t.Fatalf("right inspector count = %d", report.RegionControlCounts["right inspector"])
-	}
-	if report.RegionControlCounts["status line"] != len(game.statusFields()) {
-		t.Fatalf("status count = %d", report.RegionControlCounts["status line"])
 	}
 
 	game.World().Parameters.EnableForce("gravity", map[string]string{"magnitude": "25"})
@@ -307,19 +316,26 @@ func TestAppUnitVisibleControlLayoutAndReport(t *testing.T) {
 		t.Fatalf("visible active controls = %#v", active)
 	}
 	sectionsMap := visibleInspectorSections()
-	if !sectionsMap["Mass"] || !sectionsMap["Spring"] || !sectionsMap["Forces"] || sectionsMap["Walls"] || !sectionsMap["Simulation"] {
+	if !sectionsMap[sectionHeaderLabel("Selected Mass(es)")] ||
+		!sectionsMap[sectionHeaderLabel("Selected Spring(s)")] ||
+		!sectionsMap[sectionHeaderLabel("Forces")] ||
+		sectionsMap[sectionHeaderLabel("Walls")] ||
+		!sectionsMap[sectionHeaderLabel("Simulation")] ||
+		!sectionsMap[sectionHeaderLabel("Display")] {
 		t.Fatalf("visible inspector sections = %#v", sectionsMap)
 	}
 
 	status := game.statusFields()
+	x = inspectorLeft() + 16
+	right = screenWidth - 16
 	wantStatus := []image.Rectangle{
-		image.Rect(8, screenHeight-22, 104, screenHeight-2),
-		image.Rect(112, screenHeight-22, 212, screenHeight-2),
-		image.Rect(220, screenHeight-22, 290, screenHeight-2),
-		image.Rect(298, screenHeight-22, 412, screenHeight-2),
-		image.Rect(420, screenHeight-22, 512, screenHeight-2),
-		image.Rect(520, screenHeight-22, 612, screenHeight-2),
-		image.Rect(620, screenHeight-22, 872, screenHeight-2),
+		image.Rect(x, screenHeight-82, x+74, screenHeight-62),
+		image.Rect(x+82, screenHeight-82, x+188, screenHeight-62),
+		image.Rect(x+196, screenHeight-82, x+266, screenHeight-62),
+		image.Rect(x+274, screenHeight-82, right, screenHeight-62),
+		image.Rect(x, screenHeight-56, right, screenHeight-36),
+		image.Rect(x, screenHeight-30, x+82, screenHeight-10),
+		image.Rect(x+90, screenHeight-30, right, screenHeight-10),
 	}
 	for i, want := range wantStatus {
 		if status[i].Rect != want {
@@ -329,11 +345,10 @@ func TestAppUnitVisibleControlLayoutAndReport(t *testing.T) {
 
 	regions := visibleRegionRects()
 	wantRegions := map[string]image.Rectangle{
-		"canvas":          image.Rect(toolbarWidth, topBarHeight, screenWidth-inspectorWidth, screenHeight-statusHeight),
-		"left toolbar":    image.Rect(0, topBarHeight, toolbarWidth, screenHeight-statusHeight),
+		"canvas":          image.Rect(toolbarWidth, topBarHeight, screenWidth-inspectorWidth, screenHeight),
+		"left toolbar":    image.Rect(0, topBarHeight, toolbarWidth, screenHeight),
 		"top command bar": image.Rect(toolbarWidth, 0, screenWidth-inspectorWidth, topBarHeight),
-		"right inspector": image.Rect(screenWidth-inspectorWidth, topBarHeight, screenWidth, screenHeight-statusHeight),
-		"status line":     image.Rect(0, screenHeight-statusHeight, screenWidth, screenHeight),
+		"right inspector": image.Rect(screenWidth-inspectorWidth, topBarHeight, screenWidth, screenHeight),
 	}
 	for name, want := range wantRegions {
 		if got := regions[name]; got != want {
@@ -343,13 +358,10 @@ func TestAppUnitVisibleControlLayoutAndReport(t *testing.T) {
 	if got := game.visibleRegionPixels("top command bar"); got != regionControlPixels(visibleControls(), "top command bar")+regionControlPixels(inspectorSections(), "top command bar") {
 		t.Fatalf("top command pixels = %d", got)
 	}
-	if got := game.visibleRegionPixels("right inspector"); got != regionControlPixels(visibleControls(), "right inspector")+regionControlPixels(inspectorSections(), "right inspector") {
+	if got := game.visibleRegionPixels("right inspector"); got != regionControlPixels(visibleControls(), "right inspector")+regionControlPixels(inspectorSections(), "right inspector")+game.regionStatusPixels("right inspector") {
 		t.Fatalf("right inspector pixels = %d", got)
 	}
-	if got := game.visibleRegionPixels("status line"); got != game.regionStatusPixels("status line") {
-		t.Fatalf("status line pixels = %d", got)
-	}
-	if got := game.regionStatusPixels("status line"); got != rectPixels(status[0].Rect)+rectPixels(status[1].Rect)+rectPixels(status[2].Rect)+rectPixels(status[3].Rect)+rectPixels(status[4].Rect)+rectPixels(status[5].Rect)+rectPixels(status[6].Rect) {
+	if got := game.regionStatusPixels("right inspector"); got != rectPixels(status[0].Rect)+rectPixels(status[1].Rect)+rectPixels(status[2].Rect)+rectPixels(status[3].Rect)+rectPixels(status[4].Rect)+rectPixels(status[5].Rect)+rectPixels(status[6].Rect) {
 		t.Fatalf("status pixels = %d", got)
 	}
 	if game.regionStatusPixels("canvas") != 0 {
@@ -364,7 +376,7 @@ func TestAppUnitVisibleControlLayoutAndReport(t *testing.T) {
 	if labelFits("abcde", image.Rect(0, 0, 32, debugGlyphHeight)) || labelFits("abcd", image.Rect(0, 0, 32, debugGlyphHeight-1)) {
 		t.Fatal("oversized labels should not fit")
 	}
-	game.pathEntryCommand = "this/status/path/is/far/too/long/to/fit"
+	game.pathEntryCommand = "this/status/path/is/far/too/long/to/fit/even/with/a/full/inspector/row"
 	if visibleLabelsFit(game) {
 		t.Fatal("long status label should not fit")
 	}
@@ -372,8 +384,8 @@ func TestAppUnitVisibleControlLayoutAndReport(t *testing.T) {
 
 func TestAppUnitDragMassSnapsToGrid(t *testing.T) {
 	game := appUnitGameWithMasses(
-		sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Velocity: sim.Vec2{X: 1, Y: 1}, Mass: 1},
-		sim.Mass{ID: 2, Position: sim.Vec2{X: 20, Y: 20}, Velocity: sim.Vec2{X: 2, Y: 2}, Mass: 1},
+		sim.Mass{ID: 1, Position: sim.Vec2{X: 110, Y: 110}, Velocity: sim.Vec2{X: 1, Y: 1}, Mass: 1},
+		sim.Mass{ID: 2, Position: sim.Vec2{X: 120, Y: 120}, Velocity: sim.Vec2{X: 2, Y: 2}, Mass: 1},
 	)
 	game.World().Parameters.Set("grid snap", "10")
 
@@ -390,12 +402,12 @@ func TestAppUnitDragMassSnapsToGrid(t *testing.T) {
 	game.draggingOffsets = map[int]sim.Vec2{1: {X: 2, Y: 3}, 2: {X: -3, Y: -2}}
 	_ = game.editing().SelectMass(1)
 	_ = game.editing().AddMassSelection(2)
-	if !game.DragMass(1, sim.Vec2{X: 13, Y: 14}) {
+	if !game.DragMass(1, sim.Vec2{X: 113, Y: 114}) {
 		t.Fatal("selected mass drag should succeed")
 	}
 	first, _ := game.World().MassByID(1)
 	second, _ := game.World().MassByID(2)
-	if first.Position != (sim.Vec2{X: 20, Y: 20}) || second.Position != (sim.Vec2{X: 10, Y: 10}) {
+	if first.Position != (sim.Vec2{X: 120, Y: 120}) || second.Position != (sim.Vec2{X: 110, Y: 110}) {
 		t.Fatalf("selected dragged masses = %#v %#v", first, second)
 	}
 	if first.Velocity != (sim.Vec2{}) || second.Velocity != (sim.Vec2{}) || !game.dirty || !game.dragMoved {
@@ -766,7 +778,13 @@ func TestAppUnitValueDialogBehavior(t *testing.T) {
 		t.Fatalf("text rect = %#v", got)
 	}
 	track := game.valueDialogSliderTrack()
-	if track != image.Rect(rect.Min.X+12, rect.Min.Y+92, rect.Max.X-12, rect.Min.Y+100) {
+	if got := game.valueDialogDecrementRect(); got != image.Rect(rect.Min.X+12, rect.Min.Y+86, rect.Min.X+12+numericStepButtonWidth, rect.Min.Y+106) {
+		t.Fatalf("decrement rect = %#v", got)
+	}
+	if got := game.valueDialogIncrementRect(); got != image.Rect(rect.Max.X-12-numericStepButtonWidth, rect.Min.Y+86, rect.Max.X-12, rect.Min.Y+106) {
+		t.Fatalf("increment rect = %#v", got)
+	}
+	if track != image.Rect(rect.Min.X+12+numericStepButtonWidth+numericStepButtonGap, rect.Min.Y+92, rect.Max.X-12-numericStepButtonWidth-numericStepButtonGap, rect.Min.Y+100) {
 		t.Fatalf("slider track = %#v", track)
 	}
 	if got := game.valueDialogOKRect(); got != image.Rect(rect.Max.X-64, rect.Max.Y-34, rect.Max.X-12, rect.Max.Y-12) {
@@ -790,6 +808,19 @@ func TestAppUnitValueDialogBehavior(t *testing.T) {
 	game.setValueDialogFromSlider(track.Min.X + track.Dx()/2)
 	if game.valueDialog.Text != "10" {
 		t.Fatalf("nonzero slider text = %q", game.valueDialog.Text)
+	}
+	game.clickValueDialog(game.valueDialogIncrementRect().Min.X+1, game.valueDialogIncrementRect().Min.Y+1)
+	if game.valueDialog.Text != "10.1" || game.activeValueStep != numericStepAmount {
+		t.Fatalf("increment text=%q active=%f", game.valueDialog.Text, game.activeValueStep)
+	}
+	game.valueStepTicks = numericStepHoldDelayTicks - 1
+	game.continueValueDialogStepHold()
+	if game.valueDialog.Text != "10.2" {
+		t.Fatalf("held increment text = %q", game.valueDialog.Text)
+	}
+	game.clickValueDialog(game.valueDialogDecrementRect().Min.X+1, game.valueDialogDecrementRect().Min.Y+1)
+	if game.valueDialog.Text != "10.1" || game.activeValueStep != -numericStepAmount {
+		t.Fatalf("decrement text=%q active=%f", game.valueDialog.Text, game.activeValueStep)
 	}
 
 	game.valueDialog = valueDialog{Open: true}
@@ -843,7 +874,7 @@ func TestAppUnitSpringValueDialogAndDistance(t *testing.T) {
 	if !game.openSpringConstantDialogAt(20, 10) {
 		t.Fatal("spring dialog did not open")
 	}
-	if !game.valueDialog.Open || game.valueDialog.Title != "Set Spring #3" || game.valueDialog.Text != "12" || game.valueDialog.Min != 0 || game.valueDialog.Max != 50 {
+	if !game.valueDialog.Open || game.valueDialog.Title != "Kspring Spring #3" || game.valueDialog.Text != "12" || game.valueDialog.Min != 0 || game.valueDialog.Max != 1000 {
 		t.Fatalf("spring value dialog = %#v", game.valueDialog)
 	}
 	game.valueDialog.Text = "22"
@@ -858,6 +889,14 @@ func TestAppUnitSpringValueDialogAndDistance(t *testing.T) {
 	game.setSpringConstant(99, 33)
 	if game.dirty {
 		t.Fatal("missing spring constant update should not mark dirty")
+	}
+	game.setSpringDamping(99, 33)
+	if game.dirty {
+		t.Fatal("missing spring damping update should not mark dirty")
+	}
+	game.setSpringRestLength(99, 33)
+	if game.dirty {
+		t.Fatal("missing spring rest length update should not mark dirty")
 	}
 
 	if id, ok := game.springAt(sim.Vec2{X: 20, Y: 16}); id != 3 || !ok {
@@ -1251,6 +1290,14 @@ func TestAppUnitMassContextMenuActionsAndGeometry(t *testing.T) {
 		t.Fatalf("mass value = %f dirty=%t", mass.Mass, game.dirty)
 	}
 
+	game.massMenu = massContextMenu{Open: true, MassID: 1, X: 20, Y: 20}
+	row2 := game.massContextMenuRowRect(2)
+	game.dirty = false
+	game.clickMassContextMenu(row2.Min.X+1, row2.Min.Y+1)
+	if game.World().CenterMassID() != 1 || game.massMenu.Open || !game.dirty {
+		t.Fatalf("center mass = %d menu=%#v dirty=%t", game.World().CenterMassID(), game.massMenu, game.dirty)
+	}
+
 	game.massMenu = massContextMenu{Open: true, MassID: 1, X: 0, Y: 0}
 	anchored := game.massContextMenuRect()
 	if anchored.Min != image.Pt(0, 0) {
@@ -1290,13 +1337,82 @@ func TestAppUnitOpenContextAtChoosesSpringDialogAndIgnoresDemoPicker(t *testing.
 
 	game.massMenu.Open = true
 	game.openContextAt(60, 10)
-	if !game.valueDialog.Open || game.valueDialog.Target != "spring" || game.massMenu.Open {
-		t.Fatalf("spring dialog = %#v mass menu=%#v", game.valueDialog, game.massMenu)
+	if !game.springMenu.Open || game.springMenu.SpringID != 3 || game.massMenu.Open || game.valueDialog.Open {
+		t.Fatalf("spring menu = %#v mass menu=%#v dialog=%#v", game.springMenu, game.massMenu, game.valueDialog)
 	}
 
-	game.valueDialog.Open = false
+	game.springMenu.Open = false
 	game.openContextAt(500, 500)
-	if game.massMenu.Open || game.valueDialog.Open {
-		t.Fatalf("empty context should close overlays menu=%#v dialog=%#v", game.massMenu, game.valueDialog)
+	if game.massMenu.Open || game.springMenu.Open || game.valueDialog.Open {
+		t.Fatalf("empty context should close overlays mass=%#v spring=%#v dialog=%#v", game.massMenu, game.springMenu, game.valueDialog)
+	}
+}
+
+func TestAppUnitSpringContextMenuActionsAndGeometry(t *testing.T) {
+	game := appUnitGameWithMasses(
+		sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1},
+		sim.Mass{ID: 2, Position: sim.Vec2{X: 110, Y: 10}, Mass: 1},
+	)
+	game.canvasYUp = false
+	_ = game.World().AddSpring(sim.Spring{ID: 3, MassA: 1, MassB: 2, RestLength: 100, SpringConstant: 12, Damping: 0.4})
+
+	if !game.openSpringContextMenu(60, 10) {
+		t.Fatal("spring context menu did not open")
+	}
+	rect := game.springContextMenuRect()
+	if rect.Dx() != springMenuWidth || rect.Dy() != (springMenuTitleRows+len(game.springContextMenuItems()))*springMenuRowHeight {
+		t.Fatalf("spring menu rect = %#v", rect)
+	}
+	row0 := game.springContextMenuRowRect(0)
+	row1 := game.springContextMenuRowRect(1)
+	if row0.Min.Y != rect.Min.Y+springMenuTitleRows*springMenuRowHeight || row1.Min.Y-row0.Min.Y != springMenuRowHeight {
+		t.Fatalf("spring menu rows row0=%#v row1=%#v rect=%#v", row0, row1, rect)
+	}
+
+	game.clickSpringContextMenu(row0.Min.X+1, row0.Min.Y+1)
+	if !game.valueDialog.Open || game.valueDialog.Title != "Kspring Spring #3" || game.valueDialog.Text != "12" || game.valueDialog.Target != "spring" || game.springMenu.Open {
+		t.Fatalf("kspring dialog = %#v spring menu=%#v", game.valueDialog, game.springMenu)
+	}
+	game.valueDialog.Text = "22"
+	game.applyValueDialog()
+	spring, _ := game.World().SpringByID(3)
+	if spring.SpringConstant != 22 || spring.Stiffness != 22 {
+		t.Fatalf("spring constant = %#v", spring)
+	}
+
+	game.springMenu = springContextMenu{Open: true, SpringID: 3, X: 60, Y: 10}
+	row1 = game.springContextMenuRowRect(1)
+	game.clickSpringContextMenu(row1.Min.X+1, row1.Min.Y+1)
+	if !game.valueDialog.Open || game.valueDialog.Title != "Kdamp Spring #3" || game.valueDialog.Text != "0.4" {
+		t.Fatalf("kdamp dialog = %#v", game.valueDialog)
+	}
+	game.valueDialog.Text = "0.9"
+	game.applyValueDialog()
+	spring, _ = game.World().SpringByID(3)
+	if spring.Damping != 0.9 {
+		t.Fatalf("spring damping = %#v", spring)
+	}
+
+	game.springMenu = springContextMenu{Open: true, SpringID: 3, X: 60, Y: 10}
+	row2 := game.springContextMenuRowRect(2)
+	game.clickSpringContextMenu(row2.Min.X+1, row2.Min.Y+1)
+	if !game.valueDialog.Open || game.valueDialog.Title != "RestLen Spring #3" || game.valueDialog.Text != "100" {
+		t.Fatalf("rest length dialog = %#v", game.valueDialog)
+	}
+	game.valueDialog.Text = "125"
+	game.applyValueDialog()
+	spring, _ = game.World().SpringByID(3)
+	if spring.RestLength != 125 {
+		t.Fatalf("spring rest length = %#v", spring)
+	}
+
+	game.springMenu = springContextMenu{Open: true, SpringID: 3, X: screenWidth + 50, Y: screenHeight + 50}
+	clamped := game.springContextMenuRect()
+	if clamped.Max.X != screenWidth || clamped.Max.Y != screenHeight {
+		t.Fatalf("clamped spring menu rect = %#v", clamped)
+	}
+	game.clickSpringContextMenu(clamped.Max.X+1, clamped.Max.Y+1)
+	if game.springMenu.Open {
+		t.Fatal("outside spring menu click should close menu")
 	}
 }

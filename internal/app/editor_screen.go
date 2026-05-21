@@ -4,8 +4,7 @@ var editorRegions = []ScreenRegion{
 	{"canvas", "edit and view the simulation world"},
 	{"left toolbar", "run selection commands"},
 	{"top bar", "run commands and file commands"},
-	{"right inspector", "edit selected objects and world parameters"},
-	{"status line", "show simulation state, counts, and file state"},
+	{"right inspector", "edit selected objects and world parameters and show simulation state"},
 }
 
 var editorCommandControls = []string{"run", "pause", "reset", "load", "insert", "save", "quit", "delete", "select all", "cut", "copy", "paste"}

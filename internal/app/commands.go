@@ -113,6 +113,7 @@ func (g *Game) LoadXSP(input string) error {
 	}
 	setAppBounds(loaded)
 	g.canvasYUp = xspfmt.UsesOriginalXSpringiesCoordinates(input)
+	g.applyCanvasWallBounds(loaded)
 	g.simulation.Reset()
 	g.simulation.LoadFrom(loaded)
 	if g.editor != nil {
@@ -137,6 +138,7 @@ func (g *Game) InsertXSP(input string) error {
 		return err
 	}
 	setAppBounds(inserted)
+	g.applyCanvasWallBounds(inserted)
 	g.simulation.InsertFrom(inserted)
 	g.dirty = true
 	return nil
@@ -162,6 +164,7 @@ func (g *Game) SetParameter(parameter string, value string) {
 func (g *Game) ReplaceWorld(world *sim.Simulation) {
 	g.canvasYUp = false
 	setAppBounds(world)
+	g.applyCanvasWallBounds(world)
 	g.simulation.LoadFrom(world)
 	if g.editor != nil {
 		g.editor.World = g.simulation

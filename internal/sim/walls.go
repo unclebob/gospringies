@@ -79,34 +79,30 @@ func (s *Simulation) stuckWall(mass *Mass) (wallCollision, bool) {
 func (s *Simulation) collisionWalls(mass *Mass) []wallCollision {
 	return []wallCollision{
 		{
-			name: "left", position: &mass.Position.X, velocity: &mass.Velocity.X, boundary: 0,
-			outside: func(position float64) bool { return position < 0 }, movingOutward: func(velocity float64) bool { return velocity < 0 },
+			name: "left", position: &mass.Position.X, velocity: &mass.Velocity.X, boundary: s.Bounds.MinX(),
+			outside: func(position float64) bool { return position < s.Bounds.MinX() }, movingOutward: func(velocity float64) bool { return velocity < 0 },
 			releaseForce:   func(force Vec2) float64 { return force.X },
 			keepTangential: func(mass *Mass) { mass.Velocity.X = 0 },
 		},
 		{
-			name: "right", position: &mass.Position.X, velocity: &mass.Velocity.X, boundary: s.Bounds.Width,
-			outside: func(position float64) bool { return position > s.Bounds.Width }, movingOutward: func(velocity float64) bool { return velocity > 0 },
+			name: "right", position: &mass.Position.X, velocity: &mass.Velocity.X, boundary: s.Bounds.MaxX(),
+			outside: func(position float64) bool { return position > s.Bounds.MaxX() }, movingOutward: func(velocity float64) bool { return velocity > 0 },
 			releaseForce:   func(force Vec2) float64 { return -force.X },
 			keepTangential: func(mass *Mass) { mass.Velocity.X = 0 },
 		},
 		{
-			name: "bottom", position: &mass.Position.Y, velocity: &mass.Velocity.Y, boundary: bottomWallBoundary(),
-			outside: func(position float64) bool { return position < 0 }, movingOutward: func(velocity float64) bool { return velocity < 0 },
+			name: "bottom", position: &mass.Position.Y, velocity: &mass.Velocity.Y, boundary: s.Bounds.MinY(),
+			outside: func(position float64) bool { return position < s.Bounds.MinY() }, movingOutward: func(velocity float64) bool { return velocity < 0 },
 			releaseForce:   func(force Vec2) float64 { return force.Y },
 			keepTangential: func(mass *Mass) { mass.Velocity.Y = 0 },
 		},
 		{
-			name: "top", position: &mass.Position.Y, velocity: &mass.Velocity.Y, boundary: s.Bounds.Height,
-			outside: func(position float64) bool { return position > s.Bounds.Height }, movingOutward: func(velocity float64) bool { return velocity > 0 },
+			name: "top", position: &mass.Position.Y, velocity: &mass.Velocity.Y, boundary: s.Bounds.MaxY(),
+			outside: func(position float64) bool { return position > s.Bounds.MaxY() }, movingOutward: func(velocity float64) bool { return velocity > 0 },
 			releaseForce:   func(force Vec2) float64 { return -force.Y },
 			keepTangential: func(mass *Mass) { mass.Velocity.Y = 0 },
 		},
 	}
-}
-
-func bottomWallBoundary() float64 {
-	return 0
 }
 
 // mutate4go-manifest-begin

@@ -18,7 +18,7 @@ The application is still incomplete. Some UI controls are present but not fully 
 - Press Escape to clear the selection.
 - Control-drag, or Command-drag on macOS, from one mass to another to create a spring.
 - Right-click a mass to open a menu for fixing/freeing it or setting its mass.
-- Right-click near a spring to set its spring constant.
+- Right-click near a spring to open spring settings for Kspring, Kdamp, and RestLen.
 - Use Edit > Cut, Copy, and Paste, or their keyboard shortcuts, for selected objects. Paste places copied objects at the current mouse location.
 
 ## File Save and Load
@@ -36,11 +36,11 @@ The application is still incomplete. Some UI controls are present but not fully 
 - Numeric sliders show the current committed value. The `<` and `>` buttons on the left and right of each slider decrement or increment the value by `0.1`; holding either button for half a second repeats the change every tenth of a second.
 - A slider text box shows the committed setting value. Clicking the text box selects the whole value for editing. Typed changes are local to the text box until Enter or Return is pressed, then the value is committed and the selection highlight is removed.
 - Gravity, Center Attraction, CM Attraction, and Wall Repulsion have checkboxes to the left of their slider labels. The checkbox enables the force; the slider sets its magnitude.
-- Collide enables mass-to-mass collision.
+- Collide toggles mass-to-mass collision.
 - The `T`, `B`, `L`, and `R` checkboxes beside Wall Repulsion toggle the top, bottom, left, and right simulation walls.
-- SetCtr makes the selected mass the center-force target.
-- Grid toggles grid snapping; Springs toggles spring visibility.
+- Set Center makes the selected mass the center-force target.
+- The Display section contains Grid, which toggles grid snapping, and Springs, which toggles spring visibility.
 - Viscosity adjusts drag from the surrounding medium.
 - Stick adjusts wall stickiness.
 - Speed controls simulation speed; zero pauses advancement.
-- Time Step, Precision, and Adapt control timestep size, solver precision, and adaptive timestep behavior.
+- Time Step controls timestep size. The Adapt checkbox beside Precision toggles adaptive timestep behavior, and the Precision slider controls the adaptive precision value.

@@ -52,6 +52,7 @@ type Game struct {
 	dragMoved         bool
 	pendingSpringID   int
 	pendingSpringEnd  sim.Vec2
+	springChainActive bool
 	selectionDrag     bool
 	selectionStart    sim.Vec2
 	selectionEnd      sim.Vec2
@@ -62,11 +63,14 @@ type Game struct {
 	activeSlider      string
 	activeNumericStep string
 	numericStepTicks  int
+	activeValueStep   float64
+	valueStepTicks    int
 	focusedNumeric    string
 	numericInputText  string
 	numericInputTicks int
 	numericInputFresh bool
 	massMenu          massContextMenu
+	springMenu        springContextMenu
 	valueDialog       valueDialog
 	saveDialog        saveFilenameDialog
 	editMenuOpen      bool
@@ -94,7 +98,10 @@ type WindowConfig struct {
 
 func NewGame() *Game {
 	world := newDefaultStartupWorld()
-	return &Game{simulation: world, initialState: world.Clone(), simulationSpeed: 1, canvasYUp: true, editor: edit.NewEditor(world)}
+	game := &Game{simulation: world, simulationSpeed: 1, canvasYUp: true, editor: edit.NewEditor(world)}
+	game.applyCanvasWallBounds(world)
+	game.initialState = world.Clone()
+	return game
 }
 
 func DefaultWindowConfig() WindowConfig {
@@ -167,7 +174,7 @@ func (g *Game) continuePointerPress(position sim.Vec2, x int) {
 	case g.draggingMassID != 0:
 		g.DragMass(g.draggingMassID, position)
 	case g.pendingSpringID != 0:
-		g.pendingSpringEnd = position
+		g.pendingSpringEnd = g.clampToCanvas(position)
 	case g.selectionDrag:
 		g.selectionEnd = position
 	case g.activeNumericStep != "":
@@ -190,6 +197,10 @@ func (g *Game) releasePointer(position sim.Vec2) {
 
 func (g *Game) beginPointerPress(position sim.Vec2, x int, y int) {
 	if g.clickOpenOverlay(x, y) {
+		return
+	}
+	if g.springChainActive {
+		g.continueSpringChainAt(position, g.controlKeyPressed())
 		return
 	}
 	if g.controlKeyPressed() {
@@ -219,7 +230,7 @@ func (g *Game) clickOpenOverlay(x int, y int) bool {
 
 func (g *Game) controlPointerPress(position sim.Vec2, x int, y int) {
 	if !g.ClickAt(x, y) {
-		g.beginSpringAt(position)
+		g.beginControlPlacementAt(position)
 	}
 }
 
@@ -247,7 +258,7 @@ func (g *Game) finishWorldPointer(position sim.Vec2) {
 	if g.draggingMassID != 0 {
 		g.finishMassDrag(position)
 	}
-	if g.pendingSpringID != 0 {
+	if g.pendingSpringID != 0 && !g.springChainActive {
 		g.finishSpringAt(position)
 	}
 	if g.selectionDrag {
@@ -298,11 +309,14 @@ func (g *Game) throwSingleDraggingMass(velocity sim.Vec2) {
 }
 
 func (g *Game) createMassAt(position sim.Vec2, addToSelection bool) (int, bool) {
+	if !g.positionInCanvas(position) {
+		return 0, false
+	}
 	editor := g.editing()
 	editor.Mode = edit.ModeAddMass
 	editor.GridSnapEnabled = g.gridSnapEnabled()
 	editor.GridSnapSize = g.gridSnapSize()
-	id, err := editor.Click(position)
+	id, err := editor.Click(g.snapToCanvas(position))
 	if err == nil {
 		if addToSelection {
 			_ = editor.AddMassSelection(id)
@@ -365,6 +379,9 @@ func selectionClick(start sim.Vec2, end sim.Vec2) bool {
 }
 
 func (g *Game) beginSpringAt(position sim.Vec2) {
+	if !g.positionInCanvas(position) {
+		return
+	}
 	id, ok := g.massAt(position)
 	if ok {
 		g.pendingSpringID = id
@@ -373,16 +390,15 @@ func (g *Game) beginSpringAt(position sim.Vec2) {
 }
 
 func (g *Game) finishSpringAt(position sim.Vec2) {
-	defer func() { g.pendingSpringID = 0 }()
+	defer g.clearPendingSpring()
+	if !g.positionInCanvas(position) {
+		return
+	}
 	endID, ok := g.massAt(position)
 	if !ok || endID == g.pendingSpringID {
 		return
 	}
-	editor := g.editing()
-	editor.Mode = edit.ModeAddSpring
-	if _, err := editor.CreateSpring(g.pendingSpringID, endID); err == nil {
-		g.dirty = true
-	}
+	g.createSpringBetween(g.pendingSpringID, endID)
 }
 
 func (g *Game) beginMassDrag(position sim.Vec2) {

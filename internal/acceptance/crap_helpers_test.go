@@ -75,11 +75,11 @@ func TestDragAppMassUpdatesWorld(t *testing.T) {
 	_ = domain.AddMass(sim.Mass{ID: 7, Position: sim.Vec2{}, Mass: 1})
 	w := &world{domainWorld: domain}
 
-	if err := dragAppMass(w, game, 7, sim.Vec2{X: 3, Y: 4}); err != nil {
+	if err := dragAppMass(w, game, 7, sim.Vec2{X: 103, Y: 104}); err != nil {
 		t.Fatal(err)
 	}
 	mass, ok := w.domainWorld.MassByID(7)
-	if !ok || mass.Position != (sim.Vec2{X: 3, Y: 4}) {
+	if !ok || mass.Position != (sim.Vec2{X: 103, Y: 104}) {
 		t.Fatalf("dragged mass = %#v ok=%t", mass, ok)
 	}
 	if err := dragAppMass(w, game, 99, sim.Vec2{}); err == nil {

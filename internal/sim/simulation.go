@@ -76,6 +76,36 @@ type Simulation struct {
 type Bounds struct {
 	Width  float64
 	Height float64
+	Left   float64
+	Right  float64
+	Bottom float64
+	Top    float64
+}
+
+func (b Bounds) MinX() float64 {
+	return b.Left
+}
+
+func (b Bounds) MaxX() float64 {
+	if b.Right != 0 {
+		return b.Right
+	}
+	return b.Width
+}
+
+func (b Bounds) MinY() float64 {
+	return b.Bottom
+}
+
+func (b Bounds) MaxY() float64 {
+	if b.Top != 0 {
+		return b.Top
+	}
+	return b.Height
+}
+
+func (b Bounds) Center() Vec2 {
+	return Vec2{X: (b.MinX() + b.MaxX()) / 2, Y: (b.MinY() + b.MaxY()) / 2}
 }
 
 func NewSimulation() *Simulation {

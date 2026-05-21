@@ -191,15 +191,16 @@ func inspectorControls() []controlBox {
 	x := inspectorLeft() + 16
 	right := screenWidth - 16
 	half := (right - x - 8) / 2
+	third := (right - x - 16) / 3
+	second := x + third + 8
+	thirdStart := second + third + 8
 	controls = append(controls, []controlBox{
-		{Name: "fixed mass toggle", Label: "Fixed", Region: "right inspector", Rect: image.Rect(x, 120, right, 140)},
-		{Name: "set rest length command", Label: "RestLen", Region: "right inspector", Rect: image.Rect(x, 224, right, 244)},
-		{Name: "mass collision force", Label: "", Region: "right inspector", Rect: image.Rect(x, 382, x+numericStepButtonWidth, 402)},
-		{Name: "mass collision label", Label: "Collide", Region: "right inspector", Rect: image.Rect(x+numericStepButtonWidth+numericStepButtonGap, 382, x+half, 402)},
-		{Name: "set center command", Label: "SetCtr", Region: "right inspector", Rect: image.Rect(x, 408, right, 428)},
-		{Name: "grid snap toggle", Label: "Grid", Region: "right inspector", Rect: image.Rect(x, 724, x+half, 744)},
-		{Name: "show springs toggle", Label: "Springs", Region: "right inspector", Rect: image.Rect(x+half+8, 724, right, 744)},
-		{Name: "adaptive timestep toggle", Label: "Adapt", Region: "right inspector", Rect: image.Rect(x, 750, right, 770)},
+		{Name: "fixed mass toggle", Label: "Fixed", Region: "right inspector", Rect: image.Rect(x, 120, x+third, 140)},
+		{Name: "set center command", Label: "Set Center", Region: "right inspector", Rect: image.Rect(second, 120, second+third, 140)},
+		{Name: "mass collision force", Label: "Collide", Region: "right inspector", Rect: image.Rect(thirdStart, 120, right, 140)},
+		{Name: "set rest length command", Label: "RestLen", Region: "right inspector", Rect: image.Rect(x, 229, right, 249)},
+		{Name: "grid snap toggle", Label: "Grid", Region: "right inspector", Rect: image.Rect(x, 608, x+half, 628)},
+		{Name: "show springs toggle", Label: "Springs", Region: "right inspector", Rect: image.Rect(x+half+8, 608, right, 628)},
 	}...)
 	return controls
 }
@@ -208,11 +209,16 @@ func inspectorSections() []controlBox {
 	x := inspectorLeft() + 16
 	right := screenWidth - 16
 	return []controlBox{
-		{Label: "Mass", Region: "right inspector", Rect: image.Rect(x, 44, right, 64)},
-		{Label: "Spring", Region: "right inspector", Rect: image.Rect(x, 148, right, 168)},
-		{Label: "Forces", Region: "right inspector", Rect: image.Rect(x, 254, right, 274)},
-		{Label: "Simulation", Region: "right inspector", Rect: image.Rect(x, 570, right, 590)},
+		{Label: sectionHeaderLabel("Selected Mass(es)"), Region: "right inspector", Rect: image.Rect(x, 44, right, 64)},
+		{Label: sectionHeaderLabel("Selected Spring(s)"), Region: "right inspector", Rect: image.Rect(x, 153, right, 173)},
+		{Label: sectionHeaderLabel("Forces"), Region: "right inspector", Rect: image.Rect(x, 262, right, 282)},
+		{Label: sectionHeaderLabel("Simulation"), Region: "right inspector", Rect: image.Rect(x, 397, right, 417)},
+		{Label: sectionHeaderLabel("Display"), Region: "right inspector", Rect: image.Rect(x, 584, right, 604)},
 	}
+}
+
+func sectionHeaderLabel(label string) string {
+	return "----- " + label + " -----"
 }
 
 func inspectorLeft() int {
@@ -238,14 +244,19 @@ func (g *Game) gridSnapEnabled() bool {
 }
 
 func (g *Game) statusFields() []statusField {
+	x := inspectorLeft() + 16
+	right := screenWidth - 16
+	row1 := screenHeight - 82
+	row2 := screenHeight - 56
+	row3 := screenHeight - 30
 	return []statusField{
-		{Name: "run state", Label: g.simulationState(), Rect: image.Rect(8, screenHeight-22, 104, screenHeight-2)},
-		{Name: "object counts", Label: "object counts", Rect: image.Rect(112, screenHeight-22, 212, screenHeight-2)},
-		{Name: "selected object count", Label: fmt.Sprintf("%d sel", g.selectedObjectCount()), Rect: image.Rect(220, screenHeight-22, 290, screenHeight-2)},
-		{Name: "current file", Label: g.currentFileStatusLabel(), Rect: image.Rect(298, screenHeight-22, 412, screenHeight-2)},
-		{Name: "dirty state", Label: g.fileState(), Rect: image.Rect(420, screenHeight-22, 512, screenHeight-2)},
-		{Name: "file state", Label: g.fileState(), Rect: image.Rect(520, screenHeight-22, 612, screenHeight-2)},
-		{Name: "last error", Label: "", Rect: image.Rect(620, screenHeight-22, 872, screenHeight-2)},
+		{Name: "run state", Label: g.simulationState(), Rect: image.Rect(x, row1, x+74, row1+20)},
+		{Name: "object counts", Label: "object counts", Rect: image.Rect(x+82, row1, x+188, row1+20)},
+		{Name: "selected object count", Label: fmt.Sprintf("%d sel", g.selectedObjectCount()), Rect: image.Rect(x+196, row1, x+266, row1+20)},
+		{Name: "file state", Label: g.fileState(), Rect: image.Rect(x+274, row1, right, row1+20)},
+		{Name: "current file", Label: g.currentFileStatusLabel(), Rect: image.Rect(x, row2, right, row2+20)},
+		{Name: "dirty state", Label: g.fileState(), Rect: image.Rect(x, row3, x+82, row3+20)},
+		{Name: "last error", Label: "", Rect: image.Rect(x+90, row3, right, row3+20)},
 	}
 }
 
@@ -344,7 +355,7 @@ func (g *Game) visibleRegionControlCounts() map[string]int {
 	for _, section := range inspectorSections() {
 		counts[section.Region]++
 	}
-	counts["status line"] = len(g.statusFields())
+	counts["right inspector"] += len(g.statusFields())
 	return counts
 }
 
@@ -378,11 +389,10 @@ func labelFits(label string, rect image.Rectangle) bool {
 
 func visibleRegionRects() map[string]image.Rectangle {
 	return map[string]image.Rectangle{
-		"canvas":          image.Rect(toolbarWidth, topBarHeight, screenWidth-inspectorWidth, screenHeight-statusHeight),
-		"left toolbar":    image.Rect(0, topBarHeight, toolbarWidth, screenHeight-statusHeight),
+		"canvas":          image.Rect(toolbarWidth, topBarHeight, screenWidth-inspectorWidth, screenHeight),
+		"left toolbar":    image.Rect(0, topBarHeight, toolbarWidth, screenHeight),
 		"top command bar": image.Rect(toolbarWidth, 0, screenWidth-inspectorWidth, topBarHeight),
-		"right inspector": image.Rect(screenWidth-inspectorWidth, topBarHeight, screenWidth, screenHeight-statusHeight),
-		"status line":     image.Rect(0, screenHeight-statusHeight, screenWidth, screenHeight),
+		"right inspector": image.Rect(screenWidth-inspectorWidth, topBarHeight, screenWidth, screenHeight),
 	}
 }
 
@@ -410,7 +420,7 @@ func regionControlPixels(controls []controlBox, region string) int {
 }
 
 func (g *Game) regionStatusPixels(region string) int {
-	if region != "status line" {
+	if region != "right inspector" {
 		return 0
 	}
 	count := 0

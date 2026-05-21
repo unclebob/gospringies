@@ -2379,7 +2379,7 @@ func TestStartupEditorPureHelpers(t *testing.T) {
 	if !sameStringSlices([]string{"a", "b"}, []string{"a", "b"}) {
 		t.Fatal("expected matching slices")
 	}
-	if len(startupRegions()) != 5 {
+	if len(startupRegions()) != 4 {
 		t.Fatalf("startup regions = %#v", startupRegions())
 	}
 	if _, err := concreteStartupGame(&world{}); err == nil {

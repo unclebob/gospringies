@@ -27,6 +27,14 @@ type valueDialog struct {
 	Ticks  int
 }
 
+type springValueKind string
+
+const (
+	springValueKspring springValueKind = "Kspring"
+	springValueKdamp   springValueKind = "Kdamp"
+	springValueRestLen springValueKind = "RestLen"
+)
+
 func (g *Game) openMassValueDialog(id int) {
 	mass, ok := g.simulation.MassByID(id)
 	if !ok {
@@ -50,19 +58,42 @@ func (g *Game) openSpringConstantDialogAt(x int, y int) bool {
 	if !ok {
 		return false
 	}
-	id := spring.ID
+	g.openSpringValueDialog(spring.ID, springValueKspring)
+	return true
+}
+
+func (g *Game) openSpringValueDialog(id int, kind springValueKind) {
+	spring, ok := g.simulation.SpringByID(id)
+	if !ok {
+		return
+	}
+	text, max, apply := g.springValueDialogSpec(id, spring, kind)
 	g.valueDialog = valueDialog{
 		Open:   true,
-		Title:  fmt.Sprintf("Set Spring #%d", id),
-		Text:   formatControlFloat(spring.SpringConstant),
+		Title:  fmt.Sprintf("%s Spring #%d", kind, id),
+		Text:   text,
 		Min:    0,
-		Max:    50,
+		Max:    max,
 		Target: "spring",
-		Apply: func(value float64) {
-			g.setSpringConstant(id, value)
-		},
+		Apply:  apply,
 	}
-	return true
+}
+
+func (g *Game) springValueDialogSpec(id int, spring sim.Spring, kind springValueKind) (string, float64, func(float64)) {
+	switch kind {
+	case springValueKdamp:
+		return formatControlFloat(spring.Damping), 1000, func(value float64) {
+			g.setSpringDamping(id, value)
+		}
+	case springValueRestLen:
+		return formatControlFloat(spring.RestLength), 1000, func(value float64) {
+			g.setSpringRestLength(id, value)
+		}
+	default:
+		return formatControlFloat(spring.SpringConstant), 1000, func(value float64) {
+			g.setSpringConstant(id, value)
+		}
+	}
 }
 
 func (g *Game) tickValueDialog() {
@@ -83,6 +114,18 @@ func (g *Game) clickValueDialog(x int, y int) {
 	point := image.Pt(x, y)
 	if !point.In(valueDialogRect()) {
 		g.valueDialog.Open = false
+		return
+	}
+	if point.In(g.valueDialogDecrementRect()) {
+		g.activeValueStep = -numericStepAmount
+		g.valueStepTicks = 0
+		g.stepValueDialog(g.activeValueStep)
+		return
+	}
+	if point.In(g.valueDialogIncrementRect()) {
+		g.activeValueStep = numericStepAmount
+		g.valueStepTicks = 0
+		g.stepValueDialog(g.activeValueStep)
 		return
 	}
 	if point.In(g.valueDialogSliderTrack()) {
@@ -127,6 +170,30 @@ func (g *Game) setValueDialogFromSlider(x int) {
 	g.valueDialog.Text = formatControlFloat(value)
 }
 
+func (g *Game) stepValueDialog(delta float64) {
+	value, err := strconv.ParseFloat(g.valueDialog.Text, 64)
+	if err != nil {
+		value = g.valueDialog.Min
+	}
+	value = clampFloat(value+delta, g.valueDialog.Min, g.valueDialog.Max)
+	g.valueDialog.Text = formatControlFloat(roundControlFloat(value))
+}
+
+func (g *Game) continueValueDialogStepHold() {
+	if !g.valueDialog.Open || g.activeValueStep == 0 {
+		g.activeValueStep = 0
+		g.valueStepTicks = 0
+		return
+	}
+	g.valueStepTicks++
+	if g.valueStepTicks < numericStepHoldDelayTicks {
+		return
+	}
+	if (g.valueStepTicks-numericStepHoldDelayTicks)%numericStepRepeatTicks == 0 {
+		g.stepValueDialog(g.activeValueStep)
+	}
+}
+
 func (g *Game) valueDialogFraction() float64 {
 	value, err := strconv.ParseFloat(g.valueDialog.Text, 64)
 	if err != nil || g.valueDialog.Max <= g.valueDialog.Min {
@@ -148,7 +215,17 @@ func (g *Game) valueDialogTextRect() image.Rectangle {
 
 func (g *Game) valueDialogSliderTrack() image.Rectangle {
 	rect := valueDialogRect()
-	return image.Rect(rect.Min.X+12, rect.Min.Y+92, rect.Max.X-12, rect.Min.Y+100)
+	return image.Rect(rect.Min.X+12+numericStepButtonWidth+numericStepButtonGap, rect.Min.Y+92, rect.Max.X-12-numericStepButtonWidth-numericStepButtonGap, rect.Min.Y+100)
+}
+
+func (g *Game) valueDialogDecrementRect() image.Rectangle {
+	rect := valueDialogRect()
+	return image.Rect(rect.Min.X+12, rect.Min.Y+86, rect.Min.X+12+numericStepButtonWidth, rect.Min.Y+106)
+}
+
+func (g *Game) valueDialogIncrementRect() image.Rectangle {
+	rect := valueDialogRect()
+	return image.Rect(rect.Max.X-12-numericStepButtonWidth, rect.Min.Y+86, rect.Max.X-12, rect.Min.Y+106)
 }
 
 func (g *Game) valueDialogOKRect() image.Rectangle {
@@ -161,6 +238,26 @@ func (g *Game) setSpringConstant(id int, value float64) {
 		if g.simulation.Springs[i].ID == id {
 			g.simulation.Springs[i].SpringConstant = value
 			g.simulation.Springs[i].Stiffness = value
+			g.dirty = true
+			return
+		}
+	}
+}
+
+func (g *Game) setSpringDamping(id int, value float64) {
+	for i := range g.simulation.Springs {
+		if g.simulation.Springs[i].ID == id {
+			g.simulation.Springs[i].Damping = value
+			g.dirty = true
+			return
+		}
+	}
+}
+
+func (g *Game) setSpringRestLength(id int, value float64) {
+	for i := range g.simulation.Springs {
+		if g.simulation.Springs[i].ID == id {
+			g.simulation.Springs[i].RestLength = value
 			g.dirty = true
 			return
 		}

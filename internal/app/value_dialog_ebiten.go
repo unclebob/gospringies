@@ -15,11 +15,13 @@ func (g *Game) drawValueDialog(screen *ebiten.Image) {
 	ebitenutil.DebugPrintAt(screen, g.valueDialog.Title, rect.Min.X+12, rect.Min.Y+10)
 	drawLabeledRect(screen, g.valueDialogTextRect(), controlColor, g.valueDialog.Text)
 	g.drawValueDialogCursor(screen)
+	drawLabeledRect(screen, g.valueDialogDecrementRect(), controlColor, "<")
 	track := g.valueDialogSliderTrack()
 	vector.DrawFilledRect(screen, float32(track.Min.X), float32(track.Min.Y), float32(track.Dx()), float32(track.Dy()), sectionColor, false)
 	fill := track
 	fill.Max.X = fill.Min.X + int(g.valueDialogFraction()*float64(track.Dx()))
 	vector.DrawFilledRect(screen, float32(fill.Min.X), float32(fill.Min.Y), float32(fill.Dx()), float32(fill.Dy()), activeControlColor, false)
+	drawLabeledRect(screen, g.valueDialogIncrementRect(), controlColor, ">")
 	drawLabeledRect(screen, g.valueDialogOKRect(), activeControlColor, "OK")
 }
 
