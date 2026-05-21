@@ -124,7 +124,6 @@ func startMassAtPositionWithVelocity(w *world, example map[string]string) error 
 	world := collisionWorld(w)
 	world.Bounds = sim.Bounds{Width: 800, Height: 600}
 	mass := ensureCollisionMass(w, id)
-	world.Bounds = sim.Bounds{Width: 800, Height: 600}
 	mass.Position = sim.Vec2{X: values[0], Y: values[1]}
 	mass.Velocity = sim.Vec2{X: values[2], Y: values[3]}
 	rememberScreenWallStartingSide(w, id, wall, mass.Position)
@@ -145,10 +144,10 @@ func requireSweptWallExample(wall string, example map[string]string) error {
 }
 
 func rememberScreenWallStartingSide(w *world, massID int, wall string, position sim.Vec2) {
-	if w.wallSpringSides == nil {
-		w.wallSpringSides = map[int]float64{}
+	if w.screenWallSides == nil {
+		w.screenWallSides = map[int]float64{}
 	}
-	w.wallSpringSides[massID] = screenWallSide(wall, position)
+	w.screenWallSides[massID] = screenWallSide(wall, position)
 }
 
 func screenWallSide(wall string, position sim.Vec2) float64 {
@@ -200,7 +199,7 @@ func assertMassOnStartingScreenWallSide(w *world, example map[string]string) err
 	if err != nil {
 		return err
 	}
-	startingSide, ok := w.wallSpringSides[mass.ID]
+	startingSide, ok := w.screenWallSides[mass.ID]
 	if !ok {
 		return fmt.Errorf("starting side for mass %d was not recorded", mass.ID)
 	}
@@ -215,7 +214,7 @@ func assertWallNormalVelocityTowardStartingSide(w *world, example map[string]str
 	if err != nil {
 		return err
 	}
-	startingSide, ok := w.wallSpringSides[mass.ID]
+	startingSide, ok := w.screenWallSides[mass.ID]
 	if !ok {
 		return fmt.Errorf("starting side for mass %d was not recorded", mass.ID)
 	}
