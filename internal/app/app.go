@@ -314,6 +314,13 @@ func (g *Game) continuePointerPress(position sim.Vec2, x int) {
 		g.pendingSpringEnd = g.clampToCanvas(position)
 	case g.selectionDrag:
 		g.selectionEnd = position
+	default:
+		g.continueControlPress(x)
+	}
+}
+
+func (g *Game) continueControlPress(x int) {
+	switch {
 	case g.activeNumericStep != "":
 		g.continueNumericStepHold()
 	case g.activeValueStep != 0:

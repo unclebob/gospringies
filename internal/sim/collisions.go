@@ -121,20 +121,27 @@ func (s *Simulation) applyWallSpringCollisions(dt float64) {
 		return
 	}
 	for _, spring := range s.Springs {
-		if !spring.Wall {
-			continue
-		}
-		aIndex, bIndex, ok := s.springEndpointIndexes(spring)
+		aIndex, bIndex, ok := s.wallSpringEndpointIndexes(spring)
 		if !ok {
 			continue
 		}
 		for i := range s.Masses {
-			if i == aIndex || i == bIndex || s.Masses[i].Fixed {
-				continue
+			if s.shouldApplyWallSpringCollision(i, aIndex, bIndex) {
+				s.applyWallSpringCollision(&s.Masses[i], &s.Masses[aIndex], &s.Masses[bIndex], dt)
 			}
-			s.applyWallSpringCollision(&s.Masses[i], &s.Masses[aIndex], &s.Masses[bIndex], dt)
 		}
 	}
+}
+
+func (s *Simulation) wallSpringEndpointIndexes(spring Spring) (int, int, bool) {
+	if !spring.Wall {
+		return 0, 0, false
+	}
+	return s.springEndpointIndexes(spring)
+}
+
+func (s *Simulation) shouldApplyWallSpringCollision(massIndex int, aIndex int, bIndex int) bool {
+	return massIndex != aIndex && massIndex != bIndex && !s.Masses[massIndex].Fixed
 }
 
 func (s *Simulation) springEndpointIndexes(spring Spring) (int, int, bool) {
