@@ -218,7 +218,8 @@ func TestAppUnitVisibleControlLayoutAndReport(t *testing.T) {
 		"fixed mass toggle":        image.Rect(x, 120, x+third, 140),
 		"set center command":       image.Rect(second, 120, second+third, 140),
 		"mass collision force":     image.Rect(thirdStart, 120, right, 140),
-		"set rest length command":  image.Rect(x, 229, right, 249),
+		"set rest length command":  image.Rect(x, 229, x+half, 249),
+		"spring wall toggle":       image.Rect(x+half+8, 229, right, 249),
 		"top wall toggle":          wallToggles[0].Rect,
 		"bottom wall toggle":       wallToggles[1].Rect,
 		"left wall toggle":         wallToggles[2].Rect,
@@ -1330,15 +1331,20 @@ func TestAppUnitOpenContextAtChoosesSpringDialogAndIgnoresDemoPicker(t *testing.
 	}
 
 	game.demoPickerOpen = false
+	game.springMenu.Open = true
 	game.openContextAt(10, 10)
-	if !game.massMenu.Open || game.massMenu.MassID != 1 || game.valueDialog.Open {
-		t.Fatalf("mass context = %#v dialog=%#v", game.massMenu, game.valueDialog)
+	if !game.massMenu.Open || game.massMenu.MassID != 1 || game.springMenu.Open || game.valueDialog.Open {
+		t.Fatalf("mass context = %#v spring=%#v dialog=%#v", game.massMenu, game.springMenu, game.valueDialog)
 	}
 
 	game.massMenu.Open = true
 	game.openContextAt(60, 10)
 	if !game.springMenu.Open || game.springMenu.SpringID != 3 || game.massMenu.Open || game.valueDialog.Open {
 		t.Fatalf("spring menu = %#v mass menu=%#v dialog=%#v", game.springMenu, game.massMenu, game.valueDialog)
+	}
+
+	if game.openSpringContextMenu(500, 500) {
+		t.Fatal("empty spring context position should not open a spring menu")
 	}
 
 	game.springMenu.Open = false
@@ -1406,6 +1412,27 @@ func TestAppUnitSpringContextMenuActionsAndGeometry(t *testing.T) {
 		t.Fatalf("spring rest length = %#v", spring)
 	}
 
+	game.springMenu = springContextMenu{Open: true, SpringID: 3, X: 60, Y: 10}
+	game.dirty = false
+	row3 := game.springContextMenuRowRect(3)
+	game.clickSpringContextMenu(row3.Min.X+1, row3.Min.Y+1)
+	spring, _ = game.World().SpringByID(3)
+	if !spring.Wall || !game.dirty || game.springMenu.Open {
+		t.Fatalf("wall toggle spring=%#v dirty=%t menu=%#v", spring, game.dirty, game.springMenu)
+	}
+
+	labels := game.SpringContextMenuLabelsForSpring(3)
+	if len(labels) != 4 || labels[3] != "Wall" {
+		t.Fatalf("spring menu labels = %#v", labels)
+	}
+	if !game.SelectSpringContextMenuItem(3, "Wall") || game.springMenu.Open || game.SelectSpringContextMenuItem(3, "Missing") {
+		t.Fatalf("spring menu selection failed, spring=%#v", game.springMenu)
+	}
+	spring, _ = game.World().SpringByID(3)
+	if spring.Wall {
+		t.Fatalf("programmatic wall toggle spring=%#v", spring)
+	}
+
 	game.springMenu = springContextMenu{Open: true, SpringID: 3, X: screenWidth + 50, Y: screenHeight + 50}
 	clamped := game.springContextMenuRect()
 	if clamped.Max.X != screenWidth || clamped.Max.Y != screenHeight {
@@ -1414,5 +1441,34 @@ func TestAppUnitSpringContextMenuActionsAndGeometry(t *testing.T) {
 	game.clickSpringContextMenu(clamped.Max.X+1, clamped.Max.Y+1)
 	if game.springMenu.Open {
 		t.Fatal("outside spring menu click should close menu")
+	}
+}
+
+func TestAppUnitContextMenuHelpers(t *testing.T) {
+	called := false
+	closed := false
+	items := []contextMenuItem{{
+		Label:  "Run",
+		Action: func() { called = true },
+	}}
+
+	labels := contextMenuLabels(items)
+	if len(labels) != 1 || labels[0] != "Run" {
+		t.Fatalf("labels = %#v", labels)
+	}
+	if !selectContextMenuItem(items, "Run", func() { closed = true }) {
+		t.Fatal("existing menu item should be selected")
+	}
+	if !called || !closed {
+		t.Fatalf("selection side effects called=%t closed=%t", called, closed)
+	}
+
+	called = false
+	closed = false
+	if selectContextMenuItem(items, "Missing", func() { closed = true }) {
+		t.Fatal("missing menu item should not be selected")
+	}
+	if called || closed {
+		t.Fatalf("missing selection side effects called=%t closed=%t", called, closed)
 	}
 }

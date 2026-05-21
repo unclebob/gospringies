@@ -21,6 +21,7 @@ var controlChangeHandlers = map[string]func(*Editor, string) error{
 	"Kdamp": func(e *Editor, value string) error {
 		return e.changeSpringFloat(value, "damping", func(spring *sim.Spring, parsed float64) { spring.Damping = parsed })
 	},
+	"Wall": (*Editor).changeSpringWall,
 }
 
 func (e *Editor) ChangeControl(control string, value string) error {
@@ -76,6 +77,19 @@ func (e *Editor) changeSpringFloat(value string, defaultParameter string, update
 			}
 		}
 	})
+}
+
+func (e *Editor) changeSpringWall(value string) error {
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return fmt.Errorf("invalid wall value %q", value)
+	}
+	for i := range e.World.Springs {
+		if e.SelectedSprings[e.World.Springs[i].ID] {
+			e.World.Springs[i].Wall = parsed
+		}
+	}
+	return nil
 }
 
 func (e *Editor) changeFloat(value string, defaultParameter string, compatibleSelection bool, update func(float64)) error {

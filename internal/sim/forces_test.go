@@ -32,6 +32,19 @@ func TestSpringForcesUseEndpointIDsWhenIndexesAreStale(t *testing.T) {
 	}
 }
 
+func TestWallSpringDoesNotApplySpringOrDampingForce(t *testing.T) {
+	world := NewWorld()
+	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: 0, Y: 0}, Velocity: Vec2{X: 0}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 2, Position: Vec2{X: 20, Y: 0}, Velocity: Vec2{X: 10}, Mass: 1})
+	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, RestLength: 10, SpringConstant: 12, Damping: 0.5, Wall: true})
+
+	forces := world.EvaluateForces()
+
+	if forces.ByMassID[1].Force != (Vec2{}) || forces.ByMassID[2].Force != (Vec2{}) {
+		t.Fatalf("wall spring forces = %#v", forces.ByMassID)
+	}
+}
+
 func TestSpringEndpointResolutionCoversIDAndIndexContracts(t *testing.T) {
 	world := NewWorld()
 	_ = world.AddMass(Mass{ID: 10, Position: Vec2{X: 0, Y: 0}, Mass: 1})

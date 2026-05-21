@@ -83,6 +83,7 @@ func (g *Game) activeControl(name string) bool {
 	return g.activeRunControl(name) ||
 		g.activeForceControl(name) ||
 		g.activeParameterControl(name) ||
+		g.activeSelectedSpringControl(name) ||
 		g.activeWallControl(name) ||
 		g.activeNumericStep == name
 }
@@ -124,6 +125,18 @@ func (g *Game) activeParameterControl(name string) bool {
 	default:
 		return false
 	}
+}
+
+func (g *Game) activeSelectedSpringControl(name string) bool {
+	if name != "spring wall toggle" {
+		return false
+	}
+	for _, spring := range g.simulation.Springs {
+		if g.editing().SelectedSprings[spring.ID] && spring.Wall {
+			return true
+		}
+	}
+	return false
 }
 
 func (g *Game) activeWallControl(name string) bool {
@@ -198,7 +211,8 @@ func inspectorControls() []controlBox {
 		{Name: "fixed mass toggle", Label: "Fixed", Region: "right inspector", Rect: image.Rect(x, 120, x+third, 140)},
 		{Name: "set center command", Label: "Set Center", Region: "right inspector", Rect: image.Rect(second, 120, second+third, 140)},
 		{Name: "mass collision force", Label: "Collide", Region: "right inspector", Rect: image.Rect(thirdStart, 120, right, 140)},
-		{Name: "set rest length command", Label: "RestLen", Region: "right inspector", Rect: image.Rect(x, 229, right, 249)},
+		{Name: "set rest length command", Label: "RestLen", Region: "right inspector", Rect: image.Rect(x, 229, x+half, 249)},
+		{Name: "spring wall toggle", Label: "Wall", Region: "right inspector", Rect: image.Rect(x+half+8, 229, right, 249)},
 		{Name: "grid snap toggle", Label: "Grid", Region: "right inspector", Rect: image.Rect(x, 608, x+half, 628)},
 		{Name: "show springs toggle", Label: "Springs", Region: "right inspector", Rect: image.Rect(x+half+8, 608, right, 628)},
 	}...)

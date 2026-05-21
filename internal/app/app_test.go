@@ -1836,6 +1836,18 @@ func TestClickOpenOverlayConsumesOpenOverlayClicks(t *testing.T) {
 	}
 
 	game.massMenu.Open = false
+	game.springMenu = springContextMenu{Open: true, SpringID: 1}
+	if !game.clickOpenOverlay(0, 0) {
+		t.Fatal("spring context menu overlay click was not consumed")
+	}
+
+	game.springMenu.Open = false
+	game.saveDialog = saveFilenameDialog{Open: true}
+	if !game.clickOpenOverlay(0, 0) {
+		t.Fatal("save dialog overlay click was not consumed")
+	}
+
+	game.saveDialog.Open = false
 	if game.clickOpenOverlay(0, 0) {
 		t.Fatal("missing overlay click should not be consumed")
 	}
@@ -3029,6 +3041,139 @@ func TestSpringConstantDialogAppliesValue(t *testing.T) {
 	if spring.SpringConstant != 22 || spring.Stiffness != 22 {
 		t.Fatalf("spring = %#v, want constant and stiffness 22", spring)
 	}
+}
+
+func TestSpringContextMenuActionsAndDraw(t *testing.T) {
+	game := gameWithMasses(
+		sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1},
+		sim.Mass{ID: 2, Position: sim.Vec2{X: 110, Y: 10}, Mass: 1},
+	)
+	game.World().Springs = []sim.Spring{{ID: 3, MassA: 1, MassB: 2, SpringConstant: 12, Damping: 4, RestLength: 100}}
+
+	labels := game.SpringContextMenuLabelsForSpring(3)
+	for _, want := range []string{"Kspring", "Kdamp", "RestLen", "Wall"} {
+		if !stringSliceContains(labels, want) {
+			t.Fatalf("spring menu labels = %#v, missing %q", labels, want)
+		}
+	}
+	if game.SelectSpringContextMenuItem(3, "missing") {
+		t.Fatal("missing spring menu item should not be handled")
+	}
+
+	if !game.SelectSpringContextMenuItem(3, "Kdamp") {
+		t.Fatal("Kdamp spring menu item was not handled")
+	}
+	game.valueDialog.Text = "9"
+	game.applyValueDialog()
+	spring, _ := game.World().SpringByID(3)
+	if spring.Damping != 9 {
+		t.Fatalf("damping = %f, want 9", spring.Damping)
+	}
+
+	if !game.SelectSpringContextMenuItem(3, "RestLen") {
+		t.Fatal("RestLen spring menu item was not handled")
+	}
+	game.valueDialog.Text = "75"
+	game.applyValueDialog()
+	spring, _ = game.World().SpringByID(3)
+	if spring.RestLength != 75 {
+		t.Fatalf("rest length = %f, want 75", spring.RestLength)
+	}
+
+	if !game.SelectSpringContextMenuItem(3, "Wall") {
+		t.Fatal("Wall spring menu item was not handled")
+	}
+	spring, _ = game.World().SpringByID(3)
+	if !spring.Wall {
+		t.Fatal("wall menu item did not toggle spring wall state")
+	}
+
+	game.springMenu = springContextMenu{Open: true, SpringID: 3, X: 60, Y: 12}
+	game.Draw(ebiten.NewImage(screenWidth, screenHeight))
+	game.clickSpringContextMenu(game.springContextMenuRowRect(0).Min.X+1, game.springContextMenuRowRect(0).Min.Y+1)
+	if !game.valueDialog.Open || game.springMenu.Open {
+		t.Fatalf("spring context click dialog=%#v menu=%#v", game.valueDialog, game.springMenu)
+	}
+
+	game.springMenu = springContextMenu{Open: true, SpringID: 3, X: 60, Y: 12}
+	game.clickSpringContextMenu(screenWidth, screenHeight)
+	if game.springMenu.Open {
+		t.Fatal("outside spring context click should close menu")
+	}
+}
+
+func TestValueDialogClickAndHoldBranches(t *testing.T) {
+	game := NewGame()
+	rect := valueDialogRect()
+
+	game.valueDialog = valueDialog{Open: true, Text: "10", Min: 0, Max: 20}
+	game.clickValueDialog(game.valueDialogIncrementRect().Min.X+1, game.valueDialogIncrementRect().Min.Y+1)
+	if game.valueDialog.Text != "10.1" || game.activeValueStep != numericStepAmount {
+		t.Fatalf("increment text=%q active=%f", game.valueDialog.Text, game.activeValueStep)
+	}
+	game.valueStepTicks = numericStepHoldDelayTicks - 1
+	game.continueValueDialogStepHold()
+	if game.valueDialog.Text != "10.2" {
+		t.Fatalf("held increment text = %q", game.valueDialog.Text)
+	}
+
+	game.clickValueDialog(game.valueDialogDecrementRect().Min.X+1, game.valueDialogDecrementRect().Min.Y+1)
+	if game.valueDialog.Text != "10.1" || game.activeValueStep != -numericStepAmount {
+		t.Fatalf("decrement text=%q active=%f", game.valueDialog.Text, game.activeValueStep)
+	}
+
+	track := game.valueDialogSliderTrack()
+	game.clickValueDialog(track.Min.X+track.Dx()/2, track.Min.Y)
+	if game.valueDialog.Text != "10" {
+		t.Fatalf("slider text = %q, want 10", game.valueDialog.Text)
+	}
+
+	applied := 0.0
+	game.valueDialog = valueDialog{Open: true, Text: "4", Apply: func(value float64) { applied = value }}
+	game.clickValueDialog(game.valueDialogOKRect().Min.X+1, game.valueDialogOKRect().Min.Y+1)
+	if applied != 4 || game.valueDialog.Open {
+		t.Fatalf("ok click applied=%f dialog=%#v", applied, game.valueDialog)
+	}
+
+	game.valueDialog = valueDialog{Open: true}
+	game.clickValueDialog(rect.Max.X+1, rect.Max.Y+1)
+	if game.valueDialog.Open {
+		t.Fatal("outside click should close dialog")
+	}
+
+	game.valueDialog = valueDialog{Open: false, Text: "10"}
+	game.activeValueStep = numericStepAmount
+	game.valueStepTicks = 4
+	game.continueValueDialogStepHold()
+	if game.activeValueStep != 0 || game.valueStepTicks != 0 {
+		t.Fatalf("closed hold state active=%f ticks=%d", game.activeValueStep, game.valueStepTicks)
+	}
+}
+
+func TestSpringRenderRepresentationsCoverWallState(t *testing.T) {
+	game := gameWithMasses(
+		sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1},
+		sim.Mass{ID: 2, Position: sim.Vec2{X: 110, Y: 10}, Mass: 1},
+	)
+	game.World().Springs = []sim.Spring{{ID: 3, MassA: 1, MassB: 2}}
+	if got := game.RenderWorld().Representations["spring"]; got != "cyan line" {
+		t.Fatalf("normal spring representation = %q", got)
+	}
+
+	game.World().Springs[0].Wall = true
+	report := game.RenderWorld()
+	if report.Representations["spring"] != "cyan line" || report.Representations["wall spring"] != "heavy orange line" {
+		t.Fatalf("wall spring representations = %#v", report.Representations)
+	}
+}
+
+func stringSliceContains(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
 
 func TestRunAndPauseControlsSetSimulationState(t *testing.T) {

@@ -45,6 +45,12 @@ func (g *Game) springRepresentation(representations map[string]string) {
 	if len(g.simulation.Springs) > 0 && g.showSprings() {
 		representations["spring"] = "cyan line"
 	}
+	for _, spring := range g.simulation.Springs {
+		if spring.Wall && g.showSprings() {
+			representations["wall spring"] = "heavy orange line"
+			return
+		}
+	}
 }
 
 func (g *Game) wallRepresentation(representations map[string]string) {

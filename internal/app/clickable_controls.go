@@ -124,6 +124,7 @@ var inspectorControlActions = map[string]func(*Game){
 	"kspring parameter":       func(g *Game) { g.stepEditorControl("Kspring", 1) },
 	"kdamp parameter":         func(g *Game) { g.stepEditorControl("Kdamp", 0.1) },
 	"set rest length command": func(g *Game) { _ = g.editing().SetRestLength() },
+	"spring wall toggle":      func(g *Game) { g.toggleSelectedSpringWall() },
 	"gravity force":           func(g *Game) { g.toggleForce("gravity", map[string]string{"magnitude": "10", "direction": "0"}) },
 	"center attraction force": func(g *Game) {
 		g.toggleForce("center attraction", map[string]string{"magnitude": "10", "exponent": "0"})
@@ -205,6 +206,11 @@ func (g *Game) toggleFixedMass() {
 	value := strconv.FormatBool(!g.parameterEnabled("fixed mass"))
 	g.simulation.Parameters.Set("fixed mass", value)
 	_ = g.editing().ChangeControl("fixed", value)
+}
+
+func (g *Game) toggleSelectedSpringWall() {
+	value := strconv.FormatBool(!g.activeSelectedSpringControl("spring wall toggle"))
+	_ = g.editing().ChangeControl("Wall", value)
 }
 
 func (g *Game) toggleForce(name string, defaults map[string]string) {

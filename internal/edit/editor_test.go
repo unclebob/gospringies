@@ -720,6 +720,31 @@ func TestSelectedSpringParameterControlsUpdateSelectedSprings(t *testing.T) {
 	}
 }
 
+func TestSelectedSpringWallControlUpdatesSelectedSprings(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 10}, Mass: 1})
+	_ = world.AddSpring(sim.Spring{ID: 1, MassA: 1, MassB: 2})
+	_ = world.AddSpring(sim.Spring{ID: 2, MassA: 1, MassB: 2})
+	editor := NewEditor(world)
+	if err := editor.SelectSpring(1); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := editor.ChangeControl("Wall", "true"); err != nil {
+		t.Fatal(err)
+	}
+
+	selected, _ := world.SpringByID(1)
+	unselected, _ := world.SpringByID(2)
+	if !selected.Wall {
+		t.Fatalf("selected spring wall = %t", selected.Wall)
+	}
+	if unselected.Wall {
+		t.Fatalf("unselected spring wall = %t", unselected.Wall)
+	}
+}
+
 func TestSetRestLengthUsesCurrentSelectedSpringGeometry(t *testing.T) {
 	world := sim.NewWorld()
 	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 0, Y: 0}, Mass: 1})

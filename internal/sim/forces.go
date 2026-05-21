@@ -35,6 +35,9 @@ func (s *Simulation) EvaluateForces() ForceEvaluation {
 
 func (s *Simulation) addSpringForces(forces map[int]MassForces) {
 	for _, spring := range s.Springs {
+		if spring.Wall {
+			continue
+		}
 		a, b, ok := s.springEndpointMasses(spring)
 		if !ok {
 			continue

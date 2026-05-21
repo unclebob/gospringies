@@ -31,6 +31,7 @@ const (
 var (
 	backgroundColor = color.RGBA{R: 18, G: 20, B: 24, A: 255}
 	springColor     = color.RGBA{R: 116, G: 190, B: 222, A: 255}
+	wallSpringColor = color.RGBA{R: 235, G: 176, B: 78, A: 255}
 	massColor       = color.RGBA{R: 238, G: 212, B: 96, A: 255}
 	fixedMassColor  = color.RGBA{R: 238, G: 116, B: 96, A: 255}
 	wallColor       = color.RGBA{R: 180, G: 186, B: 196, A: 255}
@@ -313,6 +314,13 @@ func (g *Game) continuePointerPress(position sim.Vec2, x int) {
 		g.pendingSpringEnd = g.clampToCanvas(position)
 	case g.selectionDrag:
 		g.selectionEnd = position
+	default:
+		g.continueControlPress(x)
+	}
+}
+
+func (g *Game) continueControlPress(x int) {
+	switch {
 	case g.activeNumericStep != "":
 		g.continueNumericStepHold()
 	case g.activeValueStep != 0:
@@ -754,7 +762,7 @@ func (g *Game) drawSprings(screen *ebiten.Image) {
 		if !ok {
 			continue
 		}
-		drawSpringLine(screen, g.worldToScreen(a.Position), g.worldToScreen(b.Position), springColor)
+		drawSpringLine(screen, g.worldToScreen(a.Position), g.worldToScreen(b.Position), springDrawColor(spring))
 	}
 }
 
@@ -768,6 +776,13 @@ func (g *Game) drawPendingSpring(screen *ebiten.Image) {
 
 func drawSpringLine(screen *ebiten.Image, a sim.Vec2, b sim.Vec2, color color.RGBA) {
 	vector.StrokeLine(screen, float32(a.X), float32(a.Y), float32(b.X), float32(b.Y), springThickness, color, springLineAntiAlias())
+}
+
+func springDrawColor(spring sim.Spring) color.RGBA {
+	if spring.Wall {
+		return wallSpringColor
+	}
+	return springColor
 }
 
 func springLineAntiAlias() bool {

@@ -18,6 +18,7 @@ type Spring struct {
 	B          int     `json:"b"`
 	RestLength float64 `json:"rest_length"`
 	Stiffness  float64 `json:"stiffness"`
+	Wall       bool    `json:"wall"`
 }
 
 func FromSimulation(s *sim.Simulation) Document {
@@ -34,6 +35,7 @@ func FromSimulation(s *sim.Simulation) Document {
 			B:          spring.B,
 			RestLength: spring.RestLength,
 			Stiffness:  spring.Stiffness,
+			Wall:       spring.Wall,
 		}
 	}
 	return document

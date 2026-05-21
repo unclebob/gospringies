@@ -64,6 +64,8 @@ type world struct {
 	handoffVerification  map[string]string
 	workDir              string
 	previousWorkDir      string
+	wallSpringSides      map[int]float64
+	wallSpringImpulses   map[int]sim.Vec2
 }
 
 type stepHandler func(*world, map[string]string) error
