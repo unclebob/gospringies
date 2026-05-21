@@ -16,8 +16,20 @@ func (g *Game) pollNumericTextFieldKeyboard() {
 }
 
 func (g *Game) handleNumericTextFieldControlKeys() {
-	runIfPressed(func() bool { return inpututil.IsKeyJustPressed(ebiten.KeyBackspace) }, g.deleteNumericSettingCharacter)
-	runIfPressed(numericTextFieldBlurPressed, func() { g.focusedNumeric = "" })
+	g.handleNumericTextFieldBackspace()
+	g.handleNumericTextFieldBlur()
+}
+
+func (g *Game) handleNumericTextFieldBackspace() {
+	if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
+		g.deleteNumericSettingCharacter()
+	}
+}
+
+func (g *Game) handleNumericTextFieldBlur() {
+	if numericTextFieldBlurPressed() {
+		g.focusedNumeric = ""
+	}
 }
 
 func numericTextFieldBlurPressed() bool {

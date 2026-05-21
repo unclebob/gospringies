@@ -37,7 +37,25 @@ func (g *Game) pollSaveFilenameDialogKeyboard() {
 }
 
 func (g *Game) handleSaveFilenameDialogControlKeys() {
-	runIfPressed(func() bool { return inpututil.IsKeyJustPressed(ebiten.KeyBackspace) }, g.deleteSaveFilenameCharacter)
-	runIfPressed(valueDialogSubmitPressed, func() { _ = g.SubmitSaveFilenameDialog() })
-	runIfPressed(func() bool { return inpututil.IsKeyJustPressed(ebiten.KeyEscape) }, func() { g.saveDialog.Open = false })
+	g.handleSaveFilenameDialogBackspace()
+	g.handleSaveFilenameDialogSubmit()
+	g.handleSaveFilenameDialogCancel()
+}
+
+func (g *Game) handleSaveFilenameDialogBackspace() {
+	if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
+		g.deleteSaveFilenameCharacter()
+	}
+}
+
+func (g *Game) handleSaveFilenameDialogSubmit() {
+	if valueDialogSubmitPressed() {
+		_ = g.SubmitSaveFilenameDialog()
+	}
+}
+
+func (g *Game) handleSaveFilenameDialogCancel() {
+	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+		g.saveDialog.Open = false
+	}
 }
