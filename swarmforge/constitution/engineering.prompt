@@ -8,6 +8,7 @@
 - For Go commands, use a per-worktree `GOCACHE` such as `.gocache` inside that worktree to avoid writing outside the workspace and triggering escalations.
 - Run acceptance generation and acceptance tests sequentially.
 - Avoid running `go test ./...` concurrently with acceptance generation.
+- For headless verification that touches app or acceptance packages, run `./scripts/headless-check.sh` instead of plain `go test ./...`; the plain full-suite command can hang in the default Ebitengine/macOS GUI path.
 - Run the relevant local verification command before handoff whenever the project has one.
 - Do not commit unrelated local changes or generated artifacts unless required for the task.
 - Before relying on an unfamiliar command, inspect local help or project documentation.
