@@ -39,6 +39,23 @@ When a mass collides with a wall spring:
 
 The wall itself does not have independent state or position beyond its two endpoint masses.
 
+## Temperature
+
+Add a numeric spring attribute named `Temperature`.
+
+Behavior:
+
+- `Temperature` ranges from `0` to `10`.
+- New springs default to `Temperature = 0`.
+- Existing files without the attribute load with `Temperature = 0`.
+- `Temperature` only affects wall springs.
+- A non-wall spring may store a `Temperature` value, but it must not apply any temperature force while `Wall` is false.
+- When a mass collides with a wall spring, the wall spring applies a random kick vector to the colliding mass based on `Temperature`.
+- `Temperature = 0` applies no temperature kick.
+- `Temperature = 10` applies a kick strong enough for a mass of `1` to travel the full screen height against gravity `10`.
+- Intermediate temperatures scale the kick strength between those endpoints.
+- Random temperature kick direction should come from the simulation's random source so tests can make it deterministic with a seed.
+
 ## Fixed Length Behavior
 
 Wall spring endpoints are constrained to remain at the wall's fixed length.
@@ -83,11 +100,20 @@ Kspring
 Kdamp
 RestLen
 Wall
+Temperature
 ```
 
 `Wall` is a toggle item, not a slider dialog.
 
 Selecting it toggles the `Wall` attribute for that spring.
+
+`Temperature` opens a value dialog with a slider like the other spring numeric items.
+
+The `Temperature` dialog range is:
+
+```text
+0 to 10
+```
 
 ## Rendering
 

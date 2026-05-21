@@ -57,6 +57,30 @@ Examples:
   | 1         | 1          | 2          | false   | false   | 3       | 0.50             | 0.50            | 0.50            |
   | 1         | 1          | 2          | true    | false   | 3       | 0.25             | absorbed        | 0.25            |
 
+Scenario Outline: wall spring temperature kicks colliding masses
+  Given wall spring <spring_id> has Temperature <temperature>
+  And temperature random seed is <seed>
+  And moving mass <mass_id> collides with wall spring <spring_id> at contact fraction <contact_fraction>
+  When the coder resolves the wall spring collision
+  Then mass <mass_id> should receive temperature kick <kick_behavior>
+
+Examples:
+  | spring_id | temperature | seed | mass_id | contact_fraction | kick_behavior                              |
+  | 1         | 0           | 11   | 3       | 0.50             | none                                       |
+  | 1         | 10          | 11   | 3       | 0.50             | full screen height against gravity 10     |
+
+Scenario Outline: non-wall spring temperature does not affect collisions
+  Given spring <spring_id> has Wall value false
+  And spring <spring_id> has Temperature <temperature>
+  And temperature random seed is <seed>
+  And moving mass <mass_id> collides with spring <spring_id>
+  When the coder resolves spring collision
+  Then mass <mass_id> should receive temperature kick <kick_behavior>
+
+Examples:
+  | spring_id | temperature | seed | mass_id | kick_behavior |
+  | 1         | 10          | 11   | 3       | none          |
+
 Scenario Outline: wall attribute persists through XSP files
   Given XSP input contains spring <spring_id> with Wall value <input_wall>
   When the coder loads and saves the XSP input
@@ -67,6 +91,17 @@ Examples:
   | spring_id | input_wall | loaded_wall | saved_wall |
   | 1         | true       | true        | true       |
   | 1         | absent     | false       | false      |
+
+Scenario Outline: temperature attribute persists through XSP files
+  Given XSP input contains spring <spring_id> with Temperature value <input_temperature>
+  When the coder loads and saves the XSP input
+  Then loaded spring <spring_id> should have Temperature value <loaded_temperature>
+  And saved spring <spring_id> should include Temperature value <saved_temperature>
+
+Examples:
+  | spring_id | input_temperature | loaded_temperature | saved_temperature |
+  | 1         | 7.5               | 7.5                | 7.5               |
+  | 1         | absent            | 0                  | 0                 |
 
 Scenario Outline: visible spring controls edit wall state
   Given selected spring <spring_id> has Wall value <old_wall>
@@ -99,7 +134,19 @@ Examples:
   | 1         | false    | Kdamp     | true     |
   | 1         | false    | RestLen   | true     |
   | 1         | false    | Wall      | true     |
+  | 1         | false    | Temperature | true   |
   | 1         | true     | Wall      | false    |
+
+Scenario Outline: spring right-click menu edits temperature with a slider dialog
+  Given spring <spring_id> has Temperature value <old_temperature>
+  When the coder selects spring menu item Temperature for spring <spring_id>
+  Then spring Temperature dialog should open with range <minimum> to <maximum>
+  When the coder changes the spring Temperature dialog value to <new_temperature>
+  Then spring <spring_id> should have Temperature value <new_temperature>
+
+Examples:
+  | spring_id | old_temperature | minimum | maximum | new_temperature |
+  | 1         | 0               | 0       | 10      | 7.5             |
 
 Scenario Outline: wall springs render differently from normal springs
   Given spring <spring_id> has Wall value <wall>
