@@ -5,6 +5,7 @@
 - Prefer the simplest design that supports the current behavior and leaves clear options for the next step.
 - Keep tests close to the behavior being changed.
 - Use github.com/unclebob/Acceptance-Pipeline-Specification for Gherkin acceptance tests.
+- For Go commands, set `GOCACHE` to a repository-local cache directory such as `.gocache` to avoid writing outside the workspace and triggering escalations.
 - Run the relevant local verification command before handoff whenever the project has one.
 - Do not commit unrelated local changes or generated artifacts unless required for the task.
 - Before relying on an unfamiliar command, inspect local help or project documentation.
