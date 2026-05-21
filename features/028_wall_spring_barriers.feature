@@ -41,6 +41,17 @@ Examples:
   | spring_id | wall_x1 | wall_y1 | wall_x2 | wall_y2 | mass_id | mass_x | mass_y | mass_vx | mass_vy |
   | 1         | 0       | 0       | 0       | 100     | 3       | -5     | 50     | 10      | 0       |
 
+Scenario Outline: wall springs collide with masses whose timestep path crosses their segment
+  Given wall spring <spring_id> spans from <wall_x1>, <wall_y1> to <wall_x2>, <wall_y2>
+  And fast moving mass <mass_id> starts at <mass_x>, <mass_y> with velocity <mass_vx>, <mass_vy>
+  When the coder advances through wall spring collision by <duration>
+  Then mass <mass_id> should remain on the starting side of wall spring <spring_id>
+  And mass <mass_id> velocity should be resolved away from wall spring <spring_id>
+
+Examples:
+  | spring_id | wall_x1 | wall_y1 | wall_x2 | wall_y2 | mass_id | mass_x | mass_y | mass_vx | mass_vy | duration |
+  | 1         | 0       | 0       | 0       | 100     | 3       | -50    | 50     | 1000    | 0       | 1 step   |
+
 Scenario Outline: moving wall springs stop stationary masses from crossing their segment
   Given moving wall spring <spring_id> spans from <wall_x1>, <wall_y1> to <wall_x2>, <wall_y2> with velocity <wall_vx>, <wall_vy>
   And stationary mass <mass_id> starts at <mass_x>, <mass_y>

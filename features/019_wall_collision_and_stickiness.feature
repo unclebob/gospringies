@@ -1,4 +1,3 @@
-# mutation-stamp: sha256=3919fab4daec63af93d44506d9a0389e35898a678ebe56bc86114d262b5a17d0
 Feature: Wall collision and stickiness
 
 Background:
@@ -27,6 +26,18 @@ Examples:
   | wall  | mass_id |
   | left  | 1       |
   | right | 2       |
+
+Scenario Outline: enabled walls collide with masses whose timestep path crosses the boundary
+  Given wall <wall> is enabled
+  And mass <mass_id> starts at <start_x>, <start_y> with velocity <velocity_x>, <velocity_y>
+  When the coder advances through the wall boundary by <duration>
+  Then mass <mass_id> should remain on the starting side of wall <wall>
+  And mass <mass_id> wall-normal velocity should be resolved toward the starting side of wall <wall>
+
+Examples:
+  | wall  | mass_id | start_x | start_y | velocity_x | velocity_y | duration |
+  | right | 1       | 790     | 400     | 300        | 0          | 1 step   |
+  | top   | 2       | 400     | 590     | 0          | 300        | 1 step   |
 
 Scenario Outline: stickiness can hold and release a mass
   Given stickiness is <stickiness>
