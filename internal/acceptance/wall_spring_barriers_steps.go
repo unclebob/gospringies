@@ -3,6 +3,7 @@ package acceptance
 import (
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 
 	"springs/internal/app"
@@ -684,7 +685,7 @@ func assertSpringMenuIncludesItem(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	if containsAcceptanceString(labels, item) {
+	if slices.Contains(labels, item) {
 		return nil
 	}
 	return fmt.Errorf("spring menu did not include %q", item)
@@ -848,15 +849,6 @@ func springContextMenuLabels(w *world, springID int) ([]string, error) {
 		return nil, fmt.Errorf("application game is not concrete")
 	}
 	return game.SpringContextMenuLabelsForSpring(springID), nil
-}
-
-func containsAcceptanceString(values []string, want string) bool {
-	for _, value := range values {
-		if value == want {
-			return true
-		}
-	}
-	return false
 }
 
 func rememberWallSpringStartingSide(w *world, example map[string]string, massID int) error {
