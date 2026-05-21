@@ -12,10 +12,14 @@ func (g *Game) pollNumericTextFieldKeyboard() {
 		return
 	}
 	g.appendNumericSettingInput(ebiten.AppendInputChars(nil))
-	if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
-		g.deleteNumericSettingCharacter()
-	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) || valueDialogSubmitPressed() {
-		g.focusedNumeric = ""
-	}
+	g.handleNumericTextFieldControlKeys()
+}
+
+func (g *Game) handleNumericTextFieldControlKeys() {
+	runIfPressed(func() bool { return inpututil.IsKeyJustPressed(ebiten.KeyBackspace) }, g.deleteNumericSettingCharacter)
+	runIfPressed(numericTextFieldBlurPressed, func() { g.focusedNumeric = "" })
+}
+
+func numericTextFieldBlurPressed() bool {
+	return inpututil.IsKeyJustPressed(ebiten.KeyEscape) || valueDialogSubmitPressed()
 }

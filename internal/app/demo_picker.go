@@ -27,14 +27,15 @@ func (g *Game) LoadPickerEntries() []string {
 
 func (g *Game) ChooseLoadPickerEntry(name string) bool {
 	for i, path := range g.demoList() {
-		if path == loadPickerSeparator {
-			continue
-		}
-		if path == name || filepath.Base(path) == name {
+		if loadPickerEntryMatches(path, name) {
 			return g.loadDemoAt(i)
 		}
 	}
 	return false
+}
+
+func loadPickerEntryMatches(path string, name string) bool {
+	return path != loadPickerSeparator && (path == name || filepath.Base(path) == name)
 }
 
 func demoPickerVisibleRows() int {
@@ -64,25 +65,38 @@ func (g *Game) clickDemoPicker(x int, y int) {
 }
 
 func (g *Game) loadDemoAt(index int) bool {
+	path, ok := g.demoPathAt(index)
+	if !ok {
+		return false
+	}
+	err := g.loadDemoPath(path)
+	g.recordDemoLoadResult(err)
+	g.demoPickerOpen = false
+	return err == nil
+}
+
+func (g *Game) demoPathAt(index int) (string, bool) {
 	files := g.demoList()
-	if index < 0 || index >= len(files) {
-		return false
+	if index < 0 || index >= len(files) || files[index] == loadPickerSeparator {
+		return "", false
 	}
-	path := files[index]
-	if path == loadPickerSeparator {
-		return false
-	}
+	return files[index], true
+}
+
+func (g *Game) loadDemoPath(path string) error {
 	content, err := os.ReadFile(path)
 	if err == nil {
 		err = g.LoadXSPFromFile(path, string(content))
 	}
+	return err
+}
+
+func (g *Game) recordDemoLoadResult(err error) {
 	if err != nil {
 		g.lastFileError = err.Error()
 	} else {
 		g.lastFileError = ""
 	}
-	g.demoPickerOpen = false
-	return err == nil
 }
 
 func (g *Game) buildDemoList() []string {

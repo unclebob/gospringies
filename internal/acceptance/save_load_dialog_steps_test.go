@@ -1,5 +1,3 @@
-//go:build appunit
-
 package acceptance
 
 import (

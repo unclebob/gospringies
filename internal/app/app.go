@@ -607,6 +607,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if g.selected {
 		g.drawSelection(screen)
 	}
+	g.drawOpenOverlays(screen)
+	ebitenutil.DebugPrint(screen, fmt.Sprintf("TPS %.0f", ebiten.ActualTPS()))
+}
+
+func (g *Game) drawOpenOverlays(screen *ebiten.Image) {
 	if g.demoPickerOpen {
 		g.drawDemoPicker(screen)
 	}
@@ -619,7 +624,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if g.saveDialog.Open {
 		g.drawSaveFilenameDialog(screen)
 	}
-	ebitenutil.DebugPrint(screen, fmt.Sprintf("TPS %.0f", ebiten.ActualTPS()))
 }
 
 func (g *Game) drawEditorChrome(screen *ebiten.Image) {

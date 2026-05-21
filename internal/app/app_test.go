@@ -1153,6 +1153,37 @@ func TestSaveFilenameDialogWritesNamedFileUnderSaves(t *testing.T) {
 	}
 }
 
+func TestSaveFilenameDialogDeleteAndClickPaths(t *testing.T) {
+	withWorkingDirectory(t, t.TempDir())
+	game := gameWithMasses(sim.Mass{ID: 7, Position: sim.Vec2{X: 10, Y: 20}, Mass: 1})
+
+	game.saveDialog = saveFilenameDialog{Open: true, Text: ".xsp", Cursor: 0}
+	game.deleteSaveFilenameCharacter()
+	if game.SaveFilenameText() != ".xsp" || game.SaveFilenameCursor() != 0 {
+		t.Fatalf("delete at start changed dialog text=%q cursor=%d", game.SaveFilenameText(), game.SaveFilenameCursor())
+	}
+
+	game.saveDialog = saveFilenameDialog{Open: true, Text: "abc.xsp", Cursor: 3}
+	game.deleteSaveFilenameCharacter()
+	if game.SaveFilenameText() != "ab.xsp" || game.SaveFilenameCursor() != 2 {
+		t.Fatalf("delete middle text=%q cursor=%d", game.SaveFilenameText(), game.SaveFilenameCursor())
+	}
+
+	game.openSaveFilenameDialog()
+	game.clickSaveFilenameDialog(saveFilenameDialogRect().Max.X+1, saveFilenameDialogRect().Max.Y+1)
+	if game.SaveFilenameDialogOpen() {
+		t.Fatal("outside click should close save dialog")
+	}
+
+	game.openSaveFilenameDialog()
+	game.EnterSaveFilenamePrefix("clicked")
+	ok := game.saveFilenameDialogOKRect()
+	game.clickSaveFilenameDialog(ok.Min.X+1, ok.Min.Y+1)
+	if game.SaveFilenameDialogOpen() || game.CurrentFilePath() != filepath.Join("saves", "clicked.xsp") {
+		t.Fatalf("ok click left dialog open=%t path=%q", game.SaveFilenameDialogOpen(), game.CurrentFilePath())
+	}
+}
+
 func TestLoadControlOpensDemoPicker(t *testing.T) {
 	game := NewGame()
 	game.demoPickerScroll = 3
@@ -1200,13 +1231,74 @@ func TestLoadPickerLoadsSavedFileAndTracksCurrentPath(t *testing.T) {
 
 	game := NewGame()
 	game.demoPickerOpen = true
-	game.loadDemoAt(0)
+	if !game.ChooseLoadPickerEntry("lab_scene.xsp") {
+		t.Fatalf("saved file did not load: %s", game.LastFileError())
+	}
 
 	if _, ok := game.World().MassByID(9); !ok {
 		t.Fatalf("saved world was not loaded: %#v", game.World().Masses)
 	}
 	if game.CurrentFilePath() != filepath.Join("saves", "lab_scene.xsp") {
 		t.Fatalf("current file path = %q", game.CurrentFilePath())
+	}
+	if game.ChooseLoadPickerEntry(loadPickerSeparator) {
+		t.Fatal("separator should not load")
+	}
+	if game.ChooseLoadPickerEntry("missing.xsp") {
+		t.Fatal("missing picker entry should not load")
+	}
+}
+
+func TestNumericSettingTextAndSliderDefaultBuild(t *testing.T) {
+	game := NewGame()
+
+	game.appendNumericSettingInput([]rune("7"))
+	if game.EnterNumericSettingText("7") {
+		t.Fatal("unfocused numeric entry should not be handled")
+	}
+	if !game.FocusNumericSettingTextField("Mass") {
+		t.Fatal("mass text field focus should be handled")
+	}
+	if game.FocusNumericSettingTextField("Missing") {
+		t.Fatal("missing text field focus should not be handled")
+	}
+
+	game.appendNumericSettingInput([]rune("x2.5"))
+	if got := game.numericInputText; got != "2.5" {
+		t.Fatalf("numeric input text = %q, want 2.5", got)
+	}
+	if got := game.World().Parameters.Value("current mass"); got != "2.5" {
+		t.Fatalf("current mass = %q, want 2.5", got)
+	}
+	game.deleteNumericSettingCharacter()
+	if got := game.numericInputText; got != "2." {
+		t.Fatalf("numeric input after delete = %q, want 2.", got)
+	}
+	game.focusedNumeric = "Missing"
+	game.appendNumericSettingInput([]rune("9"))
+	game.deleteNumericSettingCharacter()
+
+	if !game.SetNumericSettingValue("Speed", "99") || game.simulationSpeed != maxSpeed {
+		t.Fatalf("speed = %f, want %f", game.simulationSpeed, maxSpeed)
+	}
+	if game.SetNumericSettingValue("Speed", "not numeric") {
+		t.Fatal("invalid numeric value should not be handled")
+	}
+	if !game.SetNumericSettingValue("Gravity", "12.5") {
+		t.Fatal("gravity numeric setting should be handled")
+	}
+	force, _ := game.World().Parameters.Force("gravity")
+	if force.Enabled != "true" || force.Values["magnitude"] != "12.5" {
+		t.Fatalf("gravity force = %#v", force)
+	}
+	if game.ChangeNumericSettingWithSlider("Missing", "1") {
+		t.Fatal("missing slider setting should not be handled")
+	}
+	if game.ChangeNumericSettingWithSlider("Mass", "not numeric") {
+		t.Fatal("invalid slider value should not be handled")
+	}
+	if !game.ChangeNumericSettingWithSlider("Mass", "5") {
+		t.Fatal("mass slider change should be handled")
 	}
 }
 
