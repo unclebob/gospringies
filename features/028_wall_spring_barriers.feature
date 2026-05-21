@@ -32,15 +32,16 @@ Scenario Outline: wall spring collision response is shared by endpoint masses
   Given wall spring <spring_id> spans from mass <endpoint_a> to mass <endpoint_b>
   And wall spring endpoint <endpoint_a> fixed state is <fixed_a>
   And wall spring endpoint <endpoint_b> fixed state is <fixed_b>
-  And moving mass <mass_id> collides with wall spring <spring_id>
+  And moving mass <mass_id> collides with wall spring <spring_id> at contact fraction <contact_fraction>
   When the coder resolves the wall spring collision
   Then wall spring endpoint <endpoint_a> should receive impulse share <impulse_share_a>
   And wall spring endpoint <endpoint_b> should receive impulse share <impulse_share_b>
 
 Examples:
-  | spring_id | endpoint_a | endpoint_b | fixed_a | fixed_b | mass_id | impulse_share_a | impulse_share_b |
-  | 1         | 1          | 2          | false   | false   | 3       | half            | half            |
-  | 1         | 1          | 2          | true    | false   | 3       | none            | half            |
+  | spring_id | endpoint_a | endpoint_b | fixed_a | fixed_b | mass_id | contact_fraction | impulse_share_a | impulse_share_b |
+  | 1         | 1          | 2          | false   | false   | 3       | 0.25             | 0.75            | 0.25            |
+  | 1         | 1          | 2          | false   | false   | 3       | 0.50             | 0.50            | 0.50            |
+  | 1         | 1          | 2          | true    | false   | 3       | 0.25             | absorbed        | 0.25            |
 
 Scenario Outline: wall attribute persists through XSP files
   Given XSP input contains spring <spring_id> with Wall value <input_wall>
