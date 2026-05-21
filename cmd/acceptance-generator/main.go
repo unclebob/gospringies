@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"springs/internal/acceptance"
+	"springs/internal/acceptancegen"
 )
 
 func main() {
@@ -16,7 +16,7 @@ func run(args []string) int {
 		fmt.Fprintln(os.Stderr, "usage: acceptance-generator <json-ir> <generated-test-output>")
 		return 2
 	}
-	if err := acceptance.GenerateGoTest(args[1], args[2]); err != nil {
+	if err := acceptancegen.GenerateGoTest(args[1], args[2]); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
