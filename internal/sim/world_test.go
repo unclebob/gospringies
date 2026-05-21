@@ -134,6 +134,31 @@ func TestStepReindexesSpringsAfterOffCanvasCleanup(t *testing.T) {
 	}
 }
 
+func TestAssignSpringEndpointIDsBackfillsOnlyMissingValidEndpoints(t *testing.T) {
+	world := NewWorld()
+	world.Masses = []Mass{
+		{ID: 10, Mass: 1},
+		{ID: 20, Mass: 1},
+	}
+	world.Springs = []Spring{
+		{ID: 1, A: 0, B: 1},
+		{ID: 2, A: 3, B: -1},
+		{ID: 3, A: 0, B: 1, MassA: 30, MassB: 40},
+	}
+
+	world.assignSpringEndpointIDs()
+
+	if world.Springs[0].MassA != 10 || world.Springs[0].MassB != 20 {
+		t.Fatalf("valid legacy endpoint indexes were not backfilled: %#v", world.Springs[0])
+	}
+	if world.Springs[1].MassA != 0 || world.Springs[1].MassB != 0 {
+		t.Fatalf("invalid legacy endpoint indexes were backfilled: %#v", world.Springs[1])
+	}
+	if world.Springs[2].MassA != 30 || world.Springs[2].MassB != 40 {
+		t.Fatalf("existing endpoint IDs were overwritten: %#v", world.Springs[2])
+	}
+}
+
 func TestDuplicateIDsAreInvalid(t *testing.T) {
 	world := NewWorld()
 	if err := world.AddMass(Mass{ID: 1, Mass: 1}); err != nil {
