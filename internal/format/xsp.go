@@ -407,7 +407,7 @@ func massValueFields(fields []string) (float64, float64, error) {
 }
 
 func loadSpringLine(world *sim.Simulation, fields []string) error {
-	if len(fields) != 7 {
+	if len(fields) != 7 && len(fields) != 8 {
 		return fmt.Errorf("spng expects id mass_a mass_b spring_constant damping rest_length")
 	}
 	spring, err := springFromFields(fields)
@@ -422,6 +422,10 @@ func springFromFields(fields []string) (sim.Spring, error) {
 	if err != nil {
 		return sim.Spring{}, err
 	}
+	wall, err := springWallField(fields)
+	if err != nil {
+		return sim.Spring{}, err
+	}
 	return sim.Spring{
 		ID:             ids[0],
 		MassA:          ids[1],
@@ -430,7 +434,16 @@ func springFromFields(fields []string) (sim.Spring, error) {
 		SpringConstant: floats[0],
 		Stiffness:      floats[0],
 		Damping:        floats[1],
+		Wall:           wall,
 	}, nil
+}
+
+func springWallField(fields []string) (bool, error) {
+	if len(fields) == 7 {
+		return false, nil
+	}
+	value, err := booleanField(fields[7], "spring wall")
+	return value == "true", err
 }
 
 func springFieldGroups(fields []string) ([3]int, [3]float64, error) {
@@ -483,13 +496,14 @@ func writeMassLines(builder *strings.Builder, world *sim.Simulation) {
 
 func writeSpringLines(builder *strings.Builder, world *sim.Simulation) {
 	for _, spring := range world.Springs {
-		builder.WriteString(fmt.Sprintf("spng %d %d %d %s %s %s\n",
+		builder.WriteString(fmt.Sprintf("spng %d %d %d %s %s %s %t\n",
 			spring.ID,
 			spring.MassA,
 			spring.MassB,
 			formatFloat(spring.SpringConstant),
 			formatFloat(spring.Damping),
 			formatFloat(spring.RestLength),
+			spring.Wall,
 		))
 	}
 }

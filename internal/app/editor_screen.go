@@ -73,6 +73,10 @@ func (g *Game) SetSelected(selected bool) {
 	g.selected = selected
 }
 
+func (g *Game) SelectSpring(id int) error {
+	return g.editing().SelectSpring(id)
+}
+
 func (g *Game) SetDirty(dirty bool) {
 	g.dirty = dirty
 }

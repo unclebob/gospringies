@@ -58,7 +58,42 @@ func (g *Game) springContextMenuItems() []springMenuItem {
 	}, {
 		Label:  "RestLen",
 		Action: func() { g.openSpringValueDialog(id, springValueRestLen) },
+	}, {
+		Label:  "Wall",
+		Action: func() { g.toggleSpringWall(id) },
 	}}
+}
+
+func (g *Game) toggleSpringWall(id int) {
+	for i := range g.simulation.Springs {
+		if g.simulation.Springs[i].ID == id {
+			g.simulation.Springs[i].Wall = !g.simulation.Springs[i].Wall
+			g.dirty = true
+			return
+		}
+	}
+}
+
+func (g *Game) SpringContextMenuLabelsForSpring(id int) []string {
+	g.springMenu = springContextMenu{Open: true, SpringID: id}
+	items := g.springContextMenuItems()
+	labels := make([]string, 0, len(items))
+	for _, item := range items {
+		labels = append(labels, item.Label)
+	}
+	return labels
+}
+
+func (g *Game) SelectSpringContextMenuItem(id int, label string) bool {
+	g.springMenu = springContextMenu{Open: true, SpringID: id}
+	for _, item := range g.springContextMenuItems() {
+		if item.Label == label {
+			item.Action()
+			g.springMenu.Open = false
+			return true
+		}
+	}
+	return false
 }
 
 func (g *Game) springContextMenuRect() image.Rectangle {

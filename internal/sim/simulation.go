@@ -62,6 +62,7 @@ type Spring struct {
 	Stiffness      float64
 	SpringConstant float64
 	Damping        float64
+	Wall           bool
 }
 
 type Simulation struct {
@@ -302,6 +303,7 @@ func (s *Simulation) stepRK4(dt float64) {
 		s.Masses[i].Velocity = start[i].Velocity.Add(weightedDerivative(k1[i].Acceleration, k2[i].Acceleration, k3[i].Acceleration, k4[i].Acceleration, dt))
 		s.applyWallCollision(&s.Masses[i])
 	}
+	s.applyWallSpringCollisions(dt)
 	s.applyMassCollisions()
 }
 
