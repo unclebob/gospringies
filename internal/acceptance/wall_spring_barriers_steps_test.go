@@ -132,6 +132,32 @@ func TestWallSpringBarrierMovingWallCollisionSteps(t *testing.T) {
 	mustWallSpringStep(t, w, example, assertMovingWallSpringVelocityResolvedAwayFromMass)
 }
 
+func TestWallSpringBarrierLengthConstraintEndpointCollisionSteps(t *testing.T) {
+	example := map[string]string{
+		"barrier_spring": "1",
+		"barrier_x1":     "0",
+		"barrier_y1":     "0",
+		"barrier_x2":     "0",
+		"barrier_y2":     "100",
+		"moving_spring":  "2",
+		"endpoint_a":     "3",
+		"endpoint_a_x":   "-5",
+		"endpoint_a_y":   "40",
+		"endpoint_b":     "4",
+		"endpoint_b_x":   "-80",
+		"endpoint_b_y":   "40",
+		"rest_len":       "150",
+	}
+	w := &world{}
+	mustWallSpringStep(t, w, example, createBarrierWallSpringByCoordinates)
+	mustWallSpringStep(t, w, example, createConstrainedWallSpringEndpointA)
+	mustWallSpringStep(t, w, example, createConstrainedWallSpringEndpointB)
+	mustWallSpringStep(t, w, example, createConstrainedWallSpring)
+	mustWallSpringStep(t, w, example, advanceWallSpringLengthConstraintsAndCollisions)
+	mustWallSpringStep(t, w, example, assertWallSpringEndpointAOnStartingBarrierSide)
+	mustWallSpringStep(t, w, example, assertWallSpringEndpointBOnStartingBarrierSide)
+}
+
 func TestWallSpringBarrierEndpointImpulseSteps(t *testing.T) {
 	for _, example := range []map[string]string{
 		{
