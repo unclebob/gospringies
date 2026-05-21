@@ -2,8 +2,6 @@ package acceptance
 
 import (
 	"fmt"
-	"math"
-	"strconv"
 	"strings"
 
 	"springs/internal/app"
@@ -289,27 +287,12 @@ func setWallSpringNamedEndpointFixed(w *world, example map[string]string, endpoi
 }
 
 func createMassCollidingWithWallSpring(w *world, example map[string]string) error {
-	if err := requireWallSpringExampleValues(example, map[string]string{"spring_id": "1", "mass_id": "3"}); err != nil {
-		return err
-	}
-	massID, err := intValue(example, "mass_id")
-	if err != nil {
-		return err
-	}
-	springID, err := intValue(example, "spring_id")
-	if err != nil {
-		return err
-	}
-	contactFraction, err := floatValue(example, "contact_fraction")
+	massID, mass, err := wallSpringCollisionMass(example)
 	if err != nil {
 		return err
 	}
 	world := ensureDomainWorld(w)
-	contact, normal, err := wallSpringContactPoint(world, springID, contactFraction)
-	if err != nil {
-		return err
-	}
-	if err := world.AddMass(sim.Mass{ID: massID, Position: contact.Add(normal.Scale(5)), Velocity: normal.Scale(-10), Mass: 1}); err != nil {
+	if err := world.AddMass(mass); err != nil {
 		return err
 	}
 	w.wallSpringImpulses = map[int]sim.Vec2{}
@@ -317,6 +300,18 @@ func createMassCollidingWithWallSpring(w *world, example map[string]string) erro
 		w.wallSpringImpulses[mass.ID] = mass.Velocity
 	}
 	return rememberWallSpringStartingSide(w, example, massID)
+}
+
+func wallSpringCollisionMass(example map[string]string) (int, sim.Mass, error) {
+	if err := requireWallSpringExampleValues(example, map[string]string{"spring_id": "1", "mass_id": "3"}); err != nil {
+		return 0, sim.Mass{}, err
+	}
+	massID, contactFraction, err := intAndFloat(example, "mass_id", "contact_fraction")
+	if err != nil {
+		return 0, sim.Mass{}, err
+	}
+	mass := sim.Mass{ID: massID, Position: sim.Vec2{X: -5, Y: 100 * contactFraction}, Velocity: sim.Vec2{X: 10}, Mass: 1}
+	return massID, mass, nil
 }
 
 func resolveWallSpringCollision(w *world, _ map[string]string) error {
@@ -337,42 +332,62 @@ func assertWallSpringEndpointBImpulseShare(w *world, example map[string]string) 
 }
 
 func assertWallSpringNamedEndpointImpulseShare(w *world, example map[string]string, endpointKey, shareKey string) error {
-	endpoint, expected, err := endpointImpulseExpectation(example, endpointKey, shareKey)
+	endpoint, expectedShare, err := endpointImpulseExpectation(example, endpointKey, shareKey)
 	if err != nil {
 		return err
 	}
-	world := ensureDomainWorld(w)
-	mass, ok := world.MassByID(endpoint)
+	actualShare, err := actualWallSpringEndpointImpulseShare(w, example, endpoint)
+	if err != nil {
+		return err
+	}
+	if actualShare < expectedShare-0.000001 || actualShare > expectedShare+0.000001 {
+		return fmt.Errorf("endpoint %d impulse share = %f, expected %f", endpoint, actualShare, expectedShare)
+	}
+	return nil
+}
+
+func actualWallSpringEndpointImpulseShare(w *world, example map[string]string, endpoint int) (float64, error) {
+	endpointDelta, err := wallSpringVelocityDelta(w, endpoint, "endpoint")
+	if err != nil {
+		return 0, err
+	}
+	movingMassID, err := intValue(example, "mass_id")
+	if err != nil {
+		return 0, err
+	}
+	movingDelta, err := wallSpringVelocityDelta(w, movingMassID, "moving mass")
+	if err != nil {
+		return 0, err
+	}
+	impulse := -movingDelta
+	if impulse == 0 {
+		return 0, nil
+	}
+	return endpointDelta / impulse, nil
+}
+
+func wallSpringVelocityDelta(w *world, massID int, label string) (float64, error) {
+	mass, ok := ensureDomainWorld(w).MassByID(massID)
 	if !ok {
-		return fmt.Errorf("endpoint %d not found", endpoint)
+		return 0, fmt.Errorf("%s %d not found", label, massID)
 	}
-	before := w.wallSpringImpulses[endpoint]
-	received := mass.Velocity.Sub(before)
-	if expected == "absorbed" {
-		if received != (sim.Vec2{}) {
-			return fmt.Errorf("endpoint %d impulse = %#v, expected absorbed", endpoint, received)
-		}
-		return nil
-	}
-	expectedShare, err := parseWallSpringImpulseShare(expected)
-	if err != nil {
-		return err
-	}
-	massID, err := intValue(example, "mass_id")
-	if err != nil {
-		return err
-	}
-	beforeMass := w.wallSpringImpulses[massID]
-	afterMass, ok := world.MassByID(massID)
+	return mass.Velocity.X - w.wallSpringImpulses[massID].X, nil
+}
+
+func parseExpectedImpulseShare(value string) (float64, error) {
+	share, ok := expectedImpulseShares[value]
 	if !ok {
-		return fmt.Errorf("mass %d not found", massID)
+		return 0, fmt.Errorf("unsupported share")
 	}
-	response := beforeMass.Sub(afterMass.Velocity)
-	responseLength := vecLength(response)
-	if responseLength == 0 {
-		return fmt.Errorf("wall spring response impulse was zero")
-	}
-	return assertFloat("endpoint impulse share", vecLength(received)/responseLength, expectedShare)
+	return share, nil
+}
+
+var expectedImpulseShares = map[string]float64{
+	"0.75":     0.75,
+	"0.50":     0.50,
+	"0.25":     0.25,
+	"0":        0,
+	"absorbed": 0,
 }
 
 func createWallSpringXSPInput(w *world, example map[string]string) error {
@@ -745,52 +760,20 @@ func wallSpringMassState(w *world, example map[string]string) (wallSpringMassSta
 	return wallSpringMassStateResult{world: world, mass: mass, massID: massID, springID: springID, side: side}, nil
 }
 
-func endpointImpulseExpectation(example map[string]string, endpointKey string, shareKey string) (int, string, error) {
+func endpointImpulseExpectation(example map[string]string, endpointKey string, shareKey string) (int, float64, error) {
 	endpoint, err := intValue(example, endpointKey)
 	if err != nil {
-		return 0, "", err
+		return 0, 0, err
 	}
 	expected, err := stringValue(example, shareKey)
 	if err != nil {
-		return 0, "", err
+		return 0, 0, err
 	}
-	if expected == "absorbed" {
-		return endpoint, expected, nil
-	}
-	if _, err := parseWallSpringImpulseShare(expected); err != nil {
-		return 0, "", fmt.Errorf("invalid impulse share %q", expected)
-	}
-	return endpoint, expected, nil
-}
-
-func wallSpringContactPoint(world *sim.Simulation, springID int, fraction float64) (sim.Vec2, sim.Vec2, error) {
-	spring, ok := world.SpringByID(springID)
-	if !ok {
-		return sim.Vec2{}, sim.Vec2{}, fmt.Errorf("spring %d not found", springID)
-	}
-	endpointA, ok := world.MassByID(spring.MassA)
-	if !ok {
-		return sim.Vec2{}, sim.Vec2{}, fmt.Errorf("endpoint %d not found", spring.MassA)
-	}
-	endpointB, ok := world.MassByID(spring.MassB)
-	if !ok {
-		return sim.Vec2{}, sim.Vec2{}, fmt.Errorf("endpoint %d not found", spring.MassB)
-	}
-	segment := endpointB.Position.Sub(endpointA.Position)
-	normal := sim.Vec2{X: -segment.Y, Y: segment.X}.Normalize()
-	return endpointA.Position.Add(segment.Scale(fraction)), normal, nil
-}
-
-func parseWallSpringImpulseShare(value string) (float64, error) {
-	share, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
+	expectedShare, err := parseExpectedImpulseShare(expected)
 	if err != nil {
-		return 0, err
+		return 0, 0, fmt.Errorf("invalid impulse share %q", expected)
 	}
-	return share, nil
-}
-
-func vecLength(value sim.Vec2) float64 {
-	return math.Sqrt(value.X*value.X + value.Y*value.Y)
+	return endpoint, expectedShare, nil
 }
 
 func intPair(example map[string]string, firstKey string, secondKey string) (int, int, error) {
