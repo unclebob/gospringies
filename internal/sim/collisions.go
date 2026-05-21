@@ -172,7 +172,7 @@ func moveWallSpringEndpoint(endpoint *Mass, correction Vec2) {
 	endpoint.Position = endpoint.Position.Add(correction)
 }
 
-func (s *Simulation) applyWallSpringCollisions(dt float64) {
+func (s *Simulation) applyWallSpringCollisions(dt float64, beforeLengthConstraints []Vec2) {
 	if dt <= 0 {
 		return
 	}
@@ -183,10 +183,17 @@ func (s *Simulation) applyWallSpringCollisions(dt float64) {
 		}
 		for i := range s.Masses {
 			if s.shouldApplyWallSpringCollision(i, aIndex, bIndex) {
-				s.applyWallSpringCollision(spring, &s.Masses[i], &s.Masses[aIndex], &s.Masses[bIndex], dt)
+				s.applyWallSpringCollision(spring, &s.Masses[i], &s.Masses[aIndex], &s.Masses[bIndex], wallSpringPreviousPosition(s.Masses[i], beforeLengthConstraints, i, dt), wallSpringPreviousPosition(s.Masses[aIndex], beforeLengthConstraints, aIndex, dt))
 			}
 		}
 	}
+}
+
+func wallSpringPreviousPosition(mass Mass, beforeLengthConstraints []Vec2, index int, dt float64) Vec2 {
+	if index >= 0 && index < len(beforeLengthConstraints) && beforeLengthConstraints[index] != mass.Position {
+		return beforeLengthConstraints[index]
+	}
+	return mass.Position.Sub(mass.Velocity.Scale(dt))
 }
 
 func (s *Simulation) wallSpringEndpointIndexes(spring Spring) (int, int, bool) {
@@ -209,15 +216,13 @@ func (s *Simulation) springEndpointIndexes(spring Spring) (int, int, bool) {
 	return spring.A, spring.B, s.validSpringMassIndexes(spring)
 }
 
-func (s *Simulation) applyWallSpringCollision(spring Spring, mass, endpointA, endpointB *Mass, dt float64) {
+func (s *Simulation) applyWallSpringCollision(spring Spring, mass, endpointA, endpointB *Mass, previousMass, previousEndpointA Vec2) {
 	segment := endpointB.Position.Sub(endpointA.Position)
 	lengthSquared := dot(segment, segment)
 	if lengthSquared == 0 {
 		return
 	}
 	normal := Vec2{X: -segment.Y, Y: segment.X}.Normalize()
-	previousMass := mass.Position.Sub(mass.Velocity.Scale(dt))
-	previousEndpointA := endpointA.Position.Sub(endpointA.Velocity.Scale(dt))
 	previousSide := dot(previousMass.Sub(previousEndpointA), normal)
 	currentSide := dot(mass.Position.Sub(endpointA.Position), normal)
 	contactFraction, ok := wallSpringContactFraction(previousMass.Sub(previousEndpointA), mass.Position.Sub(endpointA.Position), segment, lengthSquared, previousSide, currentSide)
