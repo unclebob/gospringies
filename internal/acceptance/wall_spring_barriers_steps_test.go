@@ -126,15 +126,7 @@ func TestWallSpringBarrierXSPSteps(t *testing.T) {
 }
 
 func TestWallSpringBarrierVisibleControlSteps(t *testing.T) {
-	for _, example := range []map[string]string{
-		{"spring_id": "1", "old_wall": "false", "new_wall": "true"},
-		{"spring_id": "1", "old_wall": "true", "new_wall": "false"},
-	} {
-		w := &world{}
-		mustWallSpringStep(t, w, example, createSelectedSpringWithWall)
-		mustWallSpringStep(t, w, example, changeSpringWallControl)
-		mustWallSpringStep(t, w, example, assertSpringWallValue)
-	}
+	runWallSpringStepExamples(t, wallSpringTwoStateExamples("old_wall", "new_wall", "false", "true", "true", "false"), createSelectedSpringWithWall, changeSpringWallControl, assertSpringWallValue)
 }
 
 func TestWallSpringBarrierSpringContextMenuSteps(t *testing.T) {
@@ -167,14 +159,23 @@ func TestWallSpringBarrierSpringContextMenuReportsMissingItem(t *testing.T) {
 }
 
 func TestWallSpringBarrierRenderingSteps(t *testing.T) {
-	for _, example := range []map[string]string{
-		{"spring_id": "1", "wall": "false", "rendering_style": "normal"},
-		{"spring_id": "1", "wall": "true", "rendering_style": "wall"},
-	} {
+	runWallSpringStepExamples(t, wallSpringTwoStateExamples("wall", "rendering_style", "false", "normal", "true", "wall"), createRenderableWallSpring, renderWallSpring, assertWallSpringRenderingStyle)
+}
+
+func wallSpringTwoStateExamples(firstKey, secondKey, firstA, secondA, firstB, secondB string) []map[string]string {
+	return []map[string]string{
+		{"spring_id": "1", firstKey: firstA, secondKey: secondA},
+		{"spring_id": "1", firstKey: firstB, secondKey: secondB},
+	}
+}
+
+func runWallSpringStepExamples(t *testing.T, examples []map[string]string, steps ...func(*world, map[string]string) error) {
+	t.Helper()
+	for _, example := range examples {
 		w := &world{}
-		mustWallSpringStep(t, w, example, createRenderableWallSpring)
-		mustWallSpringStep(t, w, example, renderWallSpring)
-		mustWallSpringStep(t, w, example, assertWallSpringRenderingStyle)
+		for _, step := range steps {
+			mustWallSpringStep(t, w, example, step)
+		}
 	}
 }
 
