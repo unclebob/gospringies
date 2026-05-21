@@ -26,14 +26,13 @@ Scenario Outline: commands are visible controls
   Then command <command> should have a visible control
 
 Examples:
-  | command |
-  | run     |
-  | pause   |
-  | reset   |
-  | load    |
-  | insert  |
-  | save    |
-  | quit    |
+  | command      |
+  | pause toggle |
+  | reset        |
+  | load         |
+  | insert       |
+  | save         |
+  | quit         |
 
 Scenario Outline: visible state reflects application state
   Given application state <state> is active
@@ -53,12 +52,12 @@ Scenario Outline: keyboard shortcuts mirror visible controls
   Then command <command> should run
 
 Examples:
-  | command | control | shortcut |
-  | pause   | pause   | Space    |
-  | reset   | reset   | R        |
-  | save    | save    | Ctrl+S   |
-  | load    | load    | Ctrl+O   |
-  | insert  | insert  | Ctrl+I   |
+  | command      | control      | shortcut |
+  | pause toggle | pause toggle | Space    |
+  | reset        | reset        | R        |
+  | save         | save         | Ctrl+S   |
+  | load         | load         | Ctrl+O   |
+  | insert       | insert       | Ctrl+I   |
   | quit    | quit    | Q        |
 
 Scenario Outline: controls remain usable during simulation states

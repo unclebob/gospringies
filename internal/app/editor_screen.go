@@ -9,10 +9,10 @@ var editorRegions = []ScreenRegion{
 	{"right inspector", "edit selected objects and world parameters and show simulation state"},
 }
 
-var editorCommandControls = []string{"run", "pause", "reset", "load", "insert", "save", "quit", "delete", "select all", "cut", "copy", "paste"}
+var editorCommandControls = []string{"pause toggle", "reset", "load", "insert", "save", "quit", "delete", "select all", "cut", "copy", "paste"}
 
 var shortcutCommands = map[string]string{
-	"Space":  "pause",
+	"Space":  "pause toggle",
 	"Delete": "delete",
 	"Ctrl+A": "select all",
 	"Ctrl+X": "cut",

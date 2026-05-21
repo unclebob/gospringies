@@ -239,7 +239,17 @@ func clickableApplicationState(game *app.Game) string {
 }
 
 func appControlWithLabel(label string) (app.DrawFrameReport, bool) {
-	report := app.NewGame().DrawFrameReport()
+	game := app.NewGame()
+	report, ok := drawFrameWithControlLabel(game, label)
+	if ok {
+		return report, true
+	}
+	game.SetPaused(true)
+	return drawFrameWithControlLabel(game, label)
+}
+
+func drawFrameWithControlLabel(game *app.Game, label string) (app.DrawFrameReport, bool) {
+	report := game.DrawFrameReport()
 	for _, controlLabel := range report.Controls {
 		if controlLabel == label {
 			return report, true

@@ -20,14 +20,13 @@ Scenario Outline: visible controls have readable labels
   Then visible control <control> should have readable label <label>
 
 Examples:
-  | control       | label         |
-  | run command   | Run           |
-  | pause command | Pause         |
-  | reset command | Reset         |
-  | load command  | Load          |
-  | insert command | Insert       |
-  | save command  | Save          |
-  | quit command  | Quit          |
+  | control                  | label |
+  | run pause toggle command | Pause |
+  | reset command            | Reset |
+  | load command             | Load  |
+  | insert command           | Insert |
+  | save command             | Save  |
+  | quit command             | Quit  |
 
 Scenario Outline: inspector sections are visibly rendered
   When the coder draws the application frame
@@ -48,10 +47,10 @@ Scenario Outline: status fields are visibly rendered
   And status field <field> should show <state>
 
 Examples:
-  | state            | field          |
-  | running          | run state      |
-  | object counts    | object counts  |
-  | saved            | file state     |
+  | state   | field         |
+  | Masses: | object counts |
+  | saved   | file state    |
+  | File:   | current file  |
 
 Scenario: world content remains visible with editor chrome
   When the coder draws the application frame

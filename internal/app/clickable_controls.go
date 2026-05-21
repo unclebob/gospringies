@@ -9,21 +9,20 @@ import (
 )
 
 var visibleControlCommands = map[string]string{
-	"run command":           "run",
-	"pause command":         "pause",
-	"reset command":         "reset",
-	"save state command":    "save state",
-	"restore state command": "restore state",
-	"load command":          "load",
-	"insert command":        "insert",
-	"save command":          "save",
-	"quit command":          "quit",
-	"select all command":    "select all",
-	"duplicate command":     "duplicate",
-	"delete command":        "delete",
-	"cut command":           "cut",
-	"copy command":          "copy",
-	"paste command":         "paste",
+	"run pause toggle command": "pause toggle",
+	"reset command":            "reset",
+	"save state command":       "save state",
+	"restore state command":    "restore state",
+	"load command":             "load",
+	"insert command":           "insert",
+	"save command":             "save",
+	"quit command":             "quit",
+	"select all command":       "select all",
+	"duplicate command":        "duplicate",
+	"delete command":           "delete",
+	"cut command":              "cut",
+	"copy command":             "copy",
+	"paste command":            "paste",
 }
 
 // ClickAt handles pointer activation for the same rectangles Draw uses for controls.
@@ -32,7 +31,7 @@ func (g *Game) ClickAt(x int, y int) bool {
 	if control, ok := g.editMenuControlAt(image.Pt(x, y)); ok {
 		return g.activateVisibleControl(control)
 	}
-	if control, ok := visibleControlAt(image.Pt(x, y)); ok {
+	if control, ok := g.visibleControlAt(image.Pt(x, y)); ok {
 		return g.clickVisibleControl(control, x)
 	}
 	return g.clickAwayFromVisibleControls()
@@ -67,7 +66,7 @@ func (g *Game) clickAwayFromVisibleControls() bool {
 }
 
 func (g *Game) ClickVisibleControl(label string) bool {
-	control, ok := visibleControlWithLabel(label)
+	control, ok := g.visibleControlWithLabel(label)
 	if !ok {
 		return false
 	}
@@ -75,7 +74,7 @@ func (g *Game) ClickVisibleControl(label string) bool {
 }
 
 func (g *Game) VisibleControlBounds(label string) (image.Rectangle, bool) {
-	control, ok := visibleControlWithLabel(label)
+	control, ok := g.visibleControlWithLabel(label)
 	if !ok {
 		return image.Rectangle{}, false
 	}
@@ -308,8 +307,8 @@ func clampFloat(value float64, min float64, max float64) float64 {
 	return math.Min(math.Max(value, min), max)
 }
 
-func visibleControlAt(point image.Point) (controlBox, bool) {
-	for _, control := range visibleControls() {
+func (g *Game) visibleControlAt(point image.Point) (controlBox, bool) {
+	for _, control := range g.visibleControls() {
 		if point.In(control.Rect) {
 			return control, true
 		}
@@ -317,8 +316,8 @@ func visibleControlAt(point image.Point) (controlBox, bool) {
 	return controlBox{}, false
 }
 
-func visibleControlWithLabel(label string) (controlBox, bool) {
-	for _, control := range visibleControls() {
+func (g *Game) visibleControlWithLabel(label string) (controlBox, bool) {
+	for _, control := range g.visibleControls() {
 		if control.Label == label {
 			return control, true
 		}
@@ -326,13 +325,25 @@ func visibleControlWithLabel(label string) (controlBox, bool) {
 	return controlBox{}, false
 }
 
-func visibleControlWithName(name string) (controlBox, bool) {
-	for _, control := range visibleControls() {
+func (g *Game) visibleControlWithName(name string) (controlBox, bool) {
+	for _, control := range g.visibleControls() {
 		if control.Name == name {
 			return control, true
 		}
 	}
 	return controlBox{}, false
+}
+
+func visibleControlAt(point image.Point) (controlBox, bool) {
+	return NewGame().visibleControlAt(point)
+}
+
+func visibleControlWithLabel(label string) (controlBox, bool) {
+	return NewGame().visibleControlWithLabel(label)
+}
+
+func visibleControlWithName(name string) (controlBox, bool) {
+	return NewGame().visibleControlWithName(name)
 }
 
 func (g *Game) PathEntryCommand() string {
@@ -344,7 +355,7 @@ func (g *Game) DemoPickerOpen() bool {
 }
 
 func (g *Game) VisibleControlActive(label string) bool {
-	control, ok := visibleControlWithLabel(label)
+	control, ok := g.visibleControlWithLabel(label)
 	return ok && g.activeControl(control.Name)
 }
 

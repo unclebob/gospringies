@@ -12,6 +12,8 @@ var applicationStateChanges = map[string]func(appGame){
 	"paused":          func(game appGame) { game.SetPaused(true) },
 	"running":         func(game appGame) { game.SetPaused(false) },
 	"object counts":   func(appGame) {},
+	"Masses:":         func(appGame) {},
+	"File:":           func(appGame) {},
 	"saved":           func(game appGame) { game.SetDirty(false) },
 	"object selected": func(game appGame) { game.SetSelected(true) },
 	"unsaved changes": func(game appGame) { game.SetDirty(true) },
@@ -143,7 +145,8 @@ func commandMatches(actual string, expected string) bool {
 	if actual == expected {
 		return true
 	}
-	return actual == "pause" && expected == "pause toggle"
+	return (actual == "pause" && expected == "pause toggle") ||
+		(actual == "pause toggle" && expected == "pause")
 }
 
 func setSimulationState(w *world, example map[string]string) error {

@@ -12,6 +12,8 @@ type drawFrameReport = app.DrawFrameReport
 var visibleControlStateSetters = map[string]func(*app.Game){
 	"running":       func(game *app.Game) { game.SetPaused(false) },
 	"object counts": func(*app.Game) {},
+	"Masses:":       func(*app.Game) {},
+	"File:":         func(*app.Game) {},
 	"saved":         func(game *app.Game) { game.SetDirty(false) },
 }
 

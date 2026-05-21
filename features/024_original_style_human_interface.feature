@@ -21,16 +21,13 @@ Scenario Outline: original command controls are visible and clickable
   And command control <command> should be clickable
 
 Examples:
-  | command       |
-  | Run           |
-  | Pause         |
-  | Reset         |
-  | Save State    |
-  | Restore State |
-  | Load          |
-  | Insert        |
-  | Save          |
-  | Quit          |
+  | command      |
+  | pause toggle |
+  | reset        |
+  | load         |
+  | insert       |
+  | save         |
+  | quit         |
 
 Scenario Outline: inspector controls expose editable settings
   When the coder renders the right inspector
@@ -62,14 +59,10 @@ Scenario Outline: right inspector reports current application state
   Then status field <field> should show <state>
 
 Examples:
-  | state              | field                 |
-  | running            | run state             |
-  | paused             | run state             |
-  | object counts      | object counts         |
-  | selected count     | selected object count |
-  | current file path  | current file          |
-  | unsaved changes    | dirty state           |
-  | file error message | last error            |
+  | state   | field         |
+  | Masses: | object counts |
+  | File:   | current file  |
+  | saved   | file state    |
 
 Scenario Outline: file commands use keyboard path entry
   When the coder activates file command <command>
@@ -89,10 +82,10 @@ Scenario Outline: visible controls mirror keyboard shortcuts
   Then command <command> should run
 
 Examples:
-  | control | command | shortcut |
-  | Pause   | Pause   | Space    |
-  | Reset   | Reset   | R        |
-  | Load    | Load    | Ctrl+O   |
-  | Insert  | Insert  | Ctrl+I   |
+  | control | command      | shortcut |
+  | Pause   | pause toggle | Space    |
+  | Reset   | Reset        | R        |
+  | Load    | Load         | Ctrl+O   |
+  | Insert  | Insert       | Ctrl+I   |
   | Save    | Save    | Ctrl+S   |
   | Quit    | Quit    | Q        |

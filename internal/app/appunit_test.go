@@ -160,8 +160,8 @@ func TestAppUnitNumericSettingTextInputBranches(t *testing.T) {
 	if game.ClickAt(0, screenHeight-1) || game.focusedNumeric != "" {
 		t.Fatalf("outside click handled=%t focused=%q", true, game.focusedNumeric)
 	}
-	if !game.activateVisibleControl(controlBox{Name: "run command"}) || game.lastCommand != "run" {
-		t.Fatalf("run activation command = %q", game.lastCommand)
+	if !game.activateVisibleControl(controlBox{Name: "run pause toggle command"}) || game.lastCommand != "pause toggle" {
+		t.Fatalf("run/pause activation command = %q", game.lastCommand)
 	}
 	if !game.activateVisibleControl(controlBox{Name: "fixed mass toggle"}) {
 		t.Fatal("inspector toggle activation should be handled")
@@ -285,7 +285,7 @@ func TestAppUnitVisibleControlLayoutAndReport(t *testing.T) {
 	if !game.activeControl("gravity force") || !game.activeControl("fixed mass toggle") || !game.activeControl("top wall toggle") {
 		t.Fatal("enabled controls should be active")
 	}
-	for _, name := range []string{"missing", "pause command", "center attraction force", "adaptive timestep toggle", "left wall toggle"} {
+	for _, name := range []string{"missing", "center attraction force", "adaptive timestep toggle", "left wall toggle"} {
 		if game.activeControl(name) {
 			t.Fatalf("%s should not be active", name)
 		}
