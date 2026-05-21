@@ -2806,6 +2806,57 @@ func TestEscapeClearsSelection(t *testing.T) {
 	}
 }
 
+func TestEscapeCancelsRubberbandingSpring(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 100, Y: 100}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 200, Y: 100}, Mass: 1})
+	game.ReplaceWorld(world)
+	game.controlDown = true
+
+	game.handlePointer(true, 100, 100)
+	game.handlePointer(true, 150, 140)
+
+	if _, ok := game.pendingSpringLine(); !ok {
+		t.Fatal("expected pending spring before Esc")
+	}
+	if !game.HandleShortcut("Esc") {
+		t.Fatal("Esc shortcut was not handled")
+	}
+	if _, ok := game.pendingSpringLine(); ok {
+		t.Fatal("pending spring line remained after Esc")
+	}
+	if len(game.World().Springs) != 0 {
+		t.Fatalf("springs = %#v, want none", game.World().Springs)
+	}
+}
+
+func TestEscapeCancelsSpringChainWithoutClearingSelection(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 300, Y: 100}, Mass: 1})
+	game.ReplaceWorld(world)
+	_ = game.editing().SelectMass(1)
+	game.syncSelectionState()
+	game.controlDown = true
+
+	game.handlePointer(true, 100, 100)
+	game.handlePointer(false, 100, 100)
+
+	if !game.springChainActive || game.pendingSpringID == 0 {
+		t.Fatalf("expected active spring chain pending=%d active=%t", game.pendingSpringID, game.springChainActive)
+	}
+	if !game.HandleShortcut("Esc") {
+		t.Fatal("Esc shortcut was not handled")
+	}
+	if game.springChainActive || game.pendingSpringID != 0 {
+		t.Fatalf("spring chain remained pending=%d active=%t", game.pendingSpringID, game.springChainActive)
+	}
+	if !game.editing().MassSelected(2) || !game.selected {
+		t.Fatalf("selection was cleared while cancelling spring chain: %#v", game.editing().SelectedMasses)
+	}
+}
+
 func TestPointerGestureRequiresMouseDownOnMass(t *testing.T) {
 	game := NewGame()
 	world := sim.NewWorld()

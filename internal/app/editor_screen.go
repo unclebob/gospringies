@@ -96,6 +96,10 @@ func (g *Game) SetDirty(dirty bool) {
 }
 
 func (g *Game) HandleShortcut(shortcut string) bool {
+	if shortcut == "Esc" && g.pendingSpringID != 0 {
+		g.clearPendingSpring()
+		return true
+	}
 	command, ok := shortcutCommands[shortcut]
 	if !ok {
 		return false
