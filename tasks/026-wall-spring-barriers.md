@@ -16,7 +16,9 @@ When `Wall` is true, the spring becomes a barrier:
 - It is impenetrable to masses.
 - It is inflexible.
 - It does not apply normal spring or damping forces.
-- `Kspring`, `Kdamp`, and `RestLen` are ignored for physics while `Wall` is enabled.
+- `Kspring` and `Kdamp` are ignored for physics while `Wall` is enabled.
+- `RestLen` is the wall's fixed length while `Wall` is enabled.
+- If `RestLen` is zero or absent when `Wall` is enabled, the current endpoint distance becomes the wall's fixed length.
 - The barrier is the line segment between the spring's two endpoint masses.
 - The barrier moves as those endpoint masses move.
 
@@ -36,6 +38,18 @@ When a mass collides with a wall spring:
 - A fixed endpoint's impulse share is absorbed by that fixed endpoint and should not be redistributed to the other endpoint.
 
 The wall itself does not have independent state or position beyond its two endpoint masses.
+
+## Fixed Length Behavior
+
+Wall spring endpoints are constrained to remain at the wall's fixed length.
+
+The wall spring collision response and fixed-length response are separate:
+
+- Collision response is applied perpendicular to the wall segment and is distributed by contact fraction.
+- Fixed-length response is applied along the wall segment.
+- The fixed-length response prevents endpoint movement that would stretch or compress the wall.
+- The wall may translate or rotate when endpoint masses are not fixed.
+- Fixed endpoint masses absorb any fixed-length response that would move them.
 
 ## Persistence
 

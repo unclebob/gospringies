@@ -17,6 +17,20 @@ Examples:
   | 1         | 1      | 2      | false | 10      | 0.5   | 20       | enabled            | enabled             |
   | 1         | 1      | 2      | true  | 10      | 0.5   | 20       | disabled           | disabled            |
 
+Scenario Outline: wall springs keep a fixed endpoint length
+  Given wall spring <spring_id> endpoints start <initial_length> apart with RestLen <rest_len>
+  And wall spring endpoint <endpoint_a> fixed state is <fixed_a>
+  And wall spring endpoint <endpoint_b> fixed state is <fixed_b>
+  When the coder advances wall spring length constraint
+  Then wall spring <spring_id> endpoint distance should be <expected_length>
+  And wall spring <spring_id> endpoint correction should be <correction_direction>
+
+Examples:
+  | spring_id | initial_length | rest_len | endpoint_a | endpoint_b | fixed_a | fixed_b | expected_length | correction_direction |
+  | 1         | 120            | 100      | 1          | 2          | false   | false   | 100             | along segment        |
+  | 1         | 80             | 100      | 1          | 2          | false   | false   | 100             | along segment        |
+  | 1         | 120            | 100      | 1          | 2          | true    | false   | 100             | along segment        |
+
 Scenario Outline: wall springs stop masses from crossing their segment
   Given wall spring <spring_id> spans from <wall_x1>, <wall_y1> to <wall_x2>, <wall_y2>
   And moving mass <mass_id> starts at <mass_x>, <mass_y> with velocity <mass_vx>, <mass_vy>
