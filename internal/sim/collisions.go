@@ -169,9 +169,10 @@ func (s *Simulation) applyWallSpringCollision(mass, endpointA, endpointB *Mass, 
 	side := sideSign(previousSide)
 	oldVelocity := mass.Velocity
 	contact := closestPointOnSegment(mass.Position, endpointA.Position, segment, lengthSquared)
+	contactFraction := segmentProjectionFraction(contact, endpointA.Position, segment, lengthSquared)
 	mass.Position = contact.Add(normal.Scale(side * MassRadius(*mass)))
 	resolveWallSpringVelocity(mass, normal, side)
-	shareWallSpringImpulse(endpointA, endpointB, oldVelocity.Sub(mass.Velocity).Scale(0.5))
+	shareWallSpringImpulse(endpointA, endpointB, oldVelocity.Sub(mass.Velocity), contactFraction)
 }
 
 func wallSpringCrossedSegment(previous, current, start, segment Vec2, lengthSquared float64, previousSide, currentSide float64) bool {
@@ -196,8 +197,12 @@ func sideSign(value float64) float64 {
 }
 
 func closestPointOnSegment(point, start, segment Vec2, lengthSquared float64) Vec2 {
+	return start.Add(segment.Scale(segmentProjectionFraction(point, start, segment, lengthSquared)))
+}
+
+func segmentProjectionFraction(point, start, segment Vec2, lengthSquared float64) float64 {
 	projection := dot(point.Sub(start), segment) / lengthSquared
-	return start.Add(segment.Scale(math.Min(1, math.Max(0, projection))))
+	return math.Min(1, math.Max(0, projection))
 }
 
 func resolveWallSpringVelocity(mass *Mass, normal Vec2, startingSide float64) {
@@ -209,12 +214,12 @@ func resolveWallSpringVelocity(mass *Mass, normal Vec2, startingSide float64) {
 	mass.Velocity = mass.Velocity.Sub(normal.Scale(elasticity * normalVelocity))
 }
 
-func shareWallSpringImpulse(endpointA, endpointB *Mass, impulse Vec2) {
+func shareWallSpringImpulse(endpointA, endpointB *Mass, impulse Vec2, contactFraction float64) {
 	if !endpointA.Fixed {
-		endpointA.Velocity = endpointA.Velocity.Add(impulse)
+		endpointA.Velocity = endpointA.Velocity.Add(impulse.Scale(1 - contactFraction))
 	}
 	if !endpointB.Fixed {
-		endpointB.Velocity = endpointB.Velocity.Add(impulse)
+		endpointB.Velocity = endpointB.Velocity.Add(impulse.Scale(contactFraction))
 	}
 }
 

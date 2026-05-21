@@ -31,6 +31,18 @@ func TestWallSpringSharesResponseWithUnfixedEndpoints(t *testing.T) {
 	}
 }
 
+func TestWallSpringWeightsResponseByContactPoint(t *testing.T) {
+	world := wallSpringCollisionWorldAtContact(false, false, 0.25)
+
+	world.Step(1)
+
+	a, _ := world.MassByID(1)
+	b, _ := world.MassByID(2)
+	if a.Velocity.X != b.Velocity.X*3 {
+		t.Fatalf("endpoint velocities = %#v %#v, expected 0.75/0.25 shares", a.Velocity, b.Velocity)
+	}
+}
+
 func TestWallSpringDoesNotMoveFixedEndpoint(t *testing.T) {
 	world := wallSpringCollisionWorld(true, false)
 
@@ -47,10 +59,14 @@ func TestWallSpringDoesNotMoveFixedEndpoint(t *testing.T) {
 }
 
 func wallSpringCollisionWorld(fixedA bool, fixedB bool) *Simulation {
+	return wallSpringCollisionWorldAtContact(fixedA, fixedB, 0.5)
+}
+
+func wallSpringCollisionWorldAtContact(fixedA bool, fixedB bool, contactFraction float64) *Simulation {
 	world := NewWorld()
 	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: 0, Y: 0}, Mass: 1, Fixed: fixedA})
 	_ = world.AddMass(Mass{ID: 2, Position: Vec2{X: 0, Y: 100}, Mass: 1, Fixed: fixedB})
-	_ = world.AddMass(Mass{ID: 3, Position: Vec2{X: -5, Y: 50}, Velocity: Vec2{X: 10}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 3, Position: Vec2{X: -5, Y: 100 * contactFraction}, Velocity: Vec2{X: 10}, Mass: 1})
 	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, Wall: true})
 	return world
 }
