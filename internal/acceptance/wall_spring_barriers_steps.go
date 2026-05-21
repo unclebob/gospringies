@@ -12,57 +12,62 @@ import (
 
 func init() {
 	for step, handler := range map[string]stepHandler{
-		"the wall spring barriers task is accepted":                                                          acceptStep,
-		"spring <spring_id> connects mass <mass_a> to mass <mass_b>":                                         addBarrierSpring,
-		"spring <spring_id> has Wall value <wall>":                                                           setBarrierSpringWall,
-		"spring <spring_id> has Wall value false":                                                            setBarrierSpringWallFalse,
-		"spring <spring_id> has Kspring <kspring> Kdamp <kdamp> RestLen <rest_len>":                          setBarrierSpringParameters,
-		"the coder evaluates spring <spring_id> forces":                                                      evaluateBarrierSpringForces,
-		"spring <spring_id> should apply spring force state <spring_force_state>":                            assertBarrierSpringForceState,
-		"spring <spring_id> should apply damping force state <damping_force_state>":                          assertBarrierSpringDampingState,
-		"wall spring <spring_id> endpoints start <initial_length> apart with RestLen <rest_len>":             createWallSpringLengthConstraint,
-		"the coder advances wall spring length constraint":                                                   advanceWallSpringLengthConstraint,
-		"wall spring <spring_id> endpoint distance should be <expected_length>":                              assertWallSpringEndpointDistance,
-		"wall spring <spring_id> endpoint correction should be <correction_direction>":                       assertWallSpringEndpointCorrection,
-		"wall spring <spring_id> spans from <wall_x1>, <wall_y1> to <wall_x2>, <wall_y2>":                    createWallSpringByCoordinates,
-		"moving mass <mass_id> starts at <mass_x>, <mass_y> with velocity <mass_vx>, <mass_vy>":              createBarrierMovingMass,
-		"the coder advances through wall spring collision":                                                   advanceThroughWallSpringCollision,
-		"mass <mass_id> should remain on the starting side of wall spring <spring_id>":                       assertMassOnStartingWallSpringSide,
-		"mass <mass_id> velocity should be resolved away from wall spring <spring_id>":                       assertMassVelocityResolvedAwayFromWallSpring,
-		"wall spring <spring_id> spans from mass <endpoint_a> to mass <endpoint_b>":                          createWallSpringByEndpointIDs,
-		"wall spring endpoint <endpoint_a> fixed state is <fixed_a>":                                         setWallSpringEndpointFixed,
-		"wall spring endpoint <endpoint_b> fixed state is <fixed_b>":                                         setWallSpringEndpointBFixed,
-		"moving mass <mass_id> collides with wall spring <spring_id> at contact fraction <contact_fraction>": createMassCollidingWithWallSpring,
-		"the coder resolves the wall spring collision":                                                       resolveWallSpringCollision,
-		"wall spring endpoint <endpoint_a> should receive impulse share <impulse_share_a>":                   assertWallSpringEndpointImpulseShare,
-		"wall spring endpoint <endpoint_b> should receive impulse share <impulse_share_b>":                   assertWallSpringEndpointBImpulseShare,
-		"wall spring <spring_id> has Temperature <temperature>":                                              createWallSpringWithTemperature,
-		"temperature random seed is <seed>":                                                                  setTemperatureRandomSeed,
-		"mass <mass_id> should receive temperature kick <kick_behavior>":                                     assertMassTemperatureKick,
-		"spring <spring_id> has Temperature <temperature>":                                                   setSpringTemperature,
-		"moving mass <mass_id> collides with spring <spring_id>":                                             createMassCollidingWithSpring,
-		"the coder resolves spring collision":                                                                resolveSpringCollision,
-		"XSP input contains spring <spring_id> with Wall value <input_wall>":                                 createWallSpringXSPInput,
-		"loaded spring <spring_id> should have Wall value <loaded_wall>":                                     assertLoadedWallSpringXSP,
-		"saved spring <spring_id> should include Wall value <saved_wall>":                                    assertSavedWallSpringXSP,
-		"XSP input contains spring <spring_id> with Temperature value <input_temperature>":                   createTemperatureSpringXSPInput,
-		"loaded spring <spring_id> should have Temperature value <loaded_temperature>":                       assertLoadedSpringTemperatureXSP,
-		"saved spring <spring_id> should include Temperature value <saved_temperature>":                      assertSavedSpringTemperatureXSP,
-		"selected spring <spring_id> has Wall value <old_wall>":                                              createSelectedSpringWithWall,
-		"selected springs <spring_ids> have Wall values <old_walls>":                                         createSelectedSpringsWithWalls,
-		"the coder changes spring control Wall to <new_wall>":                                                changeSpringWallControl,
-		"spring <spring_id> should have Wall value <new_wall>":                                               assertSpringWallValue,
-		"selected springs <spring_ids> should have Wall values <new_walls>":                                  assertSelectedSpringsWallValues,
-		"spring <spring_id> has Wall value <old_wall>":                                                       createMenuSpringWithWall,
-		"spring <spring_id> right-click menu includes item <menu_item>":                                      assertSpringMenuIncludesItem,
-		"the coder selects spring menu item Wall for spring <spring_id>":                                     selectSpringMenuWallItem,
-		"spring <spring_id> has Temperature value <old_temperature>":                                         createMenuSpringWithTemperature,
-		"the coder selects spring menu item Temperature for spring <spring_id>":                              selectSpringMenuTemperatureItem,
-		"spring Temperature dialog should open with range <minimum> to <maximum>":                            assertSpringTemperatureDialogRange,
-		"the coder changes the spring Temperature dialog value to <new_temperature>":                         changeSpringTemperatureDialogValue,
-		"spring <spring_id> should have Temperature value <new_temperature>":                                 assertSpringTemperatureValue,
-		"the coder renders spring <spring_id>":                                                               renderWallSpring,
-		"spring <spring_id> should use spring rendering style <rendering_style>":                             assertWallSpringRenderingStyle,
+		"the wall spring barriers task is accepted":                                                                                 acceptStep,
+		"spring <spring_id> connects mass <mass_a> to mass <mass_b>":                                                                addBarrierSpring,
+		"spring <spring_id> has Wall value <wall>":                                                                                  setBarrierSpringWall,
+		"spring <spring_id> has Wall value false":                                                                                   setBarrierSpringWallFalse,
+		"spring <spring_id> has Kspring <kspring> Kdamp <kdamp> RestLen <rest_len>":                                                 setBarrierSpringParameters,
+		"the coder evaluates spring <spring_id> forces":                                                                             evaluateBarrierSpringForces,
+		"spring <spring_id> should apply spring force state <spring_force_state>":                                                   assertBarrierSpringForceState,
+		"spring <spring_id> should apply damping force state <damping_force_state>":                                                 assertBarrierSpringDampingState,
+		"wall spring <spring_id> endpoints start <initial_length> apart with RestLen <rest_len>":                                    createWallSpringLengthConstraint,
+		"the coder advances wall spring length constraint":                                                                          advanceWallSpringLengthConstraint,
+		"wall spring <spring_id> endpoint distance should be <expected_length>":                                                     assertWallSpringEndpointDistance,
+		"wall spring <spring_id> endpoint correction should be <correction_direction>":                                              assertWallSpringEndpointCorrection,
+		"wall spring <spring_id> spans from <wall_x1>, <wall_y1> to <wall_x2>, <wall_y2>":                                           createWallSpringByCoordinates,
+		"moving mass <mass_id> starts at <mass_x>, <mass_y> with velocity <mass_vx>, <mass_vy>":                                     createBarrierMovingMass,
+		"the coder advances through wall spring collision":                                                                          advanceThroughWallSpringCollision,
+		"mass <mass_id> should remain on the starting side of wall spring <spring_id>":                                              assertMassOnStartingWallSpringSide,
+		"mass <mass_id> velocity should be resolved away from wall spring <spring_id>":                                              assertMassVelocityResolvedAwayFromWallSpring,
+		"moving wall spring <spring_id> spans from <wall_x1>, <wall_y1> to <wall_x2>, <wall_y2> with velocity <wall_vx>, <wall_vy>": createMovingWallSpringByCoordinates,
+		"stationary mass <mass_id> starts at <mass_x>, <mass_y>":                                                                    createBarrierStationaryMass,
+		"the coder advances through moving wall spring collision":                                                                   advanceThroughWallSpringCollision,
+		"mass <mass_id> should remain on the starting side of moving wall spring <spring_id>":                                       assertMassOnStartingWallSpringSide,
+		"moving wall spring <spring_id> velocity should be resolved away from mass <mass_id>":                                       assertMovingWallSpringVelocityResolvedAwayFromMass,
+		"wall spring <spring_id> spans from mass <endpoint_a> to mass <endpoint_b>":                                                 createWallSpringByEndpointIDs,
+		"wall spring endpoint <endpoint_a> fixed state is <fixed_a>":                                                                setWallSpringEndpointFixed,
+		"wall spring endpoint <endpoint_b> fixed state is <fixed_b>":                                                                setWallSpringEndpointBFixed,
+		"moving mass <mass_id> collides with wall spring <spring_id> at contact fraction <contact_fraction>":                        createMassCollidingWithWallSpring,
+		"the coder resolves the wall spring collision":                                                                              resolveWallSpringCollision,
+		"wall spring endpoint <endpoint_a> should receive impulse share <impulse_share_a>":                                          assertWallSpringEndpointImpulseShare,
+		"wall spring endpoint <endpoint_b> should receive impulse share <impulse_share_b>":                                          assertWallSpringEndpointBImpulseShare,
+		"wall spring <spring_id> has Temperature <temperature>":                                                                     createWallSpringWithTemperature,
+		"temperature random seed is <seed>":                                                                                         setTemperatureRandomSeed,
+		"mass <mass_id> should receive temperature kick <kick_behavior>":                                                            assertMassTemperatureKick,
+		"spring <spring_id> has Temperature <temperature>":                                                                          setSpringTemperature,
+		"moving mass <mass_id> collides with spring <spring_id>":                                                                    createMassCollidingWithSpring,
+		"the coder resolves spring collision":                                                                                       resolveSpringCollision,
+		"XSP input contains spring <spring_id> with Wall value <input_wall>":                                                        createWallSpringXSPInput,
+		"loaded spring <spring_id> should have Wall value <loaded_wall>":                                                            assertLoadedWallSpringXSP,
+		"saved spring <spring_id> should include Wall value <saved_wall>":                                                           assertSavedWallSpringXSP,
+		"XSP input contains spring <spring_id> with Temperature value <input_temperature>":                                          createTemperatureSpringXSPInput,
+		"loaded spring <spring_id> should have Temperature value <loaded_temperature>":                                              assertLoadedSpringTemperatureXSP,
+		"saved spring <spring_id> should include Temperature value <saved_temperature>":                                             assertSavedSpringTemperatureXSP,
+		"selected spring <spring_id> has Wall value <old_wall>":                                                                     createSelectedSpringWithWall,
+		"selected springs <spring_ids> have Wall values <old_walls>":                                                                createSelectedSpringsWithWalls,
+		"the coder changes spring control Wall to <new_wall>":                                                                       changeSpringWallControl,
+		"spring <spring_id> should have Wall value <new_wall>":                                                                      assertSpringWallValue,
+		"selected springs <spring_ids> should have Wall values <new_walls>":                                                         assertSelectedSpringsWallValues,
+		"spring <spring_id> has Wall value <old_wall>":                                                                              createMenuSpringWithWall,
+		"spring <spring_id> right-click menu includes item <menu_item>":                                                             assertSpringMenuIncludesItem,
+		"the coder selects spring menu item Wall for spring <spring_id>":                                                            selectSpringMenuWallItem,
+		"spring <spring_id> has Temperature value <old_temperature>":                                                                createMenuSpringWithTemperature,
+		"the coder selects spring menu item Temperature for spring <spring_id>":                                                     selectSpringMenuTemperatureItem,
+		"spring Temperature dialog should open with range <minimum> to <maximum>":                                                   assertSpringTemperatureDialogRange,
+		"the coder changes the spring Temperature dialog value to <new_temperature>":                                                changeSpringTemperatureDialogValue,
+		"spring <spring_id> should have Temperature value <new_temperature>":                                                        assertSpringTemperatureValue,
+		"the coder renders spring <spring_id>":                                                                                      renderWallSpring,
+		"spring <spring_id> should use spring rendering style <rendering_style>":                                                    assertWallSpringRenderingStyle,
 	} {
 		stepHandlers[step] = handler
 	}
@@ -321,6 +326,32 @@ func createWallSpringByCoordinates(w *world, example map[string]string) error {
 	return world.AddSpring(sim.Spring{ID: springID, MassA: 1, MassB: 2, Wall: true})
 }
 
+func createMovingWallSpringByCoordinates(w *world, example map[string]string) error {
+	if err := requireWallSpringExampleValues(example, map[string]string{
+		"spring_id": "1",
+		"wall_x1":   "-5",
+		"wall_y1":   "0",
+		"wall_x2":   "-5",
+		"wall_y2":   "100",
+		"wall_vx":   "10",
+		"wall_vy":   "0",
+	}); err != nil {
+		return err
+	}
+	springID, err := intValue(example, "spring_id")
+	if err != nil {
+		return err
+	}
+	values, err := floatValues(example, "wall_x1", "wall_y1", "wall_x2", "wall_y2", "wall_vx", "wall_vy")
+	if err != nil {
+		return err
+	}
+	world := ensureDomainWorld(w)
+	ensureMovingWallSpringMass(world, 1, sim.Vec2{X: values[0], Y: values[1]}, sim.Vec2{X: values[4], Y: values[5]})
+	ensureMovingWallSpringMass(world, 2, sim.Vec2{X: values[2], Y: values[3]}, sim.Vec2{X: values[4], Y: values[5]})
+	return world.AddSpring(sim.Spring{ID: springID, MassA: 1, MassB: 2, Wall: true})
+}
+
 func createBarrierMovingMass(w *world, example map[string]string) error {
 	if err := requireWallSpringExampleValues(example, map[string]string{
 		"mass_id": "3",
@@ -341,6 +372,29 @@ func createBarrierMovingMass(w *world, example map[string]string) error {
 	}
 	world := ensureDomainWorld(w)
 	if err := world.AddMass(sim.Mass{ID: id, Position: sim.Vec2{X: values[0], Y: values[1]}, Velocity: sim.Vec2{X: values[2], Y: values[3]}, Mass: 1}); err != nil {
+		return err
+	}
+	return rememberWallSpringStartingSide(w, example, id)
+}
+
+func createBarrierStationaryMass(w *world, example map[string]string) error {
+	if err := requireWallSpringExampleValues(example, map[string]string{
+		"mass_id": "3",
+		"mass_x":  "0",
+		"mass_y":  "50",
+	}); err != nil {
+		return err
+	}
+	id, err := intValue(example, "mass_id")
+	if err != nil {
+		return err
+	}
+	values, err := floatValues(example, "mass_x", "mass_y")
+	if err != nil {
+		return err
+	}
+	world := ensureDomainWorld(w)
+	if err := world.AddMass(sim.Mass{ID: id, Position: sim.Vec2{X: values[0], Y: values[1]}, Mass: 1}); err != nil {
 		return err
 	}
 	return rememberWallSpringStartingSide(w, example, id)
@@ -378,6 +432,38 @@ func assertMassVelocityResolvedAwayFromWallSpring(w *world, example map[string]s
 		return fmt.Errorf("mass %d velocity penetrates wall spring %d: %#v", state.massID, state.springID, state.mass.Velocity)
 	}
 	return nil
+}
+
+func assertMovingWallSpringVelocityResolvedAwayFromMass(w *world, example map[string]string) error {
+	state, err := wallSpringMassState(w, example)
+	if err != nil {
+		return err
+	}
+	normal, err := wallSpringNormal(state.world, state.springID)
+	if err != nil {
+		return err
+	}
+	wallVelocity, err := wallSpringVelocity(state.world, state.springID)
+	if err != nil {
+		return err
+	}
+	if dotAcceptance(wallVelocity.Sub(state.mass.Velocity), normal)*state.side > 0.000001 {
+		return fmt.Errorf("wall spring %d velocity penetrates mass %d: wall=%#v mass=%#v", state.springID, state.massID, wallVelocity, state.mass.Velocity)
+	}
+	return nil
+}
+
+func wallSpringVelocity(world *sim.Simulation, springID int) (sim.Vec2, error) {
+	spring, ok := world.SpringByID(springID)
+	if !ok {
+		return sim.Vec2{}, fmt.Errorf("spring %d not found", springID)
+	}
+	a, okA := world.MassByID(spring.MassA)
+	b, okB := world.MassByID(spring.MassB)
+	if !okA || !okB {
+		return sim.Vec2{}, fmt.Errorf("spring %d endpoints not found", springID)
+	}
+	return a.Velocity.Add(b.Velocity).Scale(0.5), nil
 }
 
 func createWallSpringByEndpointIDs(w *world, example map[string]string) error {
@@ -1127,6 +1213,16 @@ func ensureWallSpringMass(world *sim.Simulation, id int, position sim.Vec2) {
 		}
 	}
 	_ = world.AddMass(sim.Mass{ID: id, Position: position, Mass: 1})
+}
+
+func ensureMovingWallSpringMass(world *sim.Simulation, id int, position sim.Vec2, velocity sim.Vec2) {
+	ensureWallSpringMass(world, id, position)
+	for i := range world.Masses {
+		if world.Masses[i].ID == id {
+			world.Masses[i].Velocity = velocity
+			return
+		}
+	}
 }
 
 func springContextMenuLabels(w *world, springID int) ([]string, error) {

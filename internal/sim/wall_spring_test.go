@@ -20,6 +20,22 @@ func TestWallSpringStopsMassCrossingSegment(t *testing.T) {
 	}
 }
 
+func TestMovingWallSpringStopsStationaryMassCrossingSegment(t *testing.T) {
+	world := movingWallSpringCollisionWorld()
+
+	world.Step(1)
+
+	mass, _ := world.MassByID(3)
+	if mass.Position.X < 0 {
+		t.Fatalf("stationary mass crossed moving wall spring: %#v", mass)
+	}
+	endpointA, _ := world.MassByID(1)
+	endpointB, _ := world.MassByID(2)
+	if endpointA.Velocity.X > 0.000001 || endpointB.Velocity.X > 0.000001 {
+		t.Fatalf("wall spring endpoint velocities still penetrate mass: %#v %#v", endpointA.Velocity, endpointB.Velocity)
+	}
+}
+
 func TestWallSpringSharesResponseByContactFraction(t *testing.T) {
 	world := wallSpringCollisionWorld(false, false, 25)
 
@@ -226,6 +242,15 @@ func wallSpringCollisionWorld(fixedA bool, fixedB bool, contactY ...float64) *Si
 	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: 0, Y: 0}, Mass: 1, Fixed: fixedA})
 	_ = world.AddMass(Mass{ID: 2, Position: Vec2{X: 0, Y: 100}, Mass: 1, Fixed: fixedB})
 	_ = world.AddMass(Mass{ID: 3, Position: Vec2{X: -5, Y: y}, Velocity: Vec2{X: 10}, Mass: 1})
+	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, Wall: true})
+	return world
+}
+
+func movingWallSpringCollisionWorld() *Simulation {
+	world := NewWorld()
+	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: -5, Y: 0}, Velocity: Vec2{X: 10}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 2, Position: Vec2{X: -5, Y: 100}, Velocity: Vec2{X: 10}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 3, Position: Vec2{X: 0, Y: 50}, Mass: 1})
 	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, Wall: true})
 	return world
 }

@@ -1,3 +1,4 @@
+# mutation-stamp: sha256=c126924cd7dea2f7e9ac536654fc048dc7ae029d58d2def3ba61475d7924380b
 Feature: Wall spring barriers
 
 Background:
