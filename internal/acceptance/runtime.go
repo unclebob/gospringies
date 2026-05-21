@@ -64,6 +64,7 @@ type world struct {
 	handoffVerification  map[string]string
 	workDir              string
 	previousWorkDir      string
+	screenWallSides      map[int]float64
 	wallSpringSides      map[int]float64
 	wallSpringImpulses   map[int]sim.Vec2
 }
