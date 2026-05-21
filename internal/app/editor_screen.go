@@ -1,5 +1,7 @@
 package app
 
+import "fmt"
+
 var editorRegions = []ScreenRegion{
 	{"canvas", "edit and view the simulation world"},
 	{"left toolbar", "run selection commands"},
@@ -75,6 +77,18 @@ func (g *Game) SetSelected(selected bool) {
 
 func (g *Game) SelectSpring(id int) error {
 	return g.editing().SelectSpring(id)
+}
+
+func (g *Game) SelectSprings(ids ...int) error {
+	editor := g.editing()
+	editor.ClearSelection()
+	for _, id := range ids {
+		if _, ok := g.simulation.SpringByID(id); !ok {
+			return fmt.Errorf("spring %d not found", id)
+		}
+		editor.SelectedSprings[id] = true
+	}
+	return nil
 }
 
 func (g *Game) SetDirty(dirty bool) {

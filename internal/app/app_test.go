@@ -954,6 +954,26 @@ func TestEditorIndicatorsReflectState(t *testing.T) {
 	}
 }
 
+func TestSelectSpringsSelectsEveryRequestedSpring(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 20}, Mass: 1})
+	_ = world.AddSpring(sim.Spring{ID: 1, MassA: 1, MassB: 2})
+	_ = world.AddSpring(sim.Spring{ID: 2, MassA: 1, MassB: 2})
+	game.ReplaceWorld(world)
+
+	if err := game.SelectSprings(1, 2); err != nil {
+		t.Fatalf("SelectSprings returned error: %v", err)
+	}
+	if !game.editing().SelectedSprings[1] || !game.editing().SelectedSprings[2] {
+		t.Fatalf("selected springs = %#v", game.editing().SelectedSprings)
+	}
+	if err := game.SelectSprings(3); err == nil {
+		t.Fatal("missing spring selection should fail")
+	}
+}
+
 func TestKeyboardShortcutsRunVisibleCommands(t *testing.T) {
 	game := NewGame()
 	shortcuts := map[string]string{

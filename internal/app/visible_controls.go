@@ -131,12 +131,17 @@ func (g *Game) activeSelectedSpringControl(name string) bool {
 	if name != "spring wall toggle" {
 		return false
 	}
+	selectedCount := 0
 	for _, spring := range g.simulation.Springs {
-		if g.editing().SelectedSprings[spring.ID] && spring.Wall {
-			return true
+		if !g.editing().SelectedSprings[spring.ID] {
+			continue
+		}
+		selectedCount++
+		if !spring.Wall {
+			return false
 		}
 	}
-	return false
+	return selectedCount > 0
 }
 
 func (g *Game) activeWallControl(name string) bool {

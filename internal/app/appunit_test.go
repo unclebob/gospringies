@@ -61,6 +61,28 @@ func TestAppUnitVisibleControlsAndSliders(t *testing.T) {
 	}
 }
 
+func TestAppUnitSpringWallToggleSetsMixedSelectionTrue(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 10}, Mass: 1})
+	_ = world.AddSpring(sim.Spring{ID: 1, MassA: 1, MassB: 2, Wall: false})
+	_ = world.AddSpring(sim.Spring{ID: 2, MassA: 1, MassB: 2, Wall: false})
+	_ = world.AddSpring(sim.Spring{ID: 3, MassA: 1, MassB: 2, Wall: true})
+	game.ReplaceWorld(world)
+	game.editing().SelectedSprings = map[int]bool{1: true, 2: true, 3: true}
+
+	if !game.ClickVisibleControl("Wall") {
+		t.Fatal("Wall control click was not handled")
+	}
+
+	for _, spring := range game.World().Springs {
+		if !spring.Wall {
+			t.Fatalf("spring %d wall = %t, expected true", spring.ID, spring.Wall)
+		}
+	}
+}
+
 func TestAppUnitNumericSettingTextInputBranches(t *testing.T) {
 	game := NewGame()
 

@@ -1,6 +1,9 @@
 package sim
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
 
 func TestWallSpringStopsMassCrossingSegment(t *testing.T) {
 	world := wallSpringCollisionWorld(false, false)
@@ -50,6 +53,78 @@ func TestWallSpringDoesNotMoveFixedEndpoint(t *testing.T) {
 	}
 }
 
+func TestWallSpringRestoresEndpointDistanceToRestLength(t *testing.T) {
+	world := wallSpringLengthWorld(120, 100, false, false)
+
+	world.Step(1)
+
+	a, _ := world.MassByID(1)
+	b, _ := world.MassByID(2)
+	if got := length(b.Position.Sub(a.Position)); !closeWallSpringLength(got, 100) {
+		t.Fatalf("endpoint distance = %f, expected 100", got)
+	}
+	if a.Position.Y != 0 || b.Position.Y != 0 {
+		t.Fatalf("length correction should stay along segment: a=%#v b=%#v", a.Position, b.Position)
+	}
+	if a.Position.X >= b.Position.X {
+		t.Fatalf("length correction reversed endpoints: a=%#v b=%#v", a.Position, b.Position)
+	}
+}
+
+func TestWallSpringLengthCorrectionAbsorbsFixedEndpointShare(t *testing.T) {
+	world := wallSpringLengthWorld(120, 100, true, false)
+
+	world.Step(1)
+
+	a, _ := world.MassByID(1)
+	b, _ := world.MassByID(2)
+	if a.Position != (Vec2{}) {
+		t.Fatalf("fixed endpoint moved to %#v", a.Position)
+	}
+	if got := length(b.Position.Sub(a.Position)); !closeWallSpringLength(got, 100) {
+		t.Fatalf("endpoint distance = %f, expected 100", got)
+	}
+}
+
+func TestWallSpringRestoresEndpointDistanceToUnitRestLength(t *testing.T) {
+	world := wallSpringLengthWorld(120, 1, false, false)
+
+	world.Step(1)
+
+	a, _ := world.MassByID(1)
+	b, _ := world.MassByID(2)
+	if got := length(b.Position.Sub(a.Position)); !closeWallSpringLength(got, 1) {
+		t.Fatalf("endpoint distance = %f, expected 1", got)
+	}
+}
+
+func TestWallSpringZeroRestLengthCapturesCurrentEndpointDistance(t *testing.T) {
+	world := wallSpringLengthWorld(120, 0, false, false)
+
+	world.Step(1)
+
+	spring, _ := world.SpringByID(1)
+	a, _ := world.MassByID(1)
+	b, _ := world.MassByID(2)
+	if !closeWallSpringLength(spring.RestLength, 120) {
+		t.Fatalf("captured rest length = %f, expected 120", spring.RestLength)
+	}
+	if got := length(b.Position.Sub(a.Position)); !closeWallSpringLength(got, 120) {
+		t.Fatalf("endpoint distance = %f, expected 120", got)
+	}
+}
+
+func TestWallSpringUnitLengthCapturesZeroRestLength(t *testing.T) {
+	world := wallSpringLengthWorld(1, 0, false, false)
+
+	world.Step(1)
+
+	spring, _ := world.SpringByID(1)
+	if !closeWallSpringLength(spring.RestLength, 1) {
+		t.Fatalf("captured rest length = %f, expected 1", spring.RestLength)
+	}
+}
+
 func wallSpringCollisionWorld(fixedA bool, fixedB bool, contactY ...float64) *Simulation {
 	y := 50.0
 	if len(contactY) > 0 {
@@ -61,4 +136,16 @@ func wallSpringCollisionWorld(fixedA bool, fixedB bool, contactY ...float64) *Si
 	_ = world.AddMass(Mass{ID: 3, Position: Vec2{X: -5, Y: y}, Velocity: Vec2{X: 10}, Mass: 1})
 	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, Wall: true})
 	return world
+}
+
+func wallSpringLengthWorld(initialLength, restLength float64, fixedA, fixedB bool) *Simulation {
+	world := NewWorld()
+	_ = world.AddMass(Mass{ID: 1, Position: Vec2{}, Mass: 1, Fixed: fixedA})
+	_ = world.AddMass(Mass{ID: 2, Position: Vec2{X: initialLength}, Mass: 1, Fixed: fixedB})
+	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, RestLength: restLength, Wall: true})
+	return world
+}
+
+func closeWallSpringLength(got, want float64) bool {
+	return math.Abs(got-want) <= 0.00001
 }
