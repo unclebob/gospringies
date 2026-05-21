@@ -103,6 +103,9 @@ func TestWallSpringRestoresEndpointDistanceToRestLength(t *testing.T) {
 	if a.Position.Y != 0 || b.Position.Y != 0 {
 		t.Fatalf("length correction should stay along segment: a=%#v b=%#v", a.Position, b.Position)
 	}
+	if a.Position.X >= b.Position.X {
+		t.Fatalf("length correction reversed endpoints: a=%#v b=%#v", a.Position, b.Position)
+	}
 }
 
 func TestWallSpringLengthCorrectionAbsorbsFixedEndpointShare(t *testing.T) {
@@ -120,6 +123,18 @@ func TestWallSpringLengthCorrectionAbsorbsFixedEndpointShare(t *testing.T) {
 	}
 }
 
+func TestWallSpringRestoresEndpointDistanceToUnitRestLength(t *testing.T) {
+	world := wallSpringLengthWorld(120, 1, false, false)
+
+	world.Step(1)
+
+	a, _ := world.MassByID(1)
+	b, _ := world.MassByID(2)
+	if got := length(b.Position.Sub(a.Position)); !closeWallSpringLength(got, 1) {
+		t.Fatalf("endpoint distance = %f, expected 1", got)
+	}
+}
+
 func TestWallSpringZeroRestLengthCapturesCurrentEndpointDistance(t *testing.T) {
 	world := wallSpringLengthWorld(120, 0, false, false)
 
@@ -133,6 +148,17 @@ func TestWallSpringZeroRestLengthCapturesCurrentEndpointDistance(t *testing.T) {
 	}
 	if got := length(b.Position.Sub(a.Position)); !closeWallSpringLength(got, 120) {
 		t.Fatalf("endpoint distance = %f, expected 120", got)
+	}
+}
+
+func TestWallSpringUnitLengthCapturesZeroRestLength(t *testing.T) {
+	world := wallSpringLengthWorld(1, 0, false, false)
+
+	world.Step(1)
+
+	spring, _ := world.SpringByID(1)
+	if !closeWallSpringLength(spring.RestLength, 1) {
+		t.Fatalf("captured rest length = %f, expected 1", spring.RestLength)
 	}
 }
 
