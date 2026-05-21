@@ -33,22 +33,30 @@ func (g *Game) continueSpringChainAt(position sim.Vec2, keepChain bool) {
 	if !g.positionInCanvas(position) {
 		return
 	}
-	endID, existing := g.massAt(position)
-	if !existing {
-		var ok bool
-		endID, ok = g.createMassAt(position, false)
-		if !ok {
-			return
-		}
-	}
-	g.createSpringBetween(g.pendingSpringID, endID)
-	if keepChain && !existing {
-		g.pendingSpringID = endID
-		g.pendingSpringEnd = g.massPosition(endID, position)
-		g.springChainActive = true
+	endID, existing, ok := g.springChainEndpointAt(position)
+	if !ok {
 		return
 	}
-	g.clearPendingSpring()
+	g.createSpringBetween(g.pendingSpringID, endID)
+	g.finishSpringChainStep(endID, position, keepChain && !existing)
+}
+
+func (g *Game) springChainEndpointAt(position sim.Vec2) (int, bool, bool) {
+	if endID, existing := g.massAt(position); existing {
+		return endID, true, true
+	}
+	endID, ok := g.createMassAt(position, false)
+	return endID, false, ok
+}
+
+func (g *Game) finishSpringChainStep(endID int, position sim.Vec2, keepChain bool) {
+	if !keepChain {
+		g.clearPendingSpring()
+		return
+	}
+	g.pendingSpringID = endID
+	g.pendingSpringEnd = g.massPosition(endID, position)
+	g.springChainActive = true
 }
 
 func (g *Game) createSpringBetween(startID int, endID int) bool {

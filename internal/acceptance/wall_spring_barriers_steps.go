@@ -79,13 +79,8 @@ func setBarrierSpringWall(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	world := ensureDomainWorld(w)
-	if _, ok := world.SpringByID(springID); !ok {
-		ensureWallSpringMass(world, 1, sim.Vec2{})
-		ensureWallSpringMass(world, 2, sim.Vec2{X: 20})
-		if err := world.AddSpring(sim.Spring{ID: springID, MassA: 1, MassB: 2}); err != nil {
-			return err
-		}
+	if err := ensureBarrierSpring(w, springID); err != nil {
+		return err
 	}
 	return updateBarrierSpring(w, example, func(spring *sim.Spring) { spring.Wall = wall })
 }
@@ -136,19 +131,27 @@ func assertBarrierSpringForceStateKey(w *world, example map[string]string, key s
 	if err != nil {
 		return err
 	}
-	if state != "enabled" && state != "disabled" {
+	if !validWallSpringForceState(state) {
 		return fmt.Errorf("invalid force state %q", state)
 	}
-	enabled := false
-	for _, forces := range w.forceEvaluation.ByMassID {
-		if forces.Force != (sim.Vec2{}) {
-			enabled = true
-		}
-	}
+	enabled := forceEvaluationHasForce(w.forceEvaluation)
 	if (state == "enabled") != enabled {
 		return fmt.Errorf("%s force enabled = %t, forces = %#v", key, enabled, w.forceEvaluation.ByMassID)
 	}
 	return nil
+}
+
+func validWallSpringForceState(state string) bool {
+	return state == "enabled" || state == "disabled"
+}
+
+func forceEvaluationHasForce(evaluation sim.ForceEvaluation) bool {
+	for _, forces := range evaluation.ByMassID {
+		if forces.Force != (sim.Vec2{}) {
+			return true
+		}
+	}
+	return false
 }
 
 func createWallSpringByCoordinates(w *world, example map[string]string) error {
@@ -165,25 +168,13 @@ func createWallSpringByCoordinates(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	x1, err := floatValue(example, "wall_x1")
-	if err != nil {
-		return err
-	}
-	y1, err := floatValue(example, "wall_y1")
-	if err != nil {
-		return err
-	}
-	x2, err := floatValue(example, "wall_x2")
-	if err != nil {
-		return err
-	}
-	y2, err := floatValue(example, "wall_y2")
+	values, err := floatValues(example, "wall_x1", "wall_y1", "wall_x2", "wall_y2")
 	if err != nil {
 		return err
 	}
 	world := ensureDomainWorld(w)
-	ensureWallSpringMass(world, 1, sim.Vec2{X: x1, Y: y1})
-	ensureWallSpringMass(world, 2, sim.Vec2{X: x2, Y: y2})
+	ensureWallSpringMass(world, 1, sim.Vec2{X: values[0], Y: values[1]})
+	ensureWallSpringMass(world, 2, sim.Vec2{X: values[2], Y: values[3]})
 	return world.AddSpring(sim.Spring{ID: springID, MassA: 1, MassB: 2, Wall: true})
 }
 
@@ -201,86 +192,47 @@ func createBarrierMovingMass(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	x, err := floatValue(example, "mass_x")
-	if err != nil {
-		return err
-	}
-	y, err := floatValue(example, "mass_y")
-	if err != nil {
-		return err
-	}
-	vx, err := floatValue(example, "mass_vx")
-	if err != nil {
-		return err
-	}
-	vy, err := floatValue(example, "mass_vy")
+	values, err := floatValues(example, "mass_x", "mass_y", "mass_vx", "mass_vy")
 	if err != nil {
 		return err
 	}
 	world := ensureDomainWorld(w)
-	if err := world.AddMass(sim.Mass{ID: id, Position: sim.Vec2{X: x, Y: y}, Velocity: sim.Vec2{X: vx, Y: vy}, Mass: 1}); err != nil {
+	if err := world.AddMass(sim.Mass{ID: id, Position: sim.Vec2{X: values[0], Y: values[1]}, Velocity: sim.Vec2{X: values[2], Y: values[3]}, Mass: 1}); err != nil {
 		return err
 	}
 	return rememberWallSpringStartingSide(w, example, id)
 }
 
 func advanceThroughWallSpringCollision(w *world, _ map[string]string) error {
-	ensureDomainWorld(w).Step(1)
-	return nil
+	return advanceWallSpringWorld(w)
 }
 
 func assertMassOnStartingWallSpringSide(w *world, example map[string]string) error {
-	massID, err := intValue(example, "mass_id")
+	state, err := wallSpringMassState(w, example)
 	if err != nil {
 		return err
 	}
-	springID, err := intValue(example, "spring_id")
+	current, err := wallSpringSide(state.world, state.springID, state.mass.Position)
 	if err != nil {
 		return err
 	}
-	world := ensureDomainWorld(w)
-	mass, ok := world.MassByID(massID)
-	if !ok {
-		return fmt.Errorf("mass %d not found", massID)
-	}
-	side, ok := w.wallSpringSides[massID]
-	if !ok {
-		return fmt.Errorf("starting side for mass %d was not recorded", massID)
-	}
-	current, err := wallSpringSide(world, springID, mass.Position)
-	if err != nil {
-		return err
-	}
-	if current*side < 0 {
-		return fmt.Errorf("mass %d crossed wall spring %d: side %f started %f", massID, springID, current, side)
+	if current*state.side < 0 {
+		return fmt.Errorf("mass %d crossed wall spring %d: side %f started %f", state.massID, state.springID, current, state.side)
 	}
 	return nil
 }
 
 func assertMassVelocityResolvedAwayFromWallSpring(w *world, example map[string]string) error {
-	massID, err := intValue(example, "mass_id")
+	state, err := wallSpringMassState(w, example)
 	if err != nil {
 		return err
 	}
-	springID, err := intValue(example, "spring_id")
+	normal, err := wallSpringNormal(state.world, state.springID)
 	if err != nil {
 		return err
 	}
-	world := ensureDomainWorld(w)
-	mass, ok := world.MassByID(massID)
-	if !ok {
-		return fmt.Errorf("mass %d not found", massID)
-	}
-	side, ok := w.wallSpringSides[massID]
-	if !ok {
-		return fmt.Errorf("starting side for mass %d was not recorded", massID)
-	}
-	normal, err := wallSpringNormal(world, springID)
-	if err != nil {
-		return err
-	}
-	if dotAcceptance(mass.Velocity, normal)*side < 0 {
-		return fmt.Errorf("mass %d velocity penetrates wall spring %d: %#v", massID, springID, mass.Velocity)
+	if dotAcceptance(state.mass.Velocity, normal)*state.side < 0 {
+		return fmt.Errorf("mass %d velocity penetrates wall spring %d: %#v", state.massID, state.springID, state.mass.Velocity)
 	}
 	return nil
 }
@@ -358,6 +310,10 @@ func createMassCollidingWithWallSpring(w *world, example map[string]string) erro
 }
 
 func resolveWallSpringCollision(w *world, _ map[string]string) error {
+	return advanceWallSpringWorld(w)
+}
+
+func advanceWallSpringWorld(w *world) error {
 	ensureDomainWorld(w).Step(1)
 	return nil
 }
@@ -371,20 +327,9 @@ func assertWallSpringEndpointBImpulseShare(w *world, example map[string]string) 
 }
 
 func assertWallSpringNamedEndpointImpulseShare(w *world, example map[string]string, endpointKey, shareKey string) error {
-	endpoint, err := intValue(example, endpointKey)
+	endpoint, expectedShare, err := endpointImpulseExpectation(example, endpointKey, shareKey)
 	if err != nil {
 		return err
-	}
-	expected, err := stringValue(example, shareKey)
-	if err != nil {
-		return err
-	}
-	if expected == "absorbed" {
-		expected = "0"
-	}
-	expectedShare, err := parseExpectedImpulseShare(expected)
-	if err != nil {
-		return fmt.Errorf("invalid impulse share %q", expected)
 	}
 	world := ensureDomainWorld(w)
 	mass, ok := world.MassByID(endpoint)
@@ -400,6 +345,9 @@ func assertWallSpringNamedEndpointImpulseShare(w *world, example map[string]stri
 }
 
 func parseExpectedImpulseShare(value string) (float64, error) {
+	if value == "absorbed" {
+		value = "0"
+	}
 	switch value {
 	case "0.75":
 		return 0.75, nil
@@ -463,26 +411,7 @@ func assertSavedWallSpringXSP(w *world, example map[string]string) error {
 }
 
 func createSelectedSpringWithWall(w *world, example map[string]string) error {
-	if err := requireWallSpringExampleValues(example, map[string]string{"spring_id": "1"}); err != nil {
-		return err
-	}
-	springID, oldWall, err := springIDAndWall(example, "old_wall")
-	if err != nil {
-		return err
-	}
-	game := app.NewGame()
-	world := sim.NewWorld()
-	ensureWallSpringMass(world, 1, sim.Vec2{})
-	ensureWallSpringMass(world, 2, sim.Vec2{X: 20})
-	if err := world.AddSpring(sim.Spring{ID: springID, MassA: 1, MassB: 2, Wall: oldWall}); err != nil {
-		return err
-	}
-	game.ReplaceWorld(world)
-	if err := game.SelectSpring(springID); err != nil {
-		return err
-	}
-	w.appGame = game
-	return nil
+	return createAppSpringWithWall(w, example, "old_wall", true)
 }
 
 func changeSpringWallControl(w *world, _ map[string]string) error {
@@ -519,23 +448,7 @@ func assertSpringWallValue(w *world, example map[string]string) error {
 }
 
 func createMenuSpringWithWall(w *world, example map[string]string) error {
-	if err := requireWallSpringExampleValues(example, map[string]string{"spring_id": "1"}); err != nil {
-		return err
-	}
-	springID, oldWall, err := springIDAndWall(example, "old_wall")
-	if err != nil {
-		return err
-	}
-	game := app.NewGame()
-	world := sim.NewWorld()
-	ensureWallSpringMass(world, 1, sim.Vec2{})
-	ensureWallSpringMass(world, 2, sim.Vec2{X: 20})
-	if err := world.AddSpring(sim.Spring{ID: springID, MassA: 1, MassB: 2, Wall: oldWall}); err != nil {
-		return err
-	}
-	game.ReplaceWorld(world)
-	w.appGame = game
-	return nil
+	return createAppSpringWithWall(w, example, "old_wall", false)
 }
 
 func assertSpringMenuIncludesItem(w *world, example map[string]string) error {
@@ -547,14 +460,12 @@ func assertSpringMenuIncludesItem(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	game, ok := w.appGame.(*app.Game)
-	if !ok {
-		return fmt.Errorf("application game is not concrete")
+	labels, err := springContextMenuLabels(w, springID)
+	if err != nil {
+		return err
 	}
-	for _, label := range game.SpringContextMenuLabelsForSpring(springID) {
-		if label == item {
-			return nil
-		}
+	if containsAcceptanceString(labels, item) {
+		return nil
 	}
 	return fmt.Errorf("spring menu did not include %q", item)
 }
@@ -575,23 +486,49 @@ func selectSpringMenuWallItem(w *world, example map[string]string) error {
 }
 
 func createRenderableWallSpring(w *world, example map[string]string) error {
-	if err := requireWallSpringExampleValues(example, map[string]string{"spring_id": "1"}); err != nil {
-		return err
-	}
-	springID, wall, err := springIDAndWall(example, "wall")
+	return createAppSpringWithWall(w, example, "wall", false)
+}
+
+func createAppSpringWithWall(w *world, example map[string]string, wallKey string, selectSpring bool) error {
+	springID, wall, err := appSpringWallExample(example, wallKey)
 	if err != nil {
 		return err
 	}
+	game, err := newAppGameWithSpring(springID, wall)
+	if err != nil {
+		return err
+	}
+	if err := selectAppSpringIfRequested(game, springID, selectSpring); err != nil {
+		return err
+	}
+	w.appGame = game
+	return nil
+}
+
+func appSpringWallExample(example map[string]string, wallKey string) (int, bool, error) {
+	if err := requireWallSpringExampleValues(example, map[string]string{"spring_id": "1"}); err != nil {
+		return 0, false, err
+	}
+	return springIDAndWall(example, wallKey)
+}
+
+func newAppGameWithSpring(springID int, wall bool) (*app.Game, error) {
 	game := app.NewGame()
 	world := sim.NewWorld()
 	ensureWallSpringMass(world, 1, sim.Vec2{})
 	ensureWallSpringMass(world, 2, sim.Vec2{X: 20})
 	if err := world.AddSpring(sim.Spring{ID: springID, MassA: 1, MassB: 2, Wall: wall}); err != nil {
-		return err
+		return nil, err
 	}
 	game.ReplaceWorld(world)
-	w.appGame = game
-	return nil
+	return game, nil
+}
+
+func selectAppSpringIfRequested(game *app.Game, springID int, selectSpring bool) error {
+	if !selectSpring {
+		return nil
+	}
+	return game.SelectSpring(springID)
 }
 
 func renderWallSpring(w *world, _ map[string]string) error {
@@ -610,20 +547,36 @@ func assertWallSpringRenderingStyle(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	switch style {
-	case "normal":
-		if got := w.renderResult.Representations["spring"]; got != "cyan line" {
-			return fmt.Errorf("normal spring representation = %q", got)
-		}
-		if got := w.renderResult.Representations["wall spring"]; got != "" {
-			return fmt.Errorf("normal spring should not have wall representation %q", got)
-		}
-	case "wall":
-		if got := w.renderResult.Representations["wall spring"]; got != "heavy orange line" {
-			return fmt.Errorf("wall spring representation = %q", got)
-		}
-	default:
+	assert, ok := wallSpringRenderingAssertions[style]
+	if !ok {
 		return fmt.Errorf("unsupported rendering style %q", style)
+	}
+	return assert(w.renderResult.Representations)
+}
+
+var wallSpringRenderingAssertions = map[string]func(map[string]string) error{
+	"normal": assertNormalSpringRendering,
+	"wall":   assertWallSpringRendering,
+}
+
+func assertNormalSpringRendering(representations map[string]string) error {
+	return assertSpringRenderRepresentations(representations, map[string]string{
+		"spring":      "cyan line",
+		"wall spring": "",
+	})
+}
+
+func assertWallSpringRendering(representations map[string]string) error {
+	return assertSpringRenderRepresentations(representations, map[string]string{
+		"wall spring": "heavy orange line",
+	})
+}
+
+func assertSpringRenderRepresentations(representations map[string]string, expected map[string]string) error {
+	for key, want := range expected {
+		if got := representations[key]; got != want {
+			return fmt.Errorf("%s representation = %q, expected %q", key, got, want)
+		}
 	}
 	return nil
 }
@@ -643,6 +596,16 @@ func updateBarrierSpring(w *world, example map[string]string, update func(*sim.S
 	return fmt.Errorf("spring %d not found", springID)
 }
 
+func ensureBarrierSpring(w *world, springID int) error {
+	world := ensureDomainWorld(w)
+	if _, ok := world.SpringByID(springID); ok {
+		return nil
+	}
+	ensureWallSpringMass(world, 1, sim.Vec2{})
+	ensureWallSpringMass(world, 2, sim.Vec2{X: 20})
+	return world.AddSpring(sim.Spring{ID: springID, MassA: 1, MassB: 2})
+}
+
 func ensureWallSpringMass(world *sim.Simulation, id int, position sim.Vec2) {
 	for i := range world.Masses {
 		if world.Masses[i].ID == id {
@@ -651,6 +614,23 @@ func ensureWallSpringMass(world *sim.Simulation, id int, position sim.Vec2) {
 		}
 	}
 	_ = world.AddMass(sim.Mass{ID: id, Position: position, Mass: 1})
+}
+
+func springContextMenuLabels(w *world, springID int) ([]string, error) {
+	game, ok := w.appGame.(*app.Game)
+	if !ok {
+		return nil, fmt.Errorf("application game is not concrete")
+	}
+	return game.SpringContextMenuLabelsForSpring(springID), nil
+}
+
+func containsAcceptanceString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
 
 func rememberWallSpringStartingSide(w *world, example map[string]string, massID int) error {
@@ -725,4 +705,66 @@ func requireWallSpringExampleValues(example map[string]string, expected map[stri
 		}
 	}
 	return nil
+}
+
+type wallSpringMassStateResult struct {
+	world    *sim.Simulation
+	mass     sim.Mass
+	massID   int
+	springID int
+	side     float64
+}
+
+func wallSpringMassState(w *world, example map[string]string) (wallSpringMassStateResult, error) {
+	massID, springID, err := intPair(example, "mass_id", "spring_id")
+	if err != nil {
+		return wallSpringMassStateResult{}, err
+	}
+	world := ensureDomainWorld(w)
+	mass, ok := world.MassByID(massID)
+	if !ok {
+		return wallSpringMassStateResult{}, fmt.Errorf("mass %d not found", massID)
+	}
+	side, ok := w.wallSpringSides[massID]
+	if !ok {
+		return wallSpringMassStateResult{}, fmt.Errorf("starting side for mass %d was not recorded", massID)
+	}
+	return wallSpringMassStateResult{world: world, mass: mass, massID: massID, springID: springID, side: side}, nil
+}
+
+func endpointImpulseExpectation(example map[string]string, endpointKey string, shareKey string) (int, float64, error) {
+	endpoint, err := intValue(example, endpointKey)
+	if err != nil {
+		return 0, 0, err
+	}
+	expected, err := stringValue(example, shareKey)
+	if err != nil {
+		return 0, 0, err
+	}
+	share, err := parseExpectedImpulseShare(expected)
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid impulse share %q", expected)
+	}
+	return endpoint, share, nil
+}
+
+func intPair(example map[string]string, firstKey string, secondKey string) (int, int, error) {
+	first, err := intValue(example, firstKey)
+	if err != nil {
+		return 0, 0, err
+	}
+	second, err := intValue(example, secondKey)
+	return first, second, err
+}
+
+func floatValues(example map[string]string, keys ...string) ([]float64, error) {
+	values := make([]float64, len(keys))
+	for i, key := range keys {
+		value, err := floatValue(example, key)
+		if err != nil {
+			return nil, err
+		}
+		values[i] = value
+	}
+	return values, nil
 }

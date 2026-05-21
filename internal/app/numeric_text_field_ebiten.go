@@ -42,7 +42,3 @@ func (g *Game) handleNumericTextFieldBlur() {
 	g.handleNumericTextFieldCancel()
 	g.handleNumericTextFieldSubmit()
 }
-
-func numericTextFieldBlurPressed() bool {
-	return inpututil.IsKeyJustPressed(ebiten.KeyEscape) || valueDialogSubmitPressed()
-}
