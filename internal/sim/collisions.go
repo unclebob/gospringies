@@ -216,21 +216,27 @@ func (s *Simulation) applyWallSpringCollision(spring Spring, mass, endpointA, en
 		return
 	}
 	normal := Vec2{X: -segment.Y, Y: segment.X}.Normalize()
-	previous := mass.Position.Sub(mass.Velocity.Scale(dt))
+	previousMass := mass.Position.Sub(mass.Velocity.Scale(dt))
+	previousEndpointA := endpointA.Position.Sub(endpointA.Velocity.Scale(dt))
+	previousSide := dot(previousMass.Sub(previousEndpointA), normal)
 	currentSide := dot(mass.Position.Sub(endpointA.Position), normal)
-	previousSide := dot(previous.Sub(endpointA.Position), normal)
-	contactFraction, ok := wallSpringContactFraction(previous, mass.Position, endpointA.Position, segment, lengthSquared, previousSide, currentSide)
+	contactFraction, ok := wallSpringContactFraction(previousMass.Sub(previousEndpointA), mass.Position.Sub(endpointA.Position), segment, lengthSquared, previousSide, currentSide)
 	if !ok {
 		return
 	}
 	side := sideSign(previousSide)
 	oldVelocity := mass.Velocity
+	wallVelocity := wallSpringContactVelocity(endpointA, endpointB, contactFraction)
 	contact := closestPointOnSegment(mass.Position, endpointA.Position, segment, lengthSquared)
 	mass.Position = contact.Add(normal.Scale(side * MassRadius(*mass)))
-	resolveWallSpringVelocity(mass, normal, side)
+	resolveWallSpringVelocity(mass, wallVelocity, normal, side)
 	shareWallSpringImpulse(endpointA, oldVelocity.Sub(mass.Velocity).Scale(1-contactFraction))
 	shareWallSpringImpulse(endpointB, oldVelocity.Sub(mass.Velocity).Scale(contactFraction))
 	s.applyWallSpringTemperatureKick(spring, mass)
+}
+
+func wallSpringContactVelocity(endpointA, endpointB *Mass, contactFraction float64) Vec2 {
+	return endpointA.Velocity.Scale(1 - contactFraction).Add(endpointB.Velocity.Scale(contactFraction))
 }
 
 func (s *Simulation) applyWallSpringTemperatureKick(spring Spring, mass *Mass) {
@@ -247,13 +253,13 @@ func fullScreenGravityKick(s *Simulation) float64 {
 	return math.Sqrt(2 * 10 * s.Bounds.Height)
 }
 
-func wallSpringContactFraction(previous, current, start, segment Vec2, lengthSquared float64, previousSide, currentSide float64) (float64, bool) {
+func wallSpringContactFraction(previous, current, segment Vec2, lengthSquared float64, previousSide, currentSide float64) (float64, bool) {
 	if previousSide == 0 || currentSide == 0 || sameSign(previousSide, currentSide) {
 		return 0, false
 	}
 	intersectionFraction := previousSide / (previousSide - currentSide)
 	crossing := previous.Add(current.Sub(previous).Scale(intersectionFraction))
-	projection := dot(crossing.Sub(start), segment) / lengthSquared
+	projection := dot(crossing, segment) / lengthSquared
 	return projection, projection >= 0 && projection <= 1
 }
 
@@ -273,13 +279,14 @@ func closestPointOnSegment(point, start, segment Vec2, lengthSquared float64) Ve
 	return start.Add(segment.Scale(math.Min(1, math.Max(0, projection))))
 }
 
-func resolveWallSpringVelocity(mass *Mass, normal Vec2, startingSide float64) {
-	normalVelocity := dot(mass.Velocity, normal)
+func resolveWallSpringVelocity(mass *Mass, wallVelocity Vec2, normal Vec2, startingSide float64) {
+	relativeVelocity := mass.Velocity.Sub(wallVelocity)
+	normalVelocity := dot(relativeVelocity, normal)
 	if normalVelocity*startingSide >= 0 {
 		return
 	}
 	elasticity := 1 + math.Max(1, mass.Elasticity)
-	mass.Velocity = mass.Velocity.Sub(normal.Scale(elasticity * normalVelocity))
+	mass.Velocity = wallVelocity.Add(relativeVelocity.Sub(normal.Scale(elasticity * normalVelocity)))
 }
 
 func shareWallSpringImpulse(endpoint *Mass, impulse Vec2) {

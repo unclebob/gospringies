@@ -1,4 +1,4 @@
-# mutation-stamp: sha256=af06435d52664bf5f6bfa1f55ad80470ecd8a87d0bd680afe1558a4356f22767
+# mutation-stamp: sha256=c126924cd7dea2f7e9ac536654fc048dc7ae029d58d2def3ba61475d7924380b
 Feature: Wall spring barriers
 
 Background:
@@ -41,6 +41,17 @@ Scenario Outline: wall springs stop masses from crossing their segment
 Examples:
   | spring_id | wall_x1 | wall_y1 | wall_x2 | wall_y2 | mass_id | mass_x | mass_y | mass_vx | mass_vy |
   | 1         | 0       | 0       | 0       | 100     | 3       | -5     | 50     | 10      | 0       |
+
+Scenario Outline: moving wall springs stop stationary masses from crossing their segment
+  Given moving wall spring <spring_id> spans from <wall_x1>, <wall_y1> to <wall_x2>, <wall_y2> with velocity <wall_vx>, <wall_vy>
+  And stationary mass <mass_id> starts at <mass_x>, <mass_y>
+  When the coder advances through moving wall spring collision
+  Then mass <mass_id> should remain on the starting side of moving wall spring <spring_id>
+  And moving wall spring <spring_id> velocity should be resolved away from mass <mass_id>
+
+Examples:
+  | spring_id | wall_x1 | wall_y1 | wall_x2 | wall_y2 | wall_vx | wall_vy | mass_id | mass_x | mass_y |
+  | 1         | -5      | 0       | -5      | 100     | 10      | 0       | 3       | 0      | 50     |
 
 Scenario Outline: wall spring collision response is shared by endpoint masses
   Given wall spring <spring_id> spans from mass <endpoint_a> to mass <endpoint_b>
