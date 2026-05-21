@@ -64,6 +64,7 @@ type world struct {
 	handoffVerification  map[string]string
 	workDir              string
 	previousWorkDir      string
+	screenWallSides      map[int]float64
 	wallSpringSides      map[int]float64
 	wallSpringImpulses   map[int]sim.Vec2
 }
@@ -466,6 +467,10 @@ var stepHandlers = map[string]stepHandler{
 	"mass <mass_id> wall-normal velocity magnitude should be scaled by <elasticity>":                        assertWallNormalVelocityScaled,
 	"mass <mass_id> moves from off-screen toward the screen through wall <wall>":                            moveMassFromOutsideThroughWall,
 	"the coder advances through the wall boundary":                                                          advanceThroughWallBoundary,
+	"mass <mass_id> starts at <start_x>, <start_y> with velocity <velocity_x>, <velocity_y>":                startMassAtPositionWithVelocity,
+	"the coder advances through the wall boundary by <duration>":                                            advanceThroughWallBoundaryByDuration,
+	"mass <mass_id> should remain on the starting side of wall <wall>":                                      assertMassOnStartingScreenWallSide,
+	"mass <mass_id> wall-normal velocity should be resolved toward the starting side of wall <wall>":        assertWallNormalVelocityTowardStartingSide,
 	"mass <mass_id> should pass through wall <wall>":                                                        assertMassPassedThroughWall,
 	"stickiness is <stickiness>":                                                                            setCollisionStickiness,
 	"mass <mass_id> collides with wall <wall>":                                                              collideMassWithWall,

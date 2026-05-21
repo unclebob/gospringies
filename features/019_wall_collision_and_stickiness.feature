@@ -1,3 +1,4 @@
+# mutation-stamp: sha256=33ddc3dbebef42f8f1f22622a0c65871b7a0c8ebe582d1b2150b508f6b26725d
 Feature: Wall collision and stickiness
 
 Background:
