@@ -338,6 +338,26 @@ func TestWallSpringLengthCorrectionDoesNotMoveEndpointThroughOtherWallSpring(t *
 	}
 }
 
+func TestWallSpringEndpointUsesFullTimestepPathForOtherWallSpringCollision(t *testing.T) {
+	world := NewWorld()
+	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: 0, Y: 0}, Mass: 1, Fixed: true})
+	_ = world.AddMass(Mass{ID: 2, Position: Vec2{X: 0, Y: 100}, Mass: 1, Fixed: true})
+	_ = world.AddMass(Mass{ID: 3, Position: Vec2{X: -5, Y: 40}, Velocity: Vec2{X: 10}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 4, Position: Vec2{X: -100, Y: 40}, Mass: 1, Fixed: true})
+	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, Wall: true})
+	_ = world.AddSpring(Spring{ID: 2, MassA: 3, MassB: 4, RestLength: 150, Wall: true})
+
+	world.Step(1)
+
+	endpoint, _ := world.MassByID(3)
+	if endpoint.Position.X > 0 {
+		t.Fatalf("wall spring endpoint crossed barrier over full timestep path: %#v", endpoint)
+	}
+	if endpoint.Velocity.X > 0 {
+		t.Fatalf("wall spring endpoint velocity still penetrates barrier: %#v", endpoint.Velocity)
+	}
+}
+
 func TestWallSpringCollisionsIgnoreZeroTimeStepAfterLengthCorrection(t *testing.T) {
 	world := NewWorld()
 	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: 0, Y: 0}, Mass: 1})
@@ -360,40 +380,32 @@ func TestWallSpringCollisionsIgnoreZeroTimeStepAfterLengthCorrection(t *testing.
 
 func TestWallSpringPreviousPositionUsesCorrectBoundarySource(t *testing.T) {
 	for _, tc := range []struct {
-		name                    string
-		mass                    Mass
-		beforeLengthConstraints []Vec2
-		index                   int
-		dt                      float64
-		want                    Vec2
+		name           string
+		mass           Mass
+		startPositions []Vec2
+		index          int
+		dt             float64
+		want           Vec2
 	}{
 		{
-			name:                    "first index uses length correction position",
-			mass:                    Mass{Position: Vec2{X: 2}, Velocity: Vec2{X: 10}},
-			beforeLengthConstraints: []Vec2{{X: 1}},
-			index:                   0,
-			dt:                      1,
-			want:                    Vec2{X: 1},
+			name:           "first index uses timestep start position",
+			mass:           Mass{Position: Vec2{X: 2}, Velocity: Vec2{X: 10}},
+			startPositions: []Vec2{{X: 1}},
+			index:          0,
+			dt:             1,
+			want:           Vec2{X: 1},
 		},
 		{
-			name:                    "index at length falls back to velocity",
-			mass:                    Mass{Position: Vec2{X: 2}, Velocity: Vec2{X: 10}},
-			beforeLengthConstraints: []Vec2{{X: 1}},
-			index:                   1,
-			dt:                      1,
-			want:                    Vec2{X: -8},
-		},
-		{
-			name:                    "unchanged length correction position falls back to velocity",
-			mass:                    Mass{Position: Vec2{X: 2}, Velocity: Vec2{X: 10}},
-			beforeLengthConstraints: []Vec2{{X: 2}},
-			index:                   0,
-			dt:                      1,
-			want:                    Vec2{X: -8},
+			name:           "index at length falls back to velocity",
+			mass:           Mass{Position: Vec2{X: 2}, Velocity: Vec2{X: 10}},
+			startPositions: []Vec2{{X: 1}},
+			index:          1,
+			dt:             1,
+			want:           Vec2{X: -8},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := wallSpringPreviousPosition(tc.mass, tc.beforeLengthConstraints, tc.index, tc.dt); got != tc.want {
+			if got := wallSpringPreviousPosition(tc.mass, tc.startPositions, tc.index, tc.dt); got != tc.want {
 				t.Fatalf("previous position = %#v, expected %#v", got, tc.want)
 			}
 		})
