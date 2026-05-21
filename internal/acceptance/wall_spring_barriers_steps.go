@@ -541,24 +541,43 @@ func resolveSpringCollision(w *world, _ map[string]string) error {
 }
 
 func assertMassTemperatureKick(w *world, example map[string]string) error {
-	massID, err := intValue(example, "mass_id")
+	assertion, err := temperatureKickAssertion(w, example)
 	if err != nil {
 		return err
+	}
+	return assertTemperatureKickBehavior(assertion.behavior, assertion.kick, ensureDomainWorld(w).Bounds.Height)
+}
+
+type temperatureKickExpectation struct {
+	behavior string
+	kick     sim.Vec2
+}
+
+func temperatureKickAssertion(w *world, example map[string]string) (temperatureKickExpectation, error) {
+	massID, err := intValue(example, "mass_id")
+	if err != nil {
+		return temperatureKickExpectation{}, err
 	}
 	behavior, err := stringValue(example, "kick_behavior")
 	if err != nil {
-		return err
+		return temperatureKickExpectation{}, err
 	}
 	mass, ok := ensureDomainWorld(w).MassByID(massID)
 	if !ok {
-		return fmt.Errorf("mass %d not found", massID)
+		return temperatureKickExpectation{}, fmt.Errorf("mass %d not found", massID)
 	}
-	kick := mass.Velocity.Sub(expectedWallSpringCollisionVelocity(example))
+	return temperatureKickExpectation{
+		behavior: behavior,
+		kick:     mass.Velocity.Sub(expectedWallSpringCollisionVelocity(example)),
+	}, nil
+}
+
+func assertTemperatureKickBehavior(behavior string, kick sim.Vec2, worldHeight float64) error {
 	switch behavior {
 	case "none":
 		return assertVec("temperature kick", kick, 0, 0)
 	case "full screen height against gravity 10":
-		return assertFloat("temperature kick magnitude", math.Sqrt(kick.X*kick.X+kick.Y*kick.Y), math.Sqrt(2*10*ensureDomainWorld(w).Bounds.Height))
+		return assertFloat("temperature kick magnitude", math.Sqrt(kick.X*kick.X+kick.Y*kick.Y), math.Sqrt(2*10*worldHeight))
 	default:
 		return fmt.Errorf("unsupported temperature kick behavior %q", behavior)
 	}
@@ -884,26 +903,47 @@ func selectSpringMenuTemperatureItem(w *world, example map[string]string) error 
 }
 
 func assertSpringTemperatureDialogRange(w *world, example map[string]string) error {
+	actual, err := springTemperatureDialogRange(w)
+	if err != nil {
+		return err
+	}
+	expected, err := expectedSpringTemperatureDialogRange(example)
+	if err != nil {
+		return err
+	}
+	if err := assertFloat("temperature dialog minimum", actual.minimum, expected.minimum); err != nil {
+		return err
+	}
+	return assertFloat("temperature dialog maximum", actual.maximum, expected.maximum)
+}
+
+type temperatureDialogRange struct {
+	minimum float64
+	maximum float64
+}
+
+func springTemperatureDialogRange(w *world) (temperatureDialogRange, error) {
 	game, ok := w.appGame.(*app.Game)
 	if !ok {
-		return fmt.Errorf("application game is not concrete")
+		return temperatureDialogRange{}, fmt.Errorf("application game is not concrete")
 	}
 	minimum, maximum, open := game.SpringTemperatureDialogRange()
 	if !open {
-		return fmt.Errorf("spring Temperature dialog was not open")
+		return temperatureDialogRange{}, fmt.Errorf("spring Temperature dialog was not open")
 	}
+	return temperatureDialogRange{minimum: minimum, maximum: maximum}, nil
+}
+
+func expectedSpringTemperatureDialogRange(example map[string]string) (temperatureDialogRange, error) {
 	expectedMinimum, err := floatValue(example, "minimum")
 	if err != nil {
-		return err
+		return temperatureDialogRange{}, err
 	}
 	expectedMaximum, err := floatValue(example, "maximum")
 	if err != nil {
-		return err
+		return temperatureDialogRange{}, err
 	}
-	if err := assertFloat("temperature dialog minimum", minimum, expectedMinimum); err != nil {
-		return err
-	}
-	return assertFloat("temperature dialog maximum", maximum, expectedMaximum)
+	return temperatureDialogRange{minimum: expectedMinimum, maximum: expectedMaximum}, nil
 }
 
 func changeSpringTemperatureDialogValue(w *world, example map[string]string) error {

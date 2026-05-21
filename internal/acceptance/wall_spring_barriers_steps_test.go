@@ -158,6 +158,92 @@ func TestWallSpringBarrierEndpointImpulseSteps(t *testing.T) {
 	}
 }
 
+func TestWallSpringBarrierTemperatureKickSteps(t *testing.T) {
+	for _, example := range []map[string]string{
+		{
+			"spring_id":        "1",
+			"temperature":      "0",
+			"seed":             "11",
+			"mass_id":          "3",
+			"contact_fraction": "0.50",
+			"kick_behavior":    "none",
+		},
+		{
+			"spring_id":        "1",
+			"temperature":      "10",
+			"seed":             "11",
+			"mass_id":          "3",
+			"contact_fraction": "0.50",
+			"kick_behavior":    "full screen height against gravity 10",
+		},
+	} {
+		w := &world{}
+		mustWallSpringStep(t, w, example, createWallSpringWithTemperature)
+		mustWallSpringStep(t, w, example, setTemperatureRandomSeed)
+		mustWallSpringStep(t, w, example, createMassCollidingWithWallSpring)
+		mustWallSpringStep(t, w, example, resolveWallSpringCollision)
+		mustWallSpringStep(t, w, example, assertMassTemperatureKick)
+	}
+}
+
+func TestWallSpringBarrierNonWallTemperatureSteps(t *testing.T) {
+	example := map[string]string{
+		"spring_id":     "1",
+		"wall":          "false",
+		"temperature":   "10",
+		"seed":          "11",
+		"mass_id":       "3",
+		"kick_behavior": "none",
+		"new_wall":      "false",
+	}
+	w := &world{}
+	mustWallSpringStep(t, w, example, setBarrierSpringWallFalse)
+	mustWallSpringStep(t, w, example, setSpringTemperature)
+	mustWallSpringStep(t, w, example, setTemperatureRandomSeed)
+	mustWallSpringStep(t, w, example, createMassCollidingWithSpring)
+	mustWallSpringStep(t, w, example, resolveSpringCollision)
+	mustWallSpringStep(t, w, example, assertMassTemperatureKick)
+}
+
+func TestWallSpringBarrierTemperatureKickStepReportsMissingMass(t *testing.T) {
+	example := map[string]string{
+		"mass_id":       "9",
+		"kick_behavior": "none",
+	}
+	w := &world{}
+	ensureDomainWorld(w)
+	if err := assertMassTemperatureKick(w, example); err == nil {
+		t.Fatal("missing mass temperature kick assertion should fail")
+	}
+}
+
+func TestWallSpringBarrierTemperatureKickStepReportsUnsupportedBehavior(t *testing.T) {
+	example := map[string]string{
+		"spring_id":        "1",
+		"temperature":      "10",
+		"seed":             "11",
+		"mass_id":          "3",
+		"contact_fraction": "0.50",
+		"kick_behavior":    "sideways",
+	}
+	w := &world{}
+	mustWallSpringStep(t, w, example, createWallSpringWithTemperature)
+	mustWallSpringStep(t, w, example, setTemperatureRandomSeed)
+	mustWallSpringStep(t, w, example, createMassCollidingWithWallSpring)
+	mustWallSpringStep(t, w, example, resolveWallSpringCollision)
+	if err := assertMassTemperatureKick(w, example); err == nil {
+		t.Fatal("unsupported temperature kick behavior should fail")
+	}
+}
+
+func TestWallSpringBarrierRejectsUnsupportedTemperatureStepExample(t *testing.T) {
+	example := map[string]string{"spring_id": "1", "temperature": "5"}
+	w := &world{}
+	if err := setSpringTemperature(w, example); err == nil {
+		t.Fatal("unsupported temperature example should fail")
+	}
+}
+
 func TestWallSpringBarrierXSPSteps(t *testing.T) {
 	for _, example := range []map[string]string{
 		{"spring_id": "1", "input_wall": "true", "loaded_wall": "true", "saved_wall": "true"},
@@ -168,6 +254,19 @@ func TestWallSpringBarrierXSPSteps(t *testing.T) {
 		mustWallSpringStep(t, w, example, loadAndSaveXSPInput)
 		mustWallSpringStep(t, w, example, assertLoadedWallSpringXSP)
 		mustWallSpringStep(t, w, example, assertSavedWallSpringXSP)
+	}
+}
+
+func TestWallSpringBarrierTemperatureXSPSteps(t *testing.T) {
+	for _, example := range []map[string]string{
+		{"spring_id": "1", "input_temperature": "7.5", "loaded_temperature": "7.5", "saved_temperature": "7.5"},
+		{"spring_id": "1", "input_temperature": "absent", "loaded_temperature": "0", "saved_temperature": "0"},
+	} {
+		w := &world{}
+		mustWallSpringStep(t, w, example, createTemperatureSpringXSPInput)
+		mustWallSpringStep(t, w, example, loadAndSaveXSPInput)
+		mustWallSpringStep(t, w, example, assertLoadedSpringTemperatureXSP)
+		mustWallSpringStep(t, w, example, assertSavedSpringTemperatureXSP)
 	}
 }
 
@@ -189,7 +288,7 @@ func TestWallSpringBarrierSelectedSpringsWallSteps(t *testing.T) {
 }
 
 func TestWallSpringBarrierSpringContextMenuSteps(t *testing.T) {
-	for _, item := range []string{"Kspring", "Kdamp", "RestLen", "Wall"} {
+	for _, item := range []string{"Kspring", "Kdamp", "RestLen", "Wall", "Temperature"} {
 		example := map[string]string{
 			"spring_id": "1",
 			"old_wall":  "false",
@@ -201,6 +300,37 @@ func TestWallSpringBarrierSpringContextMenuSteps(t *testing.T) {
 		mustWallSpringStep(t, w, example, assertSpringMenuIncludesItem)
 		mustWallSpringStep(t, w, example, selectSpringMenuWallItem)
 		mustWallSpringStep(t, w, example, assertSpringWallValue)
+	}
+}
+
+func TestWallSpringBarrierSpringTemperatureContextMenuSteps(t *testing.T) {
+	example := map[string]string{
+		"spring_id":         "1",
+		"old_temperature":   "0",
+		"minimum":           "0",
+		"maximum":           "10",
+		"new_temperature":   "7.5",
+		"temperature":       "10",
+		"kick_behavior":     "none",
+		"input_temperature": "7.5",
+	}
+	w := &world{}
+	mustWallSpringStep(t, w, example, createMenuSpringWithTemperature)
+	mustWallSpringStep(t, w, example, selectSpringMenuTemperatureItem)
+	mustWallSpringStep(t, w, example, assertSpringTemperatureDialogRange)
+	mustWallSpringStep(t, w, example, changeSpringTemperatureDialogValue)
+	mustWallSpringStep(t, w, example, assertSpringTemperatureValue)
+}
+
+func TestWallSpringBarrierTemperatureDialogRangeRequiresOpenDialog(t *testing.T) {
+	example := map[string]string{"minimum": "0", "maximum": "10"}
+	w := &world{}
+	if err := assertSpringTemperatureDialogRange(w, example); err == nil {
+		t.Fatal("missing app game should fail")
+	}
+	mustWallSpringStep(t, w, map[string]string{"spring_id": "1", "old_temperature": "0"}, createMenuSpringWithTemperature)
+	if err := assertSpringTemperatureDialogRange(w, example); err == nil {
+		t.Fatal("closed temperature dialog should fail")
 	}
 }
 

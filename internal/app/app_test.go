@@ -974,6 +974,29 @@ func TestSelectSpringsSelectsEveryRequestedSpring(t *testing.T) {
 	}
 }
 
+func TestSetSpringTemperatureUpdatesMatchingSpring(t *testing.T) {
+	game := NewGame()
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{}, Mass: 1})
+	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 20}, Mass: 1})
+	_ = world.AddSpring(sim.Spring{ID: 1, MassA: 1, MassB: 2})
+	game.ReplaceWorld(world)
+
+	game.setSpringTemperature(1, 7.5)
+	spring, _ := game.World().SpringByID(1)
+	if spring.Temperature != 7.5 {
+		t.Fatalf("spring temperature = %f", spring.Temperature)
+	}
+	if game.EditorScreen().Indicators["file state"] != "unsaved changes" {
+		t.Fatalf("set temperature should mark file dirty: %#v", game.EditorScreen().Indicators)
+	}
+	game.setSpringTemperature(2, 3)
+	spring, _ = game.World().SpringByID(1)
+	if spring.Temperature != 7.5 {
+		t.Fatalf("missing spring changed temperature to %f", spring.Temperature)
+	}
+}
+
 func TestKeyboardShortcutsRunVisibleCommands(t *testing.T) {
 	game := NewGame()
 	shortcuts := map[string]string{
