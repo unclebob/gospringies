@@ -214,8 +214,8 @@ func TestDrawCoversOpenOverlayBranches(t *testing.T) {
 	game := gameWithMasses(sim.Mass{ID: 1, Position: sim.Vec2{X: 120, Y: 120}})
 	_ = game.editing().SelectMass(1)
 	game.selected = true
-	game.demoFiles = []string{"demos/pendulum.xsp", "demos/spring-chain.xsp"}
-	game.demoPickerOpen = true
+	game.controls.demoFiles = []string{"demos/pendulum.xsp", "demos/spring-chain.xsp"}
+	game.controls.demoPickerOpen = true
 	game.massMenu = massContextMenu{Open: true, MassID: 1, X: 120, Y: 120}
 	game.valueDialog = valueDialog{Open: true, Title: "Value", Text: "1", Min: 0, Max: 2}
 
@@ -1257,20 +1257,20 @@ func TestSaveFilenameDialogDeleteAndClickPaths(t *testing.T) {
 
 func TestLoadControlOpensDemoPicker(t *testing.T) {
 	game := NewGame()
-	game.demoPickerScroll = 3
+	game.controls.demoPickerScroll = 3
 
 	if !game.ClickVisibleControl("Load") {
 		t.Fatal("Load control click was not handled")
 	}
 
-	if !game.demoPickerOpen {
+	if !game.controls.demoPickerOpen {
 		t.Fatal("demo picker was not opened")
 	}
 	if len(game.demoList()) == 0 {
 		t.Fatal("expected demo files")
 	}
-	if game.demoPickerScroll != 0 {
-		t.Fatalf("demo picker scroll = %d, want reset to 0", game.demoPickerScroll)
+	if game.controls.demoPickerScroll != 0 {
+		t.Fatalf("demo picker scroll = %d, want reset to 0", game.controls.demoPickerScroll)
 	}
 }
 
@@ -1301,7 +1301,7 @@ func TestLoadPickerLoadsSavedFileAndTracksCurrentPath(t *testing.T) {
 	mustWriteFile(t, filepath.Join(root, "saves", "lab_scene.xsp"), "#1.0\nmass 9 10 20 1 0\n")
 
 	game := NewGame()
-	game.demoPickerOpen = true
+	game.controls.demoPickerOpen = true
 	if !game.ChooseLoadPickerEntry("lab_scene.xsp") {
 		t.Fatalf("saved file did not load: %s", game.LastFileError())
 	}
@@ -1335,7 +1335,7 @@ func TestNumericSettingTextAndSliderDefaultBuild(t *testing.T) {
 	}
 
 	game.appendNumericSettingInput([]rune("x2.5"))
-	if got := game.numericInputText; got != "2.5" {
+	if got := game.controls.numericInputText; got != "2.5" {
 		t.Fatalf("numeric input text = %q, want 2.5", got)
 	}
 	if got := game.World().Parameters.Value("current mass"); got != "1" {
@@ -1349,10 +1349,10 @@ func TestNumericSettingTextAndSliderDefaultBuild(t *testing.T) {
 	}
 	game.FocusNumericSettingTextField("Mass")
 	game.deleteNumericSettingCharacter()
-	if got := game.numericInputText; got != "2." {
+	if got := game.controls.numericInputText; got != "2." {
 		t.Fatalf("numeric input after delete = %q, want 2.", got)
 	}
-	game.focusedNumeric = "Missing"
+	game.controls.focusedNumeric = "Missing"
 	game.appendNumericSettingInput([]rune("9"))
 	game.deleteNumericSettingCharacter()
 
@@ -1382,13 +1382,13 @@ func TestNumericSettingTextAndSliderDefaultBuild(t *testing.T) {
 
 func TestDemoPickerScrolls(t *testing.T) {
 	game := NewGame()
-	game.demoFiles = []string{"a.xsp", "b.xsp", "c.xsp", "d.xsp", "e.xsp", "f.xsp", "g.xsp", "h.xsp", "i.xsp", "j.xsp", "k.xsp", "l.xsp", "m.xsp", "n.xsp", "o.xsp", "p.xsp", "q.xsp", "r.xsp", "s.xsp", "t.xsp", "u.xsp", "v.xsp", "w.xsp", "x.xsp", "y.xsp", "z.xsp", "aa.xsp", "ab.xsp", "ac.xsp", "ad.xsp", "ae.xsp", "af.xsp", "ag.xsp", "ah.xsp", "ai.xsp", "aj.xsp", "ak.xsp", "al.xsp", "am.xsp", "an.xsp", "ao.xsp", "ap.xsp"}
-	game.demoPickerOpen = true
+	game.controls.demoFiles = []string{"a.xsp", "b.xsp", "c.xsp", "d.xsp", "e.xsp", "f.xsp", "g.xsp", "h.xsp", "i.xsp", "j.xsp", "k.xsp", "l.xsp", "m.xsp", "n.xsp", "o.xsp", "p.xsp", "q.xsp", "r.xsp", "s.xsp", "t.xsp", "u.xsp", "v.xsp", "w.xsp", "x.xsp", "y.xsp", "z.xsp", "aa.xsp", "ab.xsp", "ac.xsp", "ad.xsp", "ae.xsp", "af.xsp", "ag.xsp", "ah.xsp", "ai.xsp", "aj.xsp", "ak.xsp", "al.xsp", "am.xsp", "an.xsp", "ao.xsp", "ap.xsp"}
+	game.controls.demoPickerOpen = true
 
 	game.scrollDemoPicker(3)
 
-	if game.demoPickerScroll != 3 {
-		t.Fatalf("demo picker scroll = %d, want 3", game.demoPickerScroll)
+	if game.controls.demoPickerScroll != 3 {
+		t.Fatalf("demo picker scroll = %d, want 3", game.controls.demoPickerScroll)
 	}
 }
 
@@ -1426,15 +1426,15 @@ func TestDemoPickerGeometryAndDrawParameters(t *testing.T) {
 
 func TestDemoPickerClickLoadsSelectedDemo(t *testing.T) {
 	game := NewGame()
-	game.demoFiles = []string{filepath.Join("..", "..", "demos", "pendulum.xsp")}
-	game.demoPickerOpen = true
+	game.controls.demoFiles = []string{filepath.Join("..", "..", "demos", "pendulum.xsp")}
+	game.controls.demoPickerOpen = true
 	oldCount := len(game.World().Masses)
 	game.World().Masses = append(game.World().Masses, sim.Mass{ID: 1234, Position: sim.Vec2{X: 1, Y: 1}, Mass: 1})
 
 	row := game.demoRowRect(0)
 	game.clickDemoPicker(row.Min.X+2, row.Min.Y+2)
 
-	if game.demoPickerOpen {
+	if game.controls.demoPickerOpen {
 		t.Fatal("demo picker stayed open")
 	}
 	if _, ok := game.World().MassByID(1234); ok {
@@ -1457,9 +1457,9 @@ func TestDemoPickerClickUsesScrollOffsetAndOutsideClickCloses(t *testing.T) {
 	}
 
 	game := NewGame()
-	game.demoFiles = []string{first, second}
-	game.demoPickerOpen = true
-	game.demoPickerScroll = 1
+	game.controls.demoFiles = []string{first, second}
+	game.controls.demoPickerOpen = true
+	game.controls.demoPickerScroll = 1
 	row := game.demoRowRect(0)
 
 	game.clickDemoPicker(row.Min.X+2, row.Min.Y+2)
@@ -1468,20 +1468,20 @@ func TestDemoPickerClickUsesScrollOffsetAndOutsideClickCloses(t *testing.T) {
 		t.Fatalf("scrolled demo was not loaded: %#v", game.World().Masses)
 	}
 
-	game.demoPickerOpen = true
+	game.controls.demoPickerOpen = true
 	game.clickDemoPicker(demoPickerRect().Max.X+1, demoPickerRect().Max.Y+1)
-	if game.demoPickerOpen {
+	if game.controls.demoPickerOpen {
 		t.Fatal("outside click should close demo picker")
 	}
 }
 
 func TestLoadDemoAtOutOfRangeKeepsPickerOpen(t *testing.T) {
 	game := NewGame()
-	game.demoFiles = []string{filepath.Join("..", "..", "demos", "pendulum.xsp")}
-	for _, index := range []int{-1, len(game.demoFiles)} {
-		game.demoPickerOpen = true
+	game.controls.demoFiles = []string{filepath.Join("..", "..", "demos", "pendulum.xsp")}
+	for _, index := range []int{-1, len(game.controls.demoFiles)} {
+		game.controls.demoPickerOpen = true
 		game.loadDemoAt(index)
-		if !game.demoPickerOpen {
+		if !game.controls.demoPickerOpen {
 			t.Fatalf("out-of-range index %d closed demo picker", index)
 		}
 	}
@@ -1775,8 +1775,8 @@ func TestNumericTextEditingDoesNotMoveSliderUntilCommit(t *testing.T) {
 	if got := game.World().Parameters.Value("stickiness"); got != "7.5" {
 		t.Fatalf("stickiness after commit = %q, want 7.5", got)
 	}
-	if game.focusedNumeric != "" {
-		t.Fatalf("focused numeric after commit = %q", game.focusedNumeric)
+	if game.controls.focusedNumeric != "" {
+		t.Fatalf("focused numeric after commit = %q", game.controls.focusedNumeric)
 	}
 	if got, _ := game.NumericSettingSliderValue("Stick"); got != "7.5" {
 		t.Fatalf("slider value after commit = %q, want 7.5", got)
@@ -1831,13 +1831,13 @@ func TestReleasePointerClearsTransientDragState(t *testing.T) {
 	game.pointer.draggingOffsets = map[int]sim.Vec2{7: {X: 1}}
 	game.pointer.dragMoved = true
 	game.pointer.selectionDrag = true
-	game.activeSlider = "speed slider"
-	game.activeNumericStep = "speed increment"
-	game.numericStepTicks = 12
+	game.controls.activeSlider = "speed slider"
+	game.controls.activeNumericStep = "speed increment"
+	game.controls.numericStepTicks = 12
 
 	game.releasePointer(sim.Vec2{X: 10, Y: 10})
 
-	if game.pointer.draggingMassID != 0 || game.pointer.draggingOffsets != nil || game.pointer.dragMoved || game.pointer.selectionDrag || game.activeSlider != "" || game.activeNumericStep != "" || game.numericStepTicks != 0 {
+	if game.pointer.draggingMassID != 0 || game.pointer.draggingOffsets != nil || game.pointer.dragMoved || game.pointer.selectionDrag || game.controls.activeSlider != "" || game.controls.activeNumericStep != "" || game.controls.numericStepTicks != 0 {
 		t.Fatalf("drag state was not cleared: %#v", game)
 	}
 }
@@ -1860,13 +1860,13 @@ func TestRightPointerOnlyOpensContextOnInitialPress(t *testing.T) {
 
 func TestClickOpenOverlayConsumesOpenOverlayClicks(t *testing.T) {
 	game := NewGame()
-	game.demoFiles = []string{"demos/pendulum.xsp"}
-	game.demoPickerOpen = true
+	game.controls.demoFiles = []string{"demos/pendulum.xsp"}
+	game.controls.demoPickerOpen = true
 	if !game.clickOpenOverlay(0, 0) {
 		t.Fatal("demo picker overlay click was not consumed")
 	}
 
-	game.demoPickerOpen = false
+	game.controls.demoPickerOpen = false
 	game.valueDialog = valueDialog{Open: true}
 	if !game.clickOpenOverlay(0, 0) {
 		t.Fatal("value dialog overlay click was not consumed")
@@ -1898,16 +1898,16 @@ func TestClickOpenOverlayConsumesOpenOverlayClicks(t *testing.T) {
 
 func TestDemoPickerScrollClampsBothDirections(t *testing.T) {
 	game := NewGame()
-	game.demoPickerOpen = true
-	game.demoFiles = make([]string, demoPickerVisibleRows()+2)
+	game.controls.demoPickerOpen = true
+	game.controls.demoFiles = make([]string, demoPickerVisibleRows()+2)
 
 	game.scrollDemoPicker(99)
-	if game.demoPickerScroll != 2 {
-		t.Fatalf("scroll high = %d, want 2", game.demoPickerScroll)
+	if game.controls.demoPickerScroll != 2 {
+		t.Fatalf("scroll high = %d, want 2", game.controls.demoPickerScroll)
 	}
 	game.scrollDemoPicker(-99)
-	if game.demoPickerScroll != 0 {
-		t.Fatalf("scroll low = %d, want 0", game.demoPickerScroll)
+	if game.controls.demoPickerScroll != 0 {
+		t.Fatalf("scroll low = %d, want 0", game.controls.demoPickerScroll)
 	}
 }
 
@@ -3202,18 +3202,18 @@ func TestValueDialogClickAndHoldBranches(t *testing.T) {
 
 	game.valueDialog = valueDialog{Open: true, Text: "10", Min: 0, Max: 20}
 	game.clickValueDialog(game.valueDialogIncrementRect().Min.X+1, game.valueDialogIncrementRect().Min.Y+1)
-	if game.valueDialog.Text != "10.1" || game.activeValueStep != numericStepAmount {
-		t.Fatalf("increment text=%q active=%f", game.valueDialog.Text, game.activeValueStep)
+	if game.valueDialog.Text != "10.1" || game.controls.activeValueStep != numericStepAmount {
+		t.Fatalf("increment text=%q active=%f", game.valueDialog.Text, game.controls.activeValueStep)
 	}
-	game.valueStepTicks = numericStepHoldDelayTicks - 1
+	game.controls.valueStepTicks = numericStepHoldDelayTicks - 1
 	game.continueValueDialogStepHold()
 	if game.valueDialog.Text != "10.2" {
 		t.Fatalf("held increment text = %q", game.valueDialog.Text)
 	}
 
 	game.clickValueDialog(game.valueDialogDecrementRect().Min.X+1, game.valueDialogDecrementRect().Min.Y+1)
-	if game.valueDialog.Text != "10.1" || game.activeValueStep != -numericStepAmount {
-		t.Fatalf("decrement text=%q active=%f", game.valueDialog.Text, game.activeValueStep)
+	if game.valueDialog.Text != "10.1" || game.controls.activeValueStep != -numericStepAmount {
+		t.Fatalf("decrement text=%q active=%f", game.valueDialog.Text, game.controls.activeValueStep)
 	}
 
 	track := game.valueDialogSliderTrack()
@@ -3236,11 +3236,11 @@ func TestValueDialogClickAndHoldBranches(t *testing.T) {
 	}
 
 	game.valueDialog = valueDialog{Open: false, Text: "10"}
-	game.activeValueStep = numericStepAmount
-	game.valueStepTicks = 4
+	game.controls.activeValueStep = numericStepAmount
+	game.controls.valueStepTicks = 4
 	game.continueValueDialogStepHold()
-	if game.activeValueStep != 0 || game.valueStepTicks != 0 {
-		t.Fatalf("closed hold state active=%f ticks=%d", game.activeValueStep, game.valueStepTicks)
+	if game.controls.activeValueStep != 0 || game.controls.valueStepTicks != 0 {
+		t.Fatalf("closed hold state active=%f ticks=%d", game.controls.activeValueStep, game.controls.valueStepTicks)
 	}
 }
 

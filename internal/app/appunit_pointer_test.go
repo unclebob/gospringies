@@ -62,15 +62,15 @@ func TestAppUnitContinuePointerPressBranches(t *testing.T) {
 	}
 
 	game.pointer.selectionDrag = false
-	game.activeNumericStep = "mass increment"
-	game.numericStepTicks = numericStepHoldDelayTicks - 1
+	game.controls.activeNumericStep = "mass increment"
+	game.controls.numericStepTicks = numericStepHoldDelayTicks - 1
 	game.continuePointerPress(sim.Vec2{}, 0)
-	if game.numericStepTicks != numericStepHoldDelayTicks {
-		t.Fatalf("numeric step ticks = %d", game.numericStepTicks)
+	if game.controls.numericStepTicks != numericStepHoldDelayTicks {
+		t.Fatalf("numeric step ticks = %d", game.controls.numericStepTicks)
 	}
 
-	game.activeNumericStep = ""
-	game.activeSlider = "speed slider"
+	game.controls.activeNumericStep = ""
+	game.controls.activeSlider = "speed slider"
 	game.continuePointerPress(sim.Vec2{}, sliderTrack(mustVisibleControl(t, "speed slider")).Max.X)
 	if game.simulationSpeed != maxSpeed {
 		t.Fatalf("simulation speed = %f, want %f", game.simulationSpeed, maxSpeed)

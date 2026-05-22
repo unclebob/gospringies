@@ -8,7 +8,7 @@ import (
 )
 
 func (g *Game) pollNumericTextFieldKeyboard() {
-	if g.focusedNumeric == "" {
+	if g.controls.focusedNumeric == "" {
 		return
 	}
 	g.appendNumericSettingInput(ebiten.AppendInputChars(nil))

@@ -16,7 +16,7 @@ func demoPickerRect() image.Rectangle {
 
 func (g *Game) visibleDemoPaths() []string {
 	files := g.demoList()
-	start := clampInt(g.demoPickerScroll, 0, len(files))
+	start := clampInt(g.controls.demoPickerScroll, 0, len(files))
 	end := clampInt(start+demoPickerVisibleRows(), start, len(files))
 	return files[start:end]
 }
@@ -53,12 +53,12 @@ func (g *Game) clickDemoPicker(x int, y int) {
 	point := image.Pt(x, y)
 	rect := demoPickerRect()
 	if !point.In(rect) {
-		g.demoPickerOpen = false
+		g.controls.demoPickerOpen = false
 		return
 	}
 	for i := range g.visibleDemoPaths() {
 		if point.In(g.demoRowRect(i)) {
-			g.loadDemoAt(g.demoPickerScroll + i)
+			g.loadDemoAt(g.controls.demoPickerScroll + i)
 			return
 		}
 	}
@@ -71,7 +71,7 @@ func (g *Game) loadDemoAt(index int) bool {
 	}
 	err := g.loadDemoPath(path)
 	g.recordDemoLoadResult(err)
-	g.demoPickerOpen = false
+	g.controls.demoPickerOpen = false
 	return err == nil
 }
 
@@ -136,5 +136,5 @@ func (g *Game) LastFileError() string {
 }
 
 // mutate4go-manifest-begin
-// {"version":1,"tested_at":"2026-05-19T16:19:15-05:00","module_hash":"cc07b447aa70dc332d2a1312b912a9b51589935e2c2e829761771af73fef4d15","functions":[{"id":"func/demoPickerRect","name":"demoPickerRect","line":13,"end_line":15,"hash":"fa11d90071c866ffac72f54b4199930a1eb26f85a8eba83b29de7aea8e326444"},{"id":"func/Game.visibleDemoPaths","name":"Game.visibleDemoPaths","line":17,"end_line":22,"hash":"fe38d9297f011742c3001905cf92c6d2f2ee67f34e420c492b6b1a328fa26abc"},{"id":"func/Game.LoadPickerEntries","name":"Game.LoadPickerEntries","line":24,"end_line":26,"hash":"261915035d4361d54dba5cc1d5e95fc3457e1c91a4ad34d5e379a31d3a9f8d8e"},{"id":"func/Game.ChooseLoadPickerEntry","name":"Game.ChooseLoadPickerEntry","line":28,"end_line":38,"hash":"89cd2f5f63031fce320c1e63630ecc990e9b638fd8eb228693855a591c0e6fd3"},{"id":"func/demoPickerVisibleRows","name":"demoPickerVisibleRows","line":40,"end_line":43,"hash":"aded365a5732d1b72592861b7be0d57919432368913a622ae5d1bb4c5088fb3b"},{"id":"func/Game.demoRowRect","name":"Game.demoRowRect","line":45,"end_line":49,"hash":"6163b232a6b823d15f5a2b8cb7b5efe92ffb240351dec15162858de5bfcafe57"},{"id":"func/Game.clickDemoPicker","name":"Game.clickDemoPicker","line":51,"end_line":64,"hash":"670c2f7e66872a3da9487c8ad7307cfedabc7721862e56070803275e1b3e6d0e"},{"id":"func/Game.loadDemoAt","name":"Game.loadDemoAt","line":66,"end_line":86,"hash":"fadc53098e950a41c7f708b6703bb272276d69f23a05a21390ee7082d0ee7326"},{"id":"func/Game.buildDemoList","name":"Game.buildDemoList","line":88,"end_line":99,"hash":"1d7ed3497b76ba7fe56277660f4d06c376eb11c53eb0037c7006331714bdf2bf"},{"id":"func/globXSP","name":"globXSP","line":101,"end_line":104,"hash":"d7c08b15c2dcc170661f5c18ca03d0a61b68d5a7074be3ac4deba4793fe166e4"},{"id":"func/groupedLoadPickerEntries","name":"groupedLoadPickerEntries","line":106,"end_line":114,"hash":"4c379e6bb437d8aa4f67ea40472e500bbb53b1adddf79fc0ee18716c3c23cc1c"},{"id":"func/clampInt","name":"clampInt","line":116,"end_line":118,"hash":"cad97290430d2f2ba73bc78b479d047fe3c47343fd006a522712ea5683891776"},{"id":"func/Game.LastFileError","name":"Game.LastFileError","line":120,"end_line":122,"hash":"97cb1118d4e48b921c525e4801ab58910d600da4519d91dc6ffc154cf680cc47"}]}
+// {"version":1,"tested_at":"2026-05-22T07:57:49-05:00","module_hash":"bc160bddcc6b7d90d13fab7a97170f1d0b094f8b0cc91c04f7fc72eedface596","functions":[{"id":"func/demoPickerRect","name":"demoPickerRect","line":13,"end_line":15,"hash":"fa11d90071c866ffac72f54b4199930a1eb26f85a8eba83b29de7aea8e326444"},{"id":"func/Game.visibleDemoPaths","name":"Game.visibleDemoPaths","line":17,"end_line":22,"hash":"909e7b5768a8ca470e81c1c85cd43150ae0510e3c4c55f711a60d476a82cf42d"},{"id":"func/Game.LoadPickerEntries","name":"Game.LoadPickerEntries","line":24,"end_line":26,"hash":"261915035d4361d54dba5cc1d5e95fc3457e1c91a4ad34d5e379a31d3a9f8d8e"},{"id":"func/Game.ChooseLoadPickerEntry","name":"Game.ChooseLoadPickerEntry","line":28,"end_line":35,"hash":"0e74fcaf34a0416055e8693475c42100cd248e5be03af251ae27f391b0871633"},{"id":"func/loadPickerEntryMatches","name":"loadPickerEntryMatches","line":37,"end_line":39,"hash":"fb616d9592160b947cdc0a0409e27346938db0ded1e80f03ebb2378155e8dcf3"},{"id":"func/demoPickerVisibleRows","name":"demoPickerVisibleRows","line":41,"end_line":44,"hash":"aded365a5732d1b72592861b7be0d57919432368913a622ae5d1bb4c5088fb3b"},{"id":"func/Game.demoRowRect","name":"Game.demoRowRect","line":46,"end_line":50,"hash":"6163b232a6b823d15f5a2b8cb7b5efe92ffb240351dec15162858de5bfcafe57"},{"id":"func/Game.clickDemoPicker","name":"Game.clickDemoPicker","line":52,"end_line":65,"hash":"daae2cd02ede4aaebf7aea1606057a3851f090bcad9e00f466fe38df5f15eb92"},{"id":"func/Game.loadDemoAt","name":"Game.loadDemoAt","line":67,"end_line":76,"hash":"7185d98a935941de6ae386177c66a990714076753ffe292d5f459f5dec769ead"},{"id":"func/Game.demoPathAt","name":"Game.demoPathAt","line":78,"end_line":84,"hash":"88c632d57e637067eed470c0ee9dd29ee78786d579c50d33c0415744d91cd99c"},{"id":"func/Game.loadDemoPath","name":"Game.loadDemoPath","line":86,"end_line":92,"hash":"dc8f8ffa68c9dcf7fd8f88ccb6273f047433006f7661d748854a5331800e5074"},{"id":"func/Game.recordDemoLoadResult","name":"Game.recordDemoLoadResult","line":94,"end_line":100,"hash":"28966c65a3c01a15adb8577c006f3c47852f45b4fffa5e8655fc00a8eeabd1ed"},{"id":"func/Game.buildDemoList","name":"Game.buildDemoList","line":102,"end_line":113,"hash":"1d7ed3497b76ba7fe56277660f4d06c376eb11c53eb0037c7006331714bdf2bf"},{"id":"func/globXSP","name":"globXSP","line":115,"end_line":118,"hash":"d7c08b15c2dcc170661f5c18ca03d0a61b68d5a7074be3ac4deba4793fe166e4"},{"id":"func/groupedLoadPickerEntries","name":"groupedLoadPickerEntries","line":120,"end_line":128,"hash":"4c379e6bb437d8aa4f67ea40472e500bbb53b1adddf79fc0ee18716c3c23cc1c"},{"id":"func/clampInt","name":"clampInt","line":130,"end_line":132,"hash":"cad97290430d2f2ba73bc78b479d047fe3c47343fd006a522712ea5683891776"},{"id":"func/Game.LastFileError","name":"Game.LastFileError","line":134,"end_line":136,"hash":"97cb1118d4e48b921c525e4801ab58910d600da4519d91dc6ffc154cf680cc47"}]}
 // mutate4go-manifest-end
