@@ -15,7 +15,7 @@ const (
 )
 
 func createRunningApplication(w *world, _ map[string]string) error {
-	w.appGame = app.NewGame()
+	startApplicationDriver(w)
 	return nil
 }
 
@@ -40,7 +40,7 @@ func pressShortcut(w *world, example map[string]string) error {
 }
 
 func createControlWorldState(w *world, _ map[string]string) error {
-	game := app.NewGame()
+	game := newApplicationDriverGame()
 	_ = game.World().AddMass(sim.Mass{})
 	game.World().Parameters.Set("current mass", controlCurrentValue)
 	w.appGame = game
@@ -133,7 +133,7 @@ func setControlParameterValue(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	game := app.NewGame()
+	game := newApplicationDriverGame()
 	if value != "default" {
 		game.SetParameter(parameter, value)
 	}
@@ -208,11 +208,7 @@ func withConcreteGame(w *world, action func(*app.Game) error) error {
 }
 
 func concreteGame(w *world) (*app.Game, error) {
-	game, ok := w.appGame.(*app.Game)
-	if !ok || game == nil {
-		return nil, fmt.Errorf("application is not running")
-	}
-	return game, nil
+	return concreteApplicationDriver(w)
 }
 
 func controlFileXSP() string {
