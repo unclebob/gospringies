@@ -3,11 +3,8 @@ package acceptance
 import (
 	"fmt"
 
-	"springs/internal/app"
 	"springs/internal/sim"
 )
-
-type renderResult = app.RenderResult
 
 var renderableObjectSetups = map[string]func(appGame){
 	"movable mass": func(game appGame) {
@@ -118,8 +115,8 @@ func createRenderWorld(w *world, addObjects func(*sim.Simulation)) error {
 	return nil
 }
 
-func emptyRenderGame() *app.Game {
-	game := app.NewGame()
+func emptyRenderGame() appGame {
+	game := newApplicationDriverGame()
 	game.World().Reset()
 	return game
 }

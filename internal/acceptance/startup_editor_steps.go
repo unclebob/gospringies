@@ -23,7 +23,7 @@ func assertStartupEditorChrome(w *world, _ map[string]string) error {
 	return requirePrerequisite(screen.Editor && screen.CanvasVisible && screen.ControlsUsable, "startup editor chrome was not visible")
 }
 
-func assertStartupRegions(screen app.EditorScreen) error {
+func assertStartupRegions(screen editorScreen) error {
 	for _, region := range startupRegions() {
 		if _, ok := screen.RegionPurpose(region); !ok {
 			return fmt.Errorf("startup region %q was not visible", region)
@@ -124,7 +124,7 @@ func startupDemoWorld(path string) (*sim.Simulation, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load startup demo %s: %w", path, err)
 	}
-	world.Bounds = app.NewGame().World().Bounds
+	world.Bounds = newApplicationDriverGame().World().Bounds
 	return world, nil
 }
 
@@ -171,8 +171,8 @@ func countMasses(world *sim.Simulation, fixed bool) int {
 }
 
 func startDesktopApplicationTwice(w *world, _ map[string]string) error {
-	first := app.NewGame()
-	second := app.NewGame()
+	first := newApplicationDriverGame()
+	second := newApplicationDriverGame()
 	w.domainWorld = first.World().Clone()
 	w.resultingWorld = second.World().Clone()
 	w.editorScreen = first.EditorScreen()
@@ -212,9 +212,5 @@ func startupRegions() []string {
 }
 
 func concreteStartupGame(w *world) (*app.Game, error) {
-	game, ok := w.appGame.(*app.Game)
-	if !ok {
-		return nil, fmt.Errorf("startup application was not started")
-	}
-	return game, nil
+	return concreteApplicationDriverWithMessage(w, "startup application was not started")
 }

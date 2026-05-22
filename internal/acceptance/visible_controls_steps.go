@@ -7,8 +7,6 @@ import (
 	"springs/internal/app"
 )
 
-type drawFrameReport = app.DrawFrameReport
-
 var visibleControlStateSetters = map[string]func(*app.Game){
 	"running":       func(game *app.Game) { game.SetPaused(false) },
 	"object counts": func(*app.Game) {},
@@ -128,11 +126,7 @@ func assertVisibleControlLabelsFit(w *world, _ map[string]string) error {
 
 func visibleControlsGame(w *world) (*app.Game, error) {
 	if w.appGame == nil {
-		w.appGame = app.NewGame()
+		startApplicationDriver(w)
 	}
-	game, ok := w.appGame.(*app.Game)
-	if !ok {
-		return nil, fmt.Errorf("application was not started")
-	}
-	return game, nil
+	return concreteApplicationDriverWithMessage(w, "application was not started")
 }

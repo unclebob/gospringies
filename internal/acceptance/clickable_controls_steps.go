@@ -113,7 +113,7 @@ func recordVisibleControlShortcut(w *world, example map[string]string) error {
 		return fmt.Errorf("visible control %q does not exist", control)
 	}
 	w.clickShortcut = shortcut
-	w.appGame = app.NewGame()
+	startApplicationDriver(w)
 	return nil
 }
 
@@ -145,7 +145,7 @@ func assertRecordedShortcut(w *world, shortcut string) error {
 }
 
 func shortcutApplicationState(shortcut string) (string, error) {
-	game := app.NewGame()
+	game := newApplicationDriverGame()
 	if !game.HandleShortcut(shortcut) {
 		return "", fmt.Errorf("shortcut %q was not handled", shortcut)
 	}
@@ -160,8 +160,7 @@ func assertSameClickableApplicationState(clickedState string, shortcutState stri
 }
 
 func recordClickableApplicationState(w *world, _ map[string]string) error {
-	game := app.NewGame()
-	w.appGame = game
+	game := startApplicationDriver(w)
 	w.recordedAppState = clickableApplicationState(game)
 	return nil
 }
@@ -239,7 +238,7 @@ func clickableApplicationState(game *app.Game) string {
 }
 
 func appControlWithLabel(label string) (app.DrawFrameReport, bool) {
-	report := app.NewGame().DrawFrameReport()
+	report := newApplicationDriverGame().DrawFrameReport()
 	for _, controlLabel := range report.Controls {
 		if controlLabel == label {
 			return report, true
