@@ -260,6 +260,26 @@ func gameWithMasses(masses ...sim.Mass) *Game {
 	return game
 }
 
+func gameWithGridMass(gridSnap string, mass sim.Mass) *Game {
+	game := NewGame()
+	world := sim.NewWorld()
+	world.Parameters.Set("grid snap", gridSnap)
+	_ = world.AddMass(mass)
+	game.ReplaceWorld(world)
+	return game
+}
+
+func assertDraggedMassPosition(t *testing.T, game *Game, dragTo sim.Vec2, want sim.Vec2) {
+	t.Helper()
+	if !game.DragMass(1, dragTo) {
+		t.Fatal("drag was not handled")
+	}
+	mass, _ := game.World().MassByID(1)
+	if mass.Position != want {
+		t.Fatalf("mass position = %#v, want %#v", mass.Position, want)
+	}
+}
+
 func TestGameUpdateStepsOnlyWhenUnpaused(t *testing.T) {
 	game := NewGame()
 	game.World().Parameters.EnableForce("gravity", map[string]string{"magnitude": "10", "direction": "90"})
@@ -2349,37 +2369,22 @@ func TestDragMassWorksWithoutMode(t *testing.T) {
 	}
 }
 
-func TestDragMassSnapsToGridPoint(t *testing.T) {
-	game := NewGame()
-	world := sim.NewWorld()
-	world.Parameters.Set("grid snap", "10")
-	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
-	game.ReplaceWorld(world)
-
-	if !game.DragMass(1, sim.Vec2{X: 123, Y: 87}) {
-		t.Fatal("drag was not handled")
+func TestDragMassAppliesGridAndCanvasBounds(t *testing.T) {
+	cases := []struct {
+		name     string
+		gridSnap string
+		start    sim.Vec2
+		dragTo   sim.Vec2
+		want     sim.Vec2
+	}{
+		{name: "snap", gridSnap: "10", start: sim.Vec2{X: 10, Y: 10}, dragTo: sim.Vec2{X: 123, Y: 87}, want: sim.Vec2{X: 120, Y: 90}},
+		{name: "clamp", gridSnap: "0", start: sim.Vec2{X: 500, Y: 300}, dragTo: sim.Vec2{X: 2000, Y: 2000}, want: sim.Vec2{X: 1340, Y: 1000}},
 	}
-
-	mass, _ := game.World().MassByID(1)
-	if mass.Position != (sim.Vec2{X: 120, Y: 90}) {
-		t.Fatalf("mass position = %#v, want snapped grid point 120,90", mass.Position)
-	}
-}
-
-func TestDragMassClampsToCanvasBounds(t *testing.T) {
-	game := NewGame()
-	world := sim.NewWorld()
-	world.Parameters.Set("grid snap", "0")
-	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 500, Y: 300}, Mass: 1})
-	game.ReplaceWorld(world)
-
-	if !game.DragMass(1, sim.Vec2{X: 2000, Y: 2000}) {
-		t.Fatal("drag was not handled")
-	}
-
-	mass, _ := game.World().MassByID(1)
-	if mass.Position != (sim.Vec2{X: 1340, Y: 1000}) {
-		t.Fatalf("mass position = %#v, want clamped canvas corner", mass.Position)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			game := gameWithGridMass(tc.gridSnap, sim.Mass{ID: 1, Position: tc.start, Mass: 1})
+			assertDraggedMassPosition(t, game, tc.dragTo, tc.want)
+		})
 	}
 }
 
@@ -3146,7 +3151,7 @@ func TestSpringContextMenuActionsAndDraw(t *testing.T) {
 
 	labels := game.SpringContextMenuLabelsForSpring(3)
 	for _, want := range []string{"Kspring", "Kdamp", "RestLen", "Wall"} {
-		if !stringSliceContains(labels, want) {
+		if !contains(labels, want) {
 			t.Fatalf("spring menu labels = %#v, missing %q", labels, want)
 		}
 	}
@@ -3259,15 +3264,6 @@ func TestSpringRenderRepresentationsCoverWallState(t *testing.T) {
 	if report.Representations["spring"] != "cyan line" || report.Representations["wall spring"] != "heavy orange line" {
 		t.Fatalf("wall spring representations = %#v", report.Representations)
 	}
-}
-
-func stringSliceContains(values []string, want string) bool {
-	for _, value := range values {
-		if value == want {
-			return true
-		}
-	}
-	return false
 }
 
 func TestRunAndPauseControlsSetSimulationState(t *testing.T) {

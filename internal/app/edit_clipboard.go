@@ -96,25 +96,23 @@ func (c editClipboard) origin() sim.Vec2 {
 }
 
 func (g *Game) nextMassID() int {
-	next := 1
-	for _, mass := range g.world.simulation.Masses {
-		if mass.ID >= next {
-			next = mass.ID + 1
-		}
-	}
-	return next
+	return nextID(g.world.simulation.Masses, func(mass sim.Mass) int { return mass.ID })
 }
 
 func (g *Game) nextSpringID() int {
+	return nextID(g.world.simulation.Springs, func(spring sim.Spring) int { return spring.ID })
+}
+
+func nextID[T any](items []T, id func(T) int) int {
 	next := 1
-	for _, spring := range g.world.simulation.Springs {
-		if spring.ID >= next {
-			next = spring.ID + 1
+	for _, item := range items {
+		if id(item) >= next {
+			next = id(item) + 1
 		}
 	}
 	return next
 }
 
 // mutate4go-manifest-begin
-// {"version":1,"tested_at":"2026-05-22T08:41:56-05:00","module_hash":"4a228d494b08320eaf75c89bd1d353726005ffe9d036b592e8a6e552efac3da1","functions":[{"id":"func/Game.copySelection","name":"Game.copySelection","line":14,"end_line":19,"hash":"e0bc60362ae67ee457de5f3dfc98a6d5ade1c01e740721784679d4ef7a675921"},{"id":"func/Game.copySelectedMasses","name":"Game.copySelectedMasses","line":21,"end_line":30,"hash":"19b1ac613f3a74226275a5190a368482feb80dda8b29bc7255b95d259c16d0ef"},{"id":"func/Game.copySelectedSprings","name":"Game.copySelectedSprings","line":32,"end_line":38,"hash":"a950ff664a886b2a700785df07b53fc3b94d2434eb881049eaad11b7d0b32b18"},{"id":"func/Game.pasteSelectionAt","name":"Game.pasteSelectionAt","line":40,"end_line":51,"hash":"8fc26d281da5a958344d39b3bd2f8ef2193c989aadd156bf6837b9a1c2ca19c1"},{"id":"func/Game.pasteClipboardMasses","name":"Game.pasteClipboardMasses","line":53,"end_line":65,"hash":"3553edf8d0b8a381e4c6ead1edfa7b6736be0fd8b6d06e0cc36c7ddbc3fe54f0"},{"id":"func/Game.pasteClipboardSprings","name":"Game.pasteClipboardSprings","line":67,"end_line":83,"hash":"d6c76a4a9e1b45ee509cfb5b52008277e23b3f7e996cf23ec5398582c49a60dc"},{"id":"func/editClipboard.origin","name":"editClipboard.origin","line":85,"end_line":96,"hash":"4fbe0cafdea6f320625536d335d111834f5b5b26278d2e5ebf93558134a716f8"},{"id":"func/Game.nextMassID","name":"Game.nextMassID","line":98,"end_line":106,"hash":"3464fb456a6693be8c23354a0cbf7dae956e31b4b2e680d3b6d789ba2aa82497"},{"id":"func/Game.nextSpringID","name":"Game.nextSpringID","line":108,"end_line":116,"hash":"36f963d5d1cbdf74e3788f947e042469103ca9d572ac788e750a5a4e92b6dcab"}]}
+// {"version":1,"tested_at":"2026-05-22T09:06:32-05:00","module_hash":"692b4df5e7215b63dbc21c8f44c926bf4abaab8b6efce8e81df5f663170ae455","functions":[{"id":"func/Game.copySelection","name":"Game.copySelection","line":14,"end_line":19,"hash":"e0bc60362ae67ee457de5f3dfc98a6d5ade1c01e740721784679d4ef7a675921"},{"id":"func/Game.copySelectedMasses","name":"Game.copySelectedMasses","line":21,"end_line":30,"hash":"19b1ac613f3a74226275a5190a368482feb80dda8b29bc7255b95d259c16d0ef"},{"id":"func/Game.copySelectedSprings","name":"Game.copySelectedSprings","line":32,"end_line":38,"hash":"a950ff664a886b2a700785df07b53fc3b94d2434eb881049eaad11b7d0b32b18"},{"id":"func/Game.pasteSelectionAt","name":"Game.pasteSelectionAt","line":40,"end_line":51,"hash":"8fc26d281da5a958344d39b3bd2f8ef2193c989aadd156bf6837b9a1c2ca19c1"},{"id":"func/Game.pasteClipboardMasses","name":"Game.pasteClipboardMasses","line":53,"end_line":65,"hash":"3553edf8d0b8a381e4c6ead1edfa7b6736be0fd8b6d06e0cc36c7ddbc3fe54f0"},{"id":"func/Game.pasteClipboardSprings","name":"Game.pasteClipboardSprings","line":67,"end_line":83,"hash":"d6c76a4a9e1b45ee509cfb5b52008277e23b3f7e996cf23ec5398582c49a60dc"},{"id":"func/editClipboard.origin","name":"editClipboard.origin","line":85,"end_line":96,"hash":"4fbe0cafdea6f320625536d335d111834f5b5b26278d2e5ebf93558134a716f8"},{"id":"func/Game.nextMassID","name":"Game.nextMassID","line":98,"end_line":100,"hash":"18167e8d70b5a5282a9a70d284402bac1148b39b9ee31eb5fb3bc9a5b28d0e2e"},{"id":"func/Game.nextSpringID","name":"Game.nextSpringID","line":102,"end_line":104,"hash":"c29518d64035813108f3e32d45e1de6a2780e5c19c1b8c36f28b27743c3d29f7"},{"id":"func/nextID","name":"nextID","line":106,"end_line":114,"hash":"be9b5726d648bd6cb9fcbd77599f91ea83b9d102817c8db04aa161f6703e0548"}]}
 // mutate4go-manifest-end
