@@ -66,7 +66,7 @@ func (g *Game) createSpringBetween(startID int, endID int) bool {
 	editor := g.editing()
 	editor.Mode = edit.ModeAddSpring
 	if _, err := editor.CreateSpring(startID, endID); err == nil {
-		g.dirty = true
+		g.editState.dirty = true
 		return true
 	}
 	return false
@@ -79,7 +79,7 @@ func (g *Game) clearPendingSpring() {
 }
 
 func (g *Game) massPosition(id int, fallback sim.Vec2) sim.Vec2 {
-	if mass, ok := g.simulation.MassByID(id); ok {
+	if mass, ok := g.world.simulation.MassByID(id); ok {
 		return mass.Position
 	}
 	return fallback
