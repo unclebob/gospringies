@@ -382,7 +382,7 @@ func TestAppUnitVisibleControlLayoutAndReport(t *testing.T) {
 	if labelFits("abcde", image.Rect(0, 0, 32, debugGlyphHeight)) || labelFits("abcd", image.Rect(0, 0, 32, debugGlyphHeight-1)) {
 		t.Fatal("oversized labels should not fit")
 	}
-	game.pathEntryCommand = "this/status/path/is/far/too/long/to/fit/even/with/a/full/inspector/row"
+	game.document.pathEntryCommand = "this/status/path/is/far/too/long/to/fit/even/with/a/full/inspector/row"
 	if visibleLabelsFit(game) {
 		t.Fatal("long status label should not fit")
 	}
