@@ -8,6 +8,8 @@ import (
 var visibleControlStateSetters = map[string]func(*driverGame){
 	"running":       func(game *driverGame) { game.SetPaused(false) },
 	"object counts": func(*driverGame) {},
+	"Masses:":       func(*driverGame) {},
+	"File:":         func(*driverGame) {},
 	"saved":         func(game *driverGame) { game.SetDirty(false) },
 }
 

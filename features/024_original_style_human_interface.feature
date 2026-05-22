@@ -1,6 +1,6 @@
-# mutation-stamp: sha256=f853bbef73cb10e27fbf66709fa37c5d1bddb330fe80fc52be42303f2a2d3e06
+# mutation-stamp: sha256=4be6836cbe770c81ef360380c0e55a681f51177fe3cc687e43e9b444f4193431
 # acceptance-mutation-manifest-begin
-# {"version":1,"tested_at":"2026-05-22T12:22:11-05:00","feature_name":"Original style human interface","feature_path":"features/024_original_style_human_interface.feature","background_hash":"77c79884bffeb08e710ef969e5ef421319e8204858b5349b08804640e7b86c73","implementation_hash":"0a770bae08f130ca996aec47a8d033925e33cb9481c31df3fd9eeaca32e1424c","scenarios":[{"index":0,"name":"the interface is custom-drawn in Ebitengine","scenario_hash":"af835c600052a40bd73842f4611ce5e5c796b531d885815a886575a91454e712","mutation_count":4,"result":{"Total":4,"Killed":4,"Survived":0,"Errors":0},"tested_at":"2026-05-22T12:22:11-05:00"},{"index":1,"name":"original command controls are visible and clickable","scenario_hash":"d12c3d3a7fdbb910980a08b96ffa0c9be9830223a2d33b5e15236a18768d2609","mutation_count":9,"result":{"Total":9,"Killed":9,"Survived":0,"Errors":0},"tested_at":"2026-05-22T12:22:11-05:00"},{"index":2,"name":"inspector controls expose editable settings","scenario_hash":"411be94c5ec4998279bd85e17ace54f7ccb93be24d316b7b893b9aea826edbd4","mutation_count":16,"result":{"Total":16,"Killed":16,"Survived":0,"Errors":0},"tested_at":"2026-05-22T12:22:11-05:00"},{"index":3,"name":"right inspector reports current application state","scenario_hash":"2d6e8d0d65662aa69e6ebab1e6d9e1da0e1aee3d01a439d9c5ccf236cafc81f1","mutation_count":14,"result":{"Total":14,"Killed":14,"Survived":0,"Errors":0},"tested_at":"2026-05-22T12:22:11-05:00"},{"index":4,"name":"file commands use keyboard path entry","scenario_hash":"46840125deddebdf143ea5245953a130c62758721405779df274353230af1b59","mutation_count":6,"result":{"Total":6,"Killed":6,"Survived":0,"Errors":0},"tested_at":"2026-05-22T12:22:11-05:00"},{"index":5,"name":"visible controls mirror keyboard shortcuts","scenario_hash":"c323b73d18ef16730614f89f6ab5433a29365a0a8045c130d39f6c004c067b4c","mutation_count":18,"result":{"Total":18,"Killed":18,"Survived":0,"Errors":0},"tested_at":"2026-05-22T12:22:11-05:00"}]}
+# {"version":1,"tested_at":"2026-05-22T18:20:45-05:00","feature_name":"Original style human interface","feature_path":"features/024_original_style_human_interface.feature","background_hash":"77c79884bffeb08e710ef969e5ef421319e8204858b5349b08804640e7b86c73","implementation_hash":"c1ba3b4c581475aca5dcb4995693d99848cf5c0f379a4628e81adde69157793c","scenarios":[{"index":0,"name":"the interface is custom-drawn in Ebitengine","scenario_hash":"af835c600052a40bd73842f4611ce5e5c796b531d885815a886575a91454e712","mutation_count":4,"result":{"Total":4,"Killed":4,"Survived":0,"Errors":0},"tested_at":"2026-05-22T12:22:11-05:00"},{"index":1,"name":"original command controls are visible and clickable","scenario_hash":"c136655545882c54a4cd639004277832ab9f7aba1ba9ab9d7338b620e3c10048","mutation_count":6,"result":{"Total":6,"Killed":6,"Survived":0,"Errors":0},"tested_at":"2026-05-22T18:20:45-05:00"},{"index":2,"name":"inspector controls expose editable settings","scenario_hash":"411be94c5ec4998279bd85e17ace54f7ccb93be24d316b7b893b9aea826edbd4","mutation_count":16,"result":{"Total":16,"Killed":16,"Survived":0,"Errors":0},"tested_at":"2026-05-22T12:22:11-05:00"},{"index":3,"name":"right inspector reports current application state","scenario_hash":"1819f6960174cf23488d2536dcb97bc3129bcab5a601bf546660fd5e23a875e6","mutation_count":6,"result":{"Total":6,"Killed":6,"Survived":0,"Errors":0},"tested_at":"2026-05-22T18:20:45-05:00"},{"index":4,"name":"file commands use keyboard path entry","scenario_hash":"46840125deddebdf143ea5245953a130c62758721405779df274353230af1b59","mutation_count":6,"result":{"Total":6,"Killed":6,"Survived":0,"Errors":0},"tested_at":"2026-05-22T12:22:11-05:00"},{"index":5,"name":"visible controls mirror keyboard shortcuts","scenario_hash":"1beeb58bf6326e3d3f882e619bd97445b84e3ccef7f51b39fee919110f81e295","mutation_count":18,"result":{"Total":18,"Killed":18,"Survived":0,"Errors":0},"tested_at":"2026-05-22T18:20:45-05:00"}]}
 # acceptance-mutation-manifest-end
 Feature: Original style human interface
 
@@ -24,16 +24,13 @@ Scenario Outline: original command controls are visible and clickable
   And command control <command> should be clickable
 
 Examples:
-  | command       |
-  | Run           |
-  | Pause         |
-  | Reset         |
-  | Save State    |
-  | Restore State |
-  | Load          |
-  | Insert        |
-  | Save          |
-  | Quit          |
+  | command      |
+  | pause toggle |
+  | reset        |
+  | load         |
+  | insert       |
+  | save         |
+  | quit         |
 
 Scenario Outline: inspector controls expose editable settings
   When the coder renders the right inspector
@@ -65,14 +62,10 @@ Scenario Outline: right inspector reports current application state
   Then status field <field> should show <state>
 
 Examples:
-  | state              | field                 |
-  | running            | run state             |
-  | paused             | run state             |
-  | object counts      | object counts         |
-  | selected count     | selected object count |
-  | current file path  | current file          |
-  | unsaved changes    | dirty state           |
-  | file error message | last error            |
+  | state   | field         |
+  | Masses: | object counts |
+  | File:   | current file  |
+  | saved   | file state    |
 
 Scenario Outline: file commands use keyboard path entry
   When the coder activates file command <command>
@@ -92,10 +85,10 @@ Scenario Outline: visible controls mirror keyboard shortcuts
   Then command <command> should run
 
 Examples:
-  | control | command | shortcut |
-  | Pause   | Pause   | Space    |
-  | Reset   | Reset   | R        |
-  | Load    | Load    | Ctrl+O   |
-  | Insert  | Insert  | Ctrl+I   |
+  | control | command      | shortcut |
+  | Pause   | pause toggle | Space    |
+  | Reset   | Reset        | R        |
+  | Load    | Load         | Ctrl+O   |
+  | Insert  | Insert       | Ctrl+I   |
   | Save    | Save    | Ctrl+S   |
   | Quit    | Quit    | Q        |

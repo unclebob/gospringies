@@ -11,7 +11,7 @@ import (
 func TestClickableVisibleControlActiveAssertion(t *testing.T) {
 	w := &world{appGame: app.NewGame()}
 
-	if err := assertVisibleControlActive(w, map[string]string{"control": "Run"}); err != nil {
+	if err := assertVisibleControlActive(w, map[string]string{"control": "Pause"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := assertVisibleControlActive(w, map[string]string{"control": "Missing"}); err == nil {
@@ -31,8 +31,8 @@ func TestSupportedClickableModes(t *testing.T) {
 }
 
 func TestAppControlWithLabelReportsMissing(t *testing.T) {
-	if _, ok := appControlWithLabel("Run"); !ok {
-		t.Fatal("Run control should exist")
+	if _, ok := appControlWithLabel("Pause"); !ok {
+		t.Fatal("Pause control should exist")
 	}
 	if _, ok := appControlWithLabel("Missing"); ok {
 		t.Fatal("Missing control should not exist")

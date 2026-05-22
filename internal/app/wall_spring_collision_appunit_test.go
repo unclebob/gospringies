@@ -114,7 +114,6 @@ func TestAppUnitWallSpringCollisionIgnoresInvalidCases(t *testing.T) {
 		{name: "fixed moving mass", world: appUnitFixedMovingMassWallSpringWorld()},
 		{name: "zero length spring", world: appUnitZeroLengthWallSpringWorld()},
 		{name: "outside segment", world: appUnitWallSpringCollisionWorld(false, false, -5, 10, 150)},
-		{name: "starts on wall", world: appUnitWallSpringCollisionWorld(false, false, 0, 10, 50)},
 		{name: "ends on wall", world: appUnitWallSpringCollisionWorld(false, false, -5, 5, 50)},
 	} {
 		t.Run(test.name, func(t *testing.T) {
