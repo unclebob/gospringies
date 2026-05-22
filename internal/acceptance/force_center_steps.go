@@ -5,7 +5,6 @@ import (
 	"math"
 	"strings"
 
-	"springs/internal/app"
 	"springs/internal/sim"
 )
 
@@ -188,7 +187,7 @@ func assertCenterMassVisuallyMarked(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	game := app.NewGame()
+	game := newApplicationDriverGame()
 	game.ReplaceWorld(ensureDomainWorld(w))
 	if !game.RenderWorld().HasVisibleRepresentation("force center") || !game.World().IsCenterMass(id) {
 		return fmt.Errorf("center mass %d was not visually marked", id)

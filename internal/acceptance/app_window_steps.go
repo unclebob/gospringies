@@ -3,30 +3,11 @@ package acceptance
 import (
 	"fmt"
 
-	"springs/internal/app"
 	"springs/internal/sim"
 )
 
-type appGame interface {
-	Update() error
-	RenderFrame()
-	RenderWorld() renderResult
-	World() *sim.Simulation
-	SetPaused(bool)
-	EditorScreen() editorScreen
-	SetSelected(bool)
-	SetDirty(bool)
-	HandleShortcut(string) bool
-	LastCommand() string
-	DrawFrameReport() app.DrawFrameReport
-	InputActive() bool
-	RenderingActive() bool
-	Close() error
-	Closed() bool
-}
-
 func startDesktopApplication(w *world, _ map[string]string) error {
-	w.appGame = app.NewGame()
+	startApplicationDriver(w)
 	w.appErr = nil
 	return nil
 }
@@ -64,11 +45,11 @@ func resizeApplicationWindow(w *world, example map[string]string) error {
 	if !supportedWindowSize(size) {
 		return fmt.Errorf("unsupported window size %q", size)
 	}
-	if !app.DefaultWindowConfig().Resizable {
+	if !applicationWindowResizable() {
 		return fmt.Errorf("window is not resizable")
 	}
 	w.appWindowSize = size
-	w.appGame = app.NewGame()
+	startApplicationDriver(w)
 	return nil
 }
 
@@ -101,7 +82,7 @@ func setApplicationPauseState(w *world, example map[string]string) error {
 }
 
 func newSteppingGame() appGame {
-	game := app.NewGame()
+	game := newApplicationDriverGame()
 	game.World().Reset()
 	_ = game.World().AddMass(sim.Mass{ID: 1, Mass: 1})
 	game.World().Parameters.EnableForce("gravity", map[string]string{"magnitude": "10", "direction": "90"})
@@ -161,8 +142,7 @@ func assertApplicationActive(w *world, name string, active func(appGame) bool) e
 }
 
 func closeApplicationWindow(w *world, _ map[string]string) error {
-	game := app.NewGame()
-	w.appGame = game
+	game := startApplicationDriver(w)
 	w.appErr = game.Close()
 	return nil
 }
@@ -182,10 +162,7 @@ func assertApplicationExitClean(w *world, _ map[string]string) error {
 }
 
 func applicationGame(w *world) (appGame, error) {
-	if w.appGame == nil {
-		return nil, fmt.Errorf("application was not started")
-	}
-	return w.appGame, nil
+	return applicationDriverGame(w)
 }
 
 // mutate4go-manifest-begin
