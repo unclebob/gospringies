@@ -91,9 +91,9 @@ func TestZeroSpeedDoesNotPinDraggingMass(t *testing.T) {
 	game := gameWithMasses(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
 	game.paused = false
 	game.simulationSpeed = 0
-	game.draggingMassID = 1
-	game.draggingOffsets = map[int]sim.Vec2{1: {X: 1, Y: 1}}
-	game.lastCursor = sim.Vec2{X: 50, Y: 50}
+	game.pointer.draggingMassID = 1
+	game.pointer.draggingOffsets = map[int]sim.Vec2{1: {X: 1, Y: 1}}
+	game.pointer.lastCursor = sim.Vec2{X: 50, Y: 50}
 
 	game.advanceSimulationFrame()
 
@@ -199,7 +199,7 @@ func TestMoveSelectedMassesMovesOnlySelectedMasses(t *testing.T) {
 
 func TestThrowSingleDraggingMassSetsVelocity(t *testing.T) {
 	game := gameWithMasses(sim.Mass{ID: 7})
-	game.draggingMassID = 7
+	game.pointer.draggingMassID = 7
 
 	game.throwSingleDraggingMass(sim.Vec2{X: 4, Y: -2})
 
@@ -1064,7 +1064,7 @@ func TestCopyPasteDuplicatesSelectedObjects(t *testing.T) {
 	game.editing().SelectedSprings[1] = true
 
 	game.RunCommand("copy")
-	game.lastCursor = sim.Vec2{X: 100, Y: 120}
+	game.pointer.lastCursor = sim.Vec2{X: 100, Y: 120}
 	game.RunCommand("paste")
 
 	if len(game.World().Masses) != 4 {
@@ -1104,7 +1104,7 @@ func TestCutCopiesThenDeletesSelection(t *testing.T) {
 	if game.selected || !game.dirty {
 		t.Fatalf("cut state selected=%t dirty=%t", game.selected, game.dirty)
 	}
-	game.lastCursor = sim.Vec2{X: 200, Y: 220}
+	game.pointer.lastCursor = sim.Vec2{X: 200, Y: 220}
 	game.RunCommand("paste")
 	if len(game.World().Masses) != 1 {
 		t.Fatalf("mass count after paste = %d, want 1", len(game.World().Masses))
@@ -1835,17 +1835,17 @@ func TestSlidersDragWhileMouseHeld(t *testing.T) {
 
 func TestReleasePointerClearsTransientDragState(t *testing.T) {
 	game := NewGame()
-	game.draggingMassID = 7
-	game.draggingOffsets = map[int]sim.Vec2{7: {X: 1}}
-	game.dragMoved = true
-	game.selectionDrag = true
+	game.pointer.draggingMassID = 7
+	game.pointer.draggingOffsets = map[int]sim.Vec2{7: {X: 1}}
+	game.pointer.dragMoved = true
+	game.pointer.selectionDrag = true
 	game.activeSlider = "speed slider"
 	game.activeNumericStep = "speed increment"
 	game.numericStepTicks = 12
 
 	game.releasePointer(sim.Vec2{X: 10, Y: 10})
 
-	if game.draggingMassID != 0 || game.draggingOffsets != nil || game.dragMoved || game.selectionDrag || game.activeSlider != "" || game.activeNumericStep != "" || game.numericStepTicks != 0 {
+	if game.pointer.draggingMassID != 0 || game.pointer.draggingOffsets != nil || game.pointer.dragMoved || game.pointer.selectionDrag || game.activeSlider != "" || game.activeNumericStep != "" || game.numericStepTicks != 0 {
 		t.Fatalf("drag state was not cleared: %#v", game)
 	}
 }
@@ -2122,8 +2122,8 @@ func TestControlClickEmptyCanvasStartsMassSpringChain(t *testing.T) {
 	if len(game.World().Masses) != 1 {
 		t.Fatalf("masses = %#v, want one start mass", game.World().Masses)
 	}
-	if game.pendingSpringID != 1 || !game.springChainActive {
-		t.Fatalf("chain state pending=%d active=%t", game.pendingSpringID, game.springChainActive)
+	if game.pointer.pendingSpringID != 1 || !game.pointer.springChainActive {
+		t.Fatalf("chain state pending=%d active=%t", game.pointer.pendingSpringID, game.pointer.springChainActive)
 	}
 	if len(game.World().Springs) != 0 {
 		t.Fatalf("springs = %#v, want none until next click", game.World().Springs)
@@ -2149,8 +2149,8 @@ func TestSpringChainPlacesEndpointMassAndStopsWithoutControl(t *testing.T) {
 	if spring.MassA != 1 || spring.MassB != 2 {
 		t.Fatalf("spring endpoints = %d,%d, want 1,2", spring.MassA, spring.MassB)
 	}
-	if game.pendingSpringID != 0 || game.springChainActive {
-		t.Fatalf("chain remained pending=%d active=%t", game.pendingSpringID, game.springChainActive)
+	if game.pointer.pendingSpringID != 0 || game.pointer.springChainActive {
+		t.Fatalf("chain remained pending=%d active=%t", game.pointer.pendingSpringID, game.pointer.springChainActive)
 	}
 }
 
@@ -2170,8 +2170,8 @@ func TestSpringChainContinuesWhileControlIsDown(t *testing.T) {
 	if len(game.World().Masses) != 3 || len(game.World().Springs) != 2 {
 		t.Fatalf("chain objects masses=%#v springs=%#v", game.World().Masses, game.World().Springs)
 	}
-	if game.pendingSpringID != 3 || !game.springChainActive {
-		t.Fatalf("chain state pending=%d active=%t", game.pendingSpringID, game.springChainActive)
+	if game.pointer.pendingSpringID != 3 || !game.pointer.springChainActive {
+		t.Fatalf("chain state pending=%d active=%t", game.pointer.pendingSpringID, game.pointer.springChainActive)
 	}
 }
 
@@ -2195,8 +2195,8 @@ func TestSpringChainTerminatesOnExistingMassEvenWithControlDown(t *testing.T) {
 	if spring.MassA != 8 || spring.MassB != 7 {
 		t.Fatalf("spring endpoints = %d,%d, want 8,7", spring.MassA, spring.MassB)
 	}
-	if game.pendingSpringID != 0 || game.springChainActive {
-		t.Fatalf("chain remained pending=%d active=%t", game.pendingSpringID, game.springChainActive)
+	if game.pointer.pendingSpringID != 0 || game.pointer.springChainActive {
+		t.Fatalf("chain remained pending=%d active=%t", game.pointer.pendingSpringID, game.pointer.springChainActive)
 	}
 }
 
@@ -2211,8 +2211,8 @@ func TestSelectionClickThreshold(t *testing.T) {
 
 func TestThrowKeyWithoutDragDoesNotThrowMass(t *testing.T) {
 	game := gameWithMasses(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Velocity: sim.Vec2{X: 3, Y: 4}, Mass: 1})
-	game.draggingMassID = 1
-	game.draggingStart = sim.Vec2{X: 10, Y: 10}
+	game.pointer.draggingMassID = 1
+	game.pointer.draggingStart = sim.Vec2{X: 10, Y: 10}
 	game.throwDown = true
 
 	game.finishMassDrag(sim.Vec2{X: 10, Y: 10})
@@ -2225,7 +2225,7 @@ func TestThrowKeyWithoutDragDoesNotThrowMass(t *testing.T) {
 
 func TestThrowDraggedMassesUsesSingleMassWhenNoSelectionOffsets(t *testing.T) {
 	game := gameWithMasses(sim.Mass{ID: 1, Mass: 1}, sim.Mass{ID: 2, Mass: 1})
-	game.draggingMassID = 1
+	game.pointer.draggingMassID = 1
 
 	game.throwDraggedMasses(sim.Vec2{X: 7, Y: 8})
 
@@ -2238,7 +2238,7 @@ func TestThrowDraggedMassesUsesSingleMassWhenNoSelectionOffsets(t *testing.T) {
 
 func TestThrowDraggedMassesMarksDirtyForSelectionOffsets(t *testing.T) {
 	game := gameWithMasses(sim.Mass{ID: 1, Mass: 1})
-	game.draggingOffsets = map[int]sim.Vec2{1: {}}
+	game.pointer.draggingOffsets = map[int]sim.Vec2{1: {}}
 
 	game.throwDraggedMasses(sim.Vec2{X: 7, Y: 8})
 
@@ -2251,12 +2251,12 @@ func TestThrowDraggedMassesMarksDirtyForSelectionOffsets(t *testing.T) {
 func TestFinishSelectGestureClickClearsDragAndCreatesMass(t *testing.T) {
 	game := NewGame()
 	game.ReplaceWorld(sim.NewWorld())
-	game.selectionDrag = true
-	game.selectionStart = sim.Vec2{X: 100, Y: 100}
+	game.pointer.selectionDrag = true
+	game.pointer.selectionStart = sim.Vec2{X: 100, Y: 100}
 
 	game.finishSelectGesture(sim.Vec2{X: 100, Y: 100})
 
-	if game.selectionDrag {
+	if game.pointer.selectionDrag {
 		t.Fatal("selection drag remained active")
 	}
 	if len(game.World().Masses) != 1 {
@@ -2283,16 +2283,16 @@ func TestFinishSpringAtMarksDirtyOnlyForValidDifferentEndpoint(t *testing.T) {
 		sim.Mass{ID: 1, Position: sim.Vec2{X: 110, Y: 110}, Mass: 1},
 		sim.Mass{ID: 2, Position: sim.Vec2{X: 130, Y: 110}, Mass: 1},
 	)
-	game.pendingSpringID = 1
+	game.pointer.pendingSpringID = 1
 
 	game.finishSpringAt(sim.Vec2{X: 130, Y: 110})
 
-	if len(game.World().Springs) != 1 || !game.dirty || game.pendingSpringID != 0 {
-		t.Fatalf("finish spring state springs=%#v dirty=%t pending=%d", game.World().Springs, game.dirty, game.pendingSpringID)
+	if len(game.World().Springs) != 1 || !game.dirty || game.pointer.pendingSpringID != 0 {
+		t.Fatalf("finish spring state springs=%#v dirty=%t pending=%d", game.World().Springs, game.dirty, game.pointer.pendingSpringID)
 	}
 
 	game.dirty = false
-	game.pendingSpringID = 1
+	game.pointer.pendingSpringID = 1
 	game.finishSpringAt(sim.Vec2{X: 110, Y: 110})
 	if len(game.World().Springs) != 1 || game.dirty {
 		t.Fatalf("self spring changed state springs=%#v dirty=%t", game.World().Springs, game.dirty)
@@ -2306,11 +2306,11 @@ func TestSpringPlacementOutsideCanvasDoesNotCreateSpring(t *testing.T) {
 	)
 
 	game.beginSpringAt(sim.Vec2{X: -1, Y: 110})
-	if game.pendingSpringID != 0 {
-		t.Fatalf("pending spring id = %d, want none", game.pendingSpringID)
+	if game.pointer.pendingSpringID != 0 {
+		t.Fatalf("pending spring id = %d, want none", game.pointer.pendingSpringID)
 	}
 
-	game.pendingSpringID = 1
+	game.pointer.pendingSpringID = 1
 	game.finishSpringAt(sim.Vec2{X: -1, Y: 110})
 	if len(game.World().Springs) != 0 || game.dirty {
 		t.Fatalf("spring placement outside canvas changed state springs=%#v dirty=%t", game.World().Springs, game.dirty)
@@ -2437,8 +2437,8 @@ func TestPointerGestureOnMassDragsMass(t *testing.T) {
 	game.ReplaceWorld(world)
 
 	game.handlePointer(true, 500, 300)
-	if game.draggingMassID != 1 {
-		t.Fatalf("dragging mass id = %d, want 1", game.draggingMassID)
+	if game.pointer.draggingMassID != 1 {
+		t.Fatalf("dragging mass id = %d, want 1", game.pointer.draggingMassID)
 	}
 	game.handlePointer(true, 540, 340)
 	game.handlePointer(false, 540, 340)
@@ -2489,8 +2489,8 @@ func TestDragSelectedMassesWithoutOffsetsMovesByDelta(t *testing.T) {
 	game.World().Parameters.Set("grid snap", "0")
 	_ = game.editing().SelectMass(1)
 	game.editing().SelectedMasses[2] = true
-	game.draggingLast = sim.Vec2{X: 110, Y: 110}
-	game.draggingStart = sim.Vec2{X: 110, Y: 110}
+	game.pointer.draggingLast = sim.Vec2{X: 110, Y: 110}
+	game.pointer.draggingStart = sim.Vec2{X: 110, Y: 110}
 
 	if !game.dragSelectedMasses(sim.Vec2{X: 113, Y: 114}) {
 		t.Fatal("selected drag should report handled")
@@ -2501,8 +2501,8 @@ func TestDragSelectedMassesWithoutOffsetsMovesByDelta(t *testing.T) {
 	if mass1.Position != (sim.Vec2{X: 113, Y: 114}) || mass2.Position != (sim.Vec2{X: 123, Y: 114}) {
 		t.Fatalf("selected drag positions = %#v %#v", mass1.Position, mass2.Position)
 	}
-	if !game.dragMoved || !game.dirty {
-		t.Fatalf("selected drag state moved=%t dirty=%t", game.dragMoved, game.dirty)
+	if !game.pointer.dragMoved || !game.dirty {
+		t.Fatalf("selected drag state moved=%t dirty=%t", game.pointer.dragMoved, game.dirty)
 	}
 }
 
@@ -2513,8 +2513,8 @@ func TestDragSelectedMassesWithSingleOffsetAppliesOffset(t *testing.T) {
 	)
 	game.World().Parameters.Set("grid snap", "0")
 	_ = game.editing().SelectMass(1)
-	game.draggingOffsets = map[int]sim.Vec2{1: {X: 2, Y: 3}}
-	game.draggingStart = sim.Vec2{X: 110, Y: 110}
+	game.pointer.draggingOffsets = map[int]sim.Vec2{1: {X: 2, Y: 3}}
+	game.pointer.draggingStart = sim.Vec2{X: 110, Y: 110}
 
 	if !game.dragSelectedMasses(sim.Vec2{X: 113, Y: 114}) {
 		t.Fatal("selected drag with offsets should report handled")
@@ -2535,8 +2535,8 @@ func TestDragSelectedMassesWithGridSnapAppliesOffsetToGridPoints(t *testing.T) {
 	game.World().Parameters.Set("grid snap", "10")
 	_ = game.editing().SelectMass(1)
 	game.editing().SelectedMasses[2] = true
-	game.draggingOffsets = map[int]sim.Vec2{1: {X: 2, Y: 3}, 2: {X: -3, Y: -2}}
-	game.draggingStart = sim.Vec2{X: 110, Y: 110}
+	game.pointer.draggingOffsets = map[int]sim.Vec2{1: {X: 2, Y: 3}, 2: {X: -3, Y: -2}}
+	game.pointer.draggingStart = sim.Vec2{X: 110, Y: 110}
 
 	if !game.dragSelectedMasses(sim.Vec2{X: 113, Y: 114}) {
 		t.Fatal("selected drag with offsets should report handled")
@@ -2604,7 +2604,7 @@ func TestDraggingMassPinsItToCursorWhileSimulationRuns(t *testing.T) {
 
 	game.handlePointer(true, 500, 300)
 	game.handlePointer(true, 540, 340)
-	game.lastCursor = sim.Vec2{X: 540, Y: 340}
+	game.pointer.lastCursor = sim.Vec2{X: 540, Y: 340}
 	game.advanceSimulationFrame()
 
 	mass, _ := game.World().MassByID(1)
@@ -2629,7 +2629,7 @@ func TestDraggingMassWhileSimulationRunsDoesNotChangeAttachedSpringRestLength(t 
 
 	game.handlePointer(true, 500, 300)
 	game.handlePointer(true, 540, 340)
-	game.lastCursor = sim.Vec2{X: 540, Y: 340}
+	game.pointer.lastCursor = sim.Vec2{X: 540, Y: 340}
 	game.advanceSimulationFrame()
 	game.handlePointer(false, 540, 340)
 
@@ -2652,7 +2652,7 @@ func TestDraggingSelectedMassesPinsGroupToCursorWhileSimulationRuns(t *testing.T
 
 	game.handlePointer(true, 500, 300)
 	game.handlePointer(true, 540, 340)
-	game.lastCursor = sim.Vec2{X: 540, Y: 340}
+	game.pointer.lastCursor = sim.Vec2{X: 540, Y: 340}
 	game.advanceSimulationFrame()
 
 	mass1, _ := game.World().MassByID(1)
@@ -2673,8 +2673,8 @@ func TestCaptureSelectedDraggingOffsetsRequiresSelectedDraggedMass(t *testing.T)
 		sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1},
 		sim.Mass{ID: 2, Position: sim.Vec2{X: 20, Y: 20}, Mass: 1},
 	)
-	game.draggingMassID = 1
-	game.draggingOffsets = map[int]sim.Vec2{}
+	game.pointer.draggingMassID = 1
+	game.pointer.draggingOffsets = map[int]sim.Vec2{}
 	_ = game.editing().SelectMass(2)
 
 	if game.captureSelectedDraggingOffsets(sim.Vec2{}) {
@@ -2686,36 +2686,36 @@ func TestCaptureSelectedDraggingOffsetsRequiresSelectedDraggedMass(t *testing.T)
 	if !game.captureSelectedDraggingOffsets(sim.Vec2{X: 5, Y: 5}) {
 		t.Fatal("selected dragged mass should capture selection offsets")
 	}
-	if len(game.draggingOffsets) != 2 || game.draggingOffsets[1] != (sim.Vec2{X: 5, Y: 5}) || game.draggingOffsets[2] != (sim.Vec2{X: 15, Y: 15}) {
-		t.Fatalf("dragging offsets = %#v", game.draggingOffsets)
+	if len(game.pointer.draggingOffsets) != 2 || game.pointer.draggingOffsets[1] != (sim.Vec2{X: 5, Y: 5}) || game.pointer.draggingOffsets[2] != (sim.Vec2{X: 15, Y: 15}) {
+		t.Fatalf("dragging offsets = %#v", game.pointer.draggingOffsets)
 	}
 }
 
 func TestCaptureSelectedDraggingOffsetsWorksForSingleSelectedMass(t *testing.T) {
 	game := gameWithMasses(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
-	game.draggingMassID = 1
-	game.draggingOffsets = map[int]sim.Vec2{}
+	game.pointer.draggingMassID = 1
+	game.pointer.draggingOffsets = map[int]sim.Vec2{}
 	_ = game.editing().SelectMass(1)
 
 	if !game.captureSelectedDraggingOffsets(sim.Vec2{X: 4, Y: 5}) {
 		t.Fatal("single selected dragged mass should capture selection offset")
 	}
-	if game.draggingOffsets[1] != (sim.Vec2{X: 6, Y: 5}) {
-		t.Fatalf("dragging offsets = %#v", game.draggingOffsets)
+	if game.pointer.draggingOffsets[1] != (sim.Vec2{X: 6, Y: 5}) {
+		t.Fatalf("dragging offsets = %#v", game.pointer.draggingOffsets)
 	}
 }
 
 func TestPinDraggingMassesRequiresDraggingIDAndOffsets(t *testing.T) {
 	game := gameWithMasses(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
-	game.draggingOffsets = map[int]sim.Vec2{1: {X: 1, Y: 1}}
+	game.pointer.draggingOffsets = map[int]sim.Vec2{1: {X: 1, Y: 1}}
 	game.pinDraggingMasses(sim.Vec2{X: 20, Y: 20})
 	mass, _ := game.World().MassByID(1)
 	if mass.Position != (sim.Vec2{X: 10, Y: 10}) {
 		t.Fatalf("mass moved without dragging id: %#v", mass.Position)
 	}
 
-	game.draggingMassID = 1
-	game.draggingOffsets = nil
+	game.pointer.draggingMassID = 1
+	game.pointer.draggingOffsets = nil
 	game.pinDraggingMasses(sim.Vec2{X: 20, Y: 20})
 	mass, _ = game.World().MassByID(1)
 	if mass.Position != (sim.Vec2{X: 10, Y: 10}) {
@@ -2750,7 +2750,7 @@ func TestDragOnEmptyCanvasBoxSelectsMasses(t *testing.T) {
 
 	game.handlePointer(true, 450, 250)
 	game.handlePointer(true, 600, 400)
-	if !game.selectionDrag {
+	if !game.pointer.selectionDrag {
 		t.Fatal("selection rectangle was not active during drag")
 	}
 	game.handlePointer(false, 600, 400)
@@ -2874,14 +2874,14 @@ func TestEscapeCancelsSpringChainWithoutClearingSelection(t *testing.T) {
 	game.handlePointer(true, 100, 100)
 	game.handlePointer(false, 100, 100)
 
-	if !game.springChainActive || game.pendingSpringID == 0 {
-		t.Fatalf("expected active spring chain pending=%d active=%t", game.pendingSpringID, game.springChainActive)
+	if !game.pointer.springChainActive || game.pointer.pendingSpringID == 0 {
+		t.Fatalf("expected active spring chain pending=%d active=%t", game.pointer.pendingSpringID, game.pointer.springChainActive)
 	}
 	if !game.HandleShortcut("Esc") {
 		t.Fatal("Esc shortcut was not handled")
 	}
-	if game.springChainActive || game.pendingSpringID != 0 {
-		t.Fatalf("spring chain remained pending=%d active=%t", game.pendingSpringID, game.springChainActive)
+	if game.pointer.springChainActive || game.pointer.pendingSpringID != 0 {
+		t.Fatalf("spring chain remained pending=%d active=%t", game.pointer.pendingSpringID, game.pointer.springChainActive)
 	}
 	if !game.editing().MassSelected(2) || !game.selected {
 		t.Fatalf("selection was cleared while cancelling spring chain: %#v", game.editing().SelectedMasses)
