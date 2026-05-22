@@ -95,9 +95,13 @@ func TestParseOptionsAcceptsWorkers(t *testing.T) {
 		"-timeout", "3m",
 		"-mutant-timeout", "5s",
 		"-level", "soft",
+		"-json",
 	}, &stderr)
 	if err != nil {
 		t.Fatalf("parseOptions returned error: %v", err)
+	}
+	if !options.jsonReport {
+		t.Fatalf("json report = false, want true")
 	}
 	if options.workers != 4 {
 		t.Fatalf("workers = %d, want 4", options.workers)
@@ -124,6 +128,9 @@ func TestParseOptionsDefaults(t *testing.T) {
 	}
 	if options.timeout != 0 {
 		t.Fatalf("timeout = %v, want 0", options.timeout)
+	}
+	if options.jsonReport {
+		t.Fatalf("json report = true, want false")
 	}
 	if options.mutantTimeout != 30*time.Second {
 		t.Fatalf("mutant timeout = %v, want 30s", options.mutantTimeout)

@@ -2,6 +2,7 @@ package sim
 
 import (
 	"math"
+	"math/rand"
 	"testing"
 )
 
@@ -37,6 +38,16 @@ func TestResetClearsObjectsParametersAndTime(t *testing.T) {
 	}
 	if world.Parameters.Value("current mass") != DefaultParameters().Value("current mass") {
 		t.Fatalf("parameters after reset = %#v", world.Parameters)
+	}
+}
+
+func TestTemperatureRandomDefaultsToSeedOne(t *testing.T) {
+	world := NewWorld()
+	got := world.temperatureRandom().Float64()
+	want := rand.New(rand.NewSource(1)).Float64()
+
+	if got != want {
+		t.Fatalf("default temperature random = %f, expected %f", got, want)
 	}
 }
 

@@ -1,6 +1,10 @@
 package acceptance
 
-import "testing"
+import (
+	"testing"
+
+	"springs/internal/sim"
+)
 
 func TestWallSpringBarrierForceStateSteps(t *testing.T) {
 	for _, example := range []map[string]string{
@@ -229,6 +233,46 @@ func TestWallSpringBarrierEndpointImpulseSteps(t *testing.T) {
 		mustWallSpringStep(t, w, example, resolveWallSpringCollision)
 		mustWallSpringStep(t, w, example, assertWallSpringEndpointImpulseShare)
 		mustWallSpringStep(t, w, example, assertWallSpringEndpointBImpulseShare)
+	}
+}
+
+func TestFloatingWallMomentumSteps(t *testing.T) {
+	runWallSpringStepExamples(t,
+		[]map[string]string{{
+			"endpoint_a_mass": "2",
+			"endpoint_b_mass": "5",
+			"mass_id":         "3",
+			"moving_mass":     "1",
+			"mass_x":          "-5",
+			"mass_y":          "50",
+			"mass_vx":         "10",
+			"mass_vy":         "0",
+		}},
+		createUnequalMassFloatingWall,
+		createMassAimedAtFloatingWall,
+		advanceUntilFloatingWallCollision,
+		assertFloatingWallMomentumUnchanged,
+	)
+}
+
+func TestFloatingWallMomentumUsesDefaultMassAndSkipsMissingIDs(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Velocity: sim.Vec2{X: 3}})
+	_ = world.AddMass(sim.Mass{ID: 2, Mass: 4, Velocity: sim.Vec2{Y: 2}})
+
+	got := totalMassMomentum(world, 1, 2, 9)
+
+	if got != (sim.Vec2{X: 3, Y: 8}) {
+		t.Fatalf("momentum = %#v, expected default and explicit mass contributions", got)
+	}
+}
+
+func TestAssertMomentumReportsMismatch(t *testing.T) {
+	if err := assertMomentum("momentum", sim.Vec2{X: 1}, sim.Vec2{X: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := assertMomentum("momentum", sim.Vec2{X: 1}, sim.Vec2{X: 2}); err == nil {
+		t.Fatal("mismatched momentum should fail")
 	}
 }
 

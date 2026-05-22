@@ -69,8 +69,7 @@ func createCleanupSpring(w *world, example map[string]string) error {
 }
 
 func advanceOffCanvasCleanup(w *world, _ map[string]string) error {
-	ensureDomainWorld(w).Step(0)
-	return nil
+	return advanceDomainWorld(w, 0)
 }
 
 func assertCleanupMassCount(w *world, example map[string]string) error {
