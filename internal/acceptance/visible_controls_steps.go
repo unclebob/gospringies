@@ -3,16 +3,14 @@ package acceptance
 import (
 	"fmt"
 	"strings"
-
-	"springs/internal/app"
 )
 
-var visibleControlStateSetters = map[string]func(*app.Game){
-	"running":       func(game *app.Game) { game.SetPaused(false) },
-	"object counts": func(*app.Game) {},
-	"Masses:":       func(*app.Game) {},
-	"File:":         func(*app.Game) {},
-	"saved":         func(game *app.Game) { game.SetDirty(false) },
+var visibleControlStateSetters = map[string]func(*driverGame){
+	"running":       func(game *driverGame) { game.SetPaused(false) },
+	"object counts": func(*driverGame) {},
+	"Masses:":       func(*driverGame) {},
+	"File:":         func(*driverGame) {},
+	"saved":         func(game *driverGame) { game.SetDirty(false) },
 }
 
 func drawApplicationFrame(w *world, _ map[string]string) error {
@@ -126,7 +124,7 @@ func assertVisibleControlLabelsFit(w *world, _ map[string]string) error {
 	return nil
 }
 
-func visibleControlsGame(w *world) (*app.Game, error) {
+func visibleControlsGame(w *world) (*driverGame, error) {
 	if w.appGame == nil {
 		startApplicationDriver(w)
 	}

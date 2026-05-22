@@ -1,10 +1,6 @@
 package acceptance
 
-import (
-	"fmt"
-
-	"springs/internal/app"
-)
+import "fmt"
 
 func setClickableEditorMode(w *world, example map[string]string) error {
 	return fmt.Errorf("editor modes were removed from the app")
@@ -55,7 +51,7 @@ func assertClickableEditorMode(w *world, example map[string]string) error {
 	return fmt.Errorf("editor modes were removed from the app")
 }
 
-func clickableEditorMode(game *app.Game) string { return "" }
+func clickableEditorMode(game *driverGame) string { return "" }
 
 func assertVisibleControlActive(w *world, example map[string]string) error {
 	control, err := stringValue(example, "control")
@@ -76,7 +72,7 @@ func assertKeyboardPathEntryOpen(w *world, example map[string]string) error {
 	return assertClickableGameValue(w, example, "command", "path entry", clickablePathEntryCommand)
 }
 
-func clickablePathEntryCommand(game *app.Game) string { return game.PathEntryCommand() }
+func clickablePathEntryCommand(game *driverGame) string { return game.PathEntryCommand() }
 
 func assertDemoPickerOpen(w *world, _ map[string]string) error {
 	game, err := visibleControlsGame(w)
@@ -89,7 +85,7 @@ func assertDemoPickerOpen(w *world, _ map[string]string) error {
 	return nil
 }
 
-func assertClickableGameValue(w *world, example map[string]string, key string, name string, actual func(*app.Game) string) error {
+func assertClickableGameValue(w *world, example map[string]string, key string, name string, actual func(*driverGame) string) error {
 	expected, err := stringValue(example, key)
 	if err != nil {
 		return err
@@ -223,7 +219,7 @@ func assertClickableSimulationState(w *world, example map[string]string) error {
 	return nil
 }
 
-func clickableApplicationState(game *app.Game) string {
+func clickableApplicationState(game *driverGame) string {
 	screen := game.EditorScreen()
 	return fmt.Sprintf(
 		"paused=%t command=%s path=%s closed=%t file=%s counts=%d/%d",
@@ -237,7 +233,7 @@ func clickableApplicationState(game *app.Game) string {
 	)
 }
 
-func appControlWithLabel(label string) (app.DrawFrameReport, bool) {
+func appControlWithLabel(label string) (drawFrameReport, bool) {
 	game := newApplicationDriverGame()
 	report, ok := drawFrameWithControlLabel(game, label)
 	if ok {
@@ -247,7 +243,7 @@ func appControlWithLabel(label string) (app.DrawFrameReport, bool) {
 	return drawFrameWithControlLabel(game, label)
 }
 
-func drawFrameWithControlLabel(game *app.Game, label string) (app.DrawFrameReport, bool) {
+func drawFrameWithControlLabel(game *driverGame, label string) (drawFrameReport, bool) {
 	report := game.DrawFrameReport()
 	for _, controlLabel := range report.Controls {
 		if controlLabel == label {
