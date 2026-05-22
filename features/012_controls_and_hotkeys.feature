@@ -1,4 +1,7 @@
-# mutation-stamp: sha256=3d3b9d2e24ae429a6202a7a0530bc639e31b5827367c79f1aba5536c5dd6828c
+# mutation-stamp: sha256=b8fdc074919c6b5773c0225dca3fd637678223f5260cf3b633ea900358d7581a
+# acceptance-mutation-manifest-begin
+# {"version":1,"tested_at":"2026-05-22T12:07:28-05:00","feature_name":"Controls and hotkeys","feature_path":"features/012_controls_and_hotkeys.feature","background_hash":"83d899efaf3e7c994cfc3bb72e750341cb76a325fa0b7a8a89fec0de86851ec2","implementation_hash":"0a770bae08f130ca996aec47a8d033925e33cb9481c31df3fd9eeaca32e1424c","scenarios":[{"index":0,"name":"keyboard shortcuts invoke commands","scenario_hash":"eee2c19c6a343849a2f255dea41db92600e7fa1a55d050440807ba99af08b86d","mutation_count":10,"result":{"Total":10,"Killed":10,"Survived":0,"Errors":0},"tested_at":"2026-05-22T12:07:28-05:00"},{"index":1,"name":"file commands change world state correctly","scenario_hash":"5e0f95ce53b8b49848bc18a71e521414202a37ea5553ddfb6f349e76e2a3aa0e","mutation_count":9,"result":{"Total":9,"Killed":9,"Survived":0,"Errors":0},"tested_at":"2026-05-22T12:07:28-05:00"},{"index":2,"name":"reset clears objects and restores defaults","scenario_hash":"088c459b39793c21b8dabe3a9738ce713ec3cc2966030c96da99144d527803da","mutation_count":0,"result":{"Total":0,"Killed":0,"Survived":0,"Errors":0},"tested_at":"2026-05-22T12:07:28-05:00"},{"index":3,"name":"parameter controls update editable settings","scenario_hash":"3a96ce69da0d0ba8456a935c33e1cc9ce9e1645f3605c9e188661b2cc4d06a92","mutation_count":0,"result":{"Total":0,"Killed":0,"Survived":0,"Errors":0},"tested_at":"2026-05-22T12:07:28-05:00"}]}
+# acceptance-mutation-manifest-end
 Feature: Controls and hotkeys
 
 Background:

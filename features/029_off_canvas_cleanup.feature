@@ -1,4 +1,7 @@
-# mutation-stamp: sha256=bdce169436a55773c6b4c5886bd153d6476b460cca9edfe740ce7661c350392e
+# mutation-stamp: sha256=505e27be8b26965f39de49b3150b2335e380cc0a8ee2f95d0e35f9bbfa865a61
+# acceptance-mutation-manifest-begin
+# {"version":1,"tested_at":"2026-05-22T12:42:58-05:00","feature_name":"Off-canvas cleanup","feature_path":"features/029_off_canvas_cleanup.feature","background_hash":"a1063b7ba59c13868ebd2874284d4932b72ef9be255e421664dd149489b572ca","implementation_hash":"0a770bae08f130ca996aec47a8d033925e33cb9481c31df3fd9eeaca32e1424c","scenarios":[{"index":0,"name":"objects beyond one screen height from the canvas are deleted","scenario_hash":"7241bcc239d8d5e260f6db4ee57d6e962c9d23e500678d1528aa32fcd54603d6","mutation_count":14,"result":{"Total":14,"Killed":14,"Survived":0,"Errors":0},"tested_at":"2026-05-22T12:42:58-05:00"},{"index":1,"name":"objects at the cleanup boundary are retained","scenario_hash":"3e441050b97a65546f67a06c0e0d27068e12b99224fde0c23d2cf22940311d9d","mutation_count":13,"result":{"Total":13,"Killed":13,"Survived":0,"Errors":0},"tested_at":"2026-05-22T12:42:58-05:00"}]}
+# acceptance-mutation-manifest-end
 Feature: Off-canvas cleanup
 
 Background:
