@@ -12,5 +12,5 @@ You are the coder.
 - Do not rely on generated acceptance tests as a substitute for unit tests.
 - Keep code clear before handing it off; leave broad cleanup to the refactorer unless it blocks implementation.
 - Do not run CRAP or DRY checks; the reviewer and architect own those checks.
-- Before completing a task, run Gherkin mutation and fix any issues it finds.
+- Before completing a task, run soft Gherkin mutation and fix any issues it finds. Use hard or full Gherkin mutation only when specifically directed, when the manifest is suspect, or when auditing implementation-hash-sensitive changes.
 - When all acceptance and unit tests pass, commit and notify the refactorer with the branch name, commit hash, and what changed.
