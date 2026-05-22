@@ -318,17 +318,16 @@ func visibleControlAt(point image.Point) (controlBox, bool) {
 }
 
 func visibleControlWithLabel(label string) (controlBox, bool) {
-	for _, control := range visibleControls() {
-		if control.Label == label {
-			return control, true
-		}
-	}
-	return controlBox{}, false
+	return visibleControlWithField(label, func(control controlBox) string { return control.Label })
 }
 
 func visibleControlWithName(name string) (controlBox, bool) {
+	return visibleControlWithField(name, func(control controlBox) string { return control.Name })
+}
+
+func visibleControlWithField(value string, field func(controlBox) string) (controlBox, bool) {
 	for _, control := range visibleControls() {
-		if control.Name == name {
+		if field(control) == value {
 			return control, true
 		}
 	}
