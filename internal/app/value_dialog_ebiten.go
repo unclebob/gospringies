@@ -5,7 +5,6 @@ package app
 import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
@@ -38,37 +37,23 @@ func (g *Game) drawValueDialogCursor(screen *ebiten.Image) {
 }
 
 func (g *Game) pollValueDialogKeyboard() {
-	if !g.overlays.value.Open {
-		return
-	}
-	g.appendValueDialogInput(ebiten.AppendInputChars(nil))
-	g.handleValueDialogControlKeys()
-}
-
-func (g *Game) handleValueDialogControlKeys() {
-	g.handleValueDialogBackspace()
-	g.handleValueDialogSubmit()
-	g.handleValueDialogCancel()
+	g.pollTextDialogKeyboard(
+		g.overlays.value.Open,
+		g.appendValueDialogInput,
+		g.handleValueDialogBackspace,
+		g.handleValueDialogSubmit,
+		g.handleValueDialogCancel,
+	)
 }
 
 func (g *Game) handleValueDialogBackspace() {
-	if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
-		g.deleteValueDialogCharacter()
-	}
+	handleBackspaceKey(g.deleteValueDialogCharacter)
 }
 
 func (g *Game) handleValueDialogSubmit() {
-	if valueDialogSubmitPressed() {
-		g.applyValueDialog()
-	}
+	handleSubmitKey(g.applyValueDialog)
 }
 
 func (g *Game) handleValueDialogCancel() {
-	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
-		g.overlays.value.Open = false
-	}
-}
-
-func valueDialogSubmitPressed() bool {
-	return inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeyKPEnter)
+	handleEscapeKey(func() { g.overlays.value.Open = false })
 }

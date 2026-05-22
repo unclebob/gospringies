@@ -37,12 +37,12 @@ var commandActions = map[string]func(*Game, string){
 
 func (g *Game) resetWorld() {
 	g.world.simulation.Reset()
-	g.editState.dirty = false
+	g.clearDirty()
 }
 
 func (g *Game) restoreWorldState() {
 	g.RestoreState()
-	g.editState.dirty = true
+	g.markDirty()
 }
 
 func (g *Game) selectAllObjects() {
@@ -52,8 +52,8 @@ func (g *Game) selectAllObjects() {
 
 func (g *Game) deleteSelection() {
 	g.editing().DeleteSelected()
-	g.editState.selected = false
-	g.editState.dirty = true
+	g.setSelected(false)
+	g.markDirty()
 }
 
 func (g *Game) cutSelection() {
@@ -63,25 +63,25 @@ func (g *Game) cutSelection() {
 
 func (g *Game) pasteAtCursor() {
 	if g.pasteSelectionAt(g.pointer.lastCursor) {
-		g.editState.selected = true
-		g.editState.dirty = true
+		g.setSelected(true)
+		g.markDirty()
 	}
 }
 
 func (g *Game) duplicateSelection() {
 	if _, err := g.editing().DuplicateSelected(); err == nil {
-		g.editState.selected = true
-		g.editState.dirty = true
+		g.setSelected(true)
+		g.markDirty()
 	}
 }
 
 func (g *Game) clearSelection() {
 	g.editing().ClearSelection()
-	g.editState.selected = false
+	g.setSelected(false)
 }
 
 func (g *Game) syncSelectionState() {
-	g.editState.selected = g.selectedObjectCount() > 0
+	g.setSelected(g.selectedObjectCount() > 0)
 }
 
 func (g *Game) openDemoPicker() {
@@ -102,7 +102,7 @@ var pathEntryLabels = map[string]string{
 }
 
 func (g *Game) SaveXSP() string {
-	g.editState.dirty = false
+	g.clearDirty()
 	return xspfmt.SaveXSP(g.world.simulation)
 }
 
@@ -115,12 +115,9 @@ func (g *Game) LoadXSP(input string) error {
 	g.run.canvasYUp = xspfmt.UsesOriginalXSpringiesCoordinates(input)
 	g.applyCanvasWallBounds(loaded)
 	g.world.simulation.Reset()
-	g.world.simulation.LoadFrom(loaded)
-	if g.world.editor != nil {
-		g.world.editor.World = g.world.simulation
-	}
-	g.editState.selected = false
-	g.editState.dirty = false
+	g.loadWorldIntoSession(loaded)
+	g.setSelected(false)
+	g.clearDirty()
 	return nil
 }
 
@@ -140,7 +137,7 @@ func (g *Game) InsertXSP(input string) error {
 	setAppBounds(inserted)
 	g.applyCanvasWallBounds(inserted)
 	g.world.simulation.InsertFrom(inserted)
-	g.editState.dirty = true
+	g.markDirty()
 	return nil
 }
 
@@ -153,22 +150,19 @@ func (g *Game) RestoreState() {
 	if state == nil {
 		state = g.world.initialState
 	}
-	g.world.simulation.LoadFrom(state)
+	g.loadWorldIntoSession(state)
 }
 
 func (g *Game) SetParameter(parameter string, value string) {
 	g.world.simulation.Parameters.Set(parameter, value)
-	g.editState.dirty = true
+	g.markDirty()
 }
 
 func (g *Game) ReplaceWorld(world *sim.Simulation) {
 	g.run.canvasYUp = false
 	setAppBounds(world)
 	g.applyCanvasWallBounds(world)
-	g.world.simulation.LoadFrom(world)
-	if g.world.editor != nil {
-		g.world.editor.World = g.world.simulation
-	}
+	g.loadWorldIntoSession(world)
 }
 
 func setAppBounds(world *sim.Simulation) {
@@ -180,5 +174,5 @@ func appBounds() sim.Bounds {
 }
 
 // mutate4go-manifest-begin
-// {"version":1,"tested_at":"2026-05-22T08:41:56-05:00","module_hash":"09c48b760d18bd39fd834639d75720cc7fff528678ee1d6ab16ed9953d9e95ee","functions":[{"id":"func/Game.RunCommand","name":"Game.RunCommand","line":9,"end_line":16,"hash":"d9d03b55281863f9fff9e59453398529c7b65a7dd54f863854807db946456701"},{"id":"func/Game.resetWorld","name":"Game.resetWorld","line":38,"end_line":41,"hash":"97d68797c21c43151f733c57c89fcdf25e44fc8f5f95800bb6354eac9f01273c"},{"id":"func/Game.restoreWorldState","name":"Game.restoreWorldState","line":43,"end_line":46,"hash":"a718ade042215734505cf752ab396e43b22a0554c37ff37f8e9739fbfd7f2420"},{"id":"func/Game.selectAllObjects","name":"Game.selectAllObjects","line":48,"end_line":51,"hash":"edcb26766c21b30a65d2522ee2110e47550a05b01668794e9479a25875458133"},{"id":"func/Game.deleteSelection","name":"Game.deleteSelection","line":53,"end_line":57,"hash":"d939981dcd82691d4e5ec16d67eac790fb26bfc3a16a7c3f04fed7cf3a5bbb0d"},{"id":"func/Game.cutSelection","name":"Game.cutSelection","line":59,"end_line":62,"hash":"f94aaf7910d0712a18442b0c34c7cb71f8e8a8b1f7ba643c517bb368a141dd4b"},{"id":"func/Game.pasteAtCursor","name":"Game.pasteAtCursor","line":64,"end_line":69,"hash":"cce4c6adb1dc54fb67d588cac63cfe242b3d35d442fd11710645665d24400030"},{"id":"func/Game.duplicateSelection","name":"Game.duplicateSelection","line":71,"end_line":76,"hash":"470ebb5361e86a04f56e6033fde001a3bd52132aa8285746d18d469fba147b95"},{"id":"func/Game.clearSelection","name":"Game.clearSelection","line":78,"end_line":81,"hash":"3a56e598bdaa85885c5bb1d621c593020f324458503ebabb56bc5b0a8e7fb2c5"},{"id":"func/Game.syncSelectionState","name":"Game.syncSelectionState","line":83,"end_line":85,"hash":"b715423a49ddef074f0b1009aaab41d9e02f8b3836d67adb4aab9525fcb9f184"},{"id":"func/Game.openDemoPicker","name":"Game.openDemoPicker","line":87,"end_line":92,"hash":"cb9907d9e1982d1cae2655be0919db980ab1229c501d705fe43aad95fdc136e7"},{"id":"func/pathEntryLabel","name":"pathEntryLabel","line":94,"end_line":96,"hash":"6ca44d01998a5b0df0580e44ae8af4ba450a842944056541e6e921ed5f386df7"},{"id":"func/Game.SaveXSP","name":"Game.SaveXSP","line":104,"end_line":107,"hash":"ed63c6a7620bcb972d7f4e240e6e418ee468c34a93e68f9a65c7d6fab5ffea52"},{"id":"func/Game.LoadXSP","name":"Game.LoadXSP","line":109,"end_line":125,"hash":"59bcc0efb7e0c9971a1cf7bc4a802b5f33fb5441e91d4ef852f7399856b5785b"},{"id":"func/Game.LoadXSPFromFile","name":"Game.LoadXSPFromFile","line":127,"end_line":133,"hash":"116725efa47c8f0d307dd49156fc9bd6d1d0f37a9fa11526f9e5b8854f2daa21"},{"id":"func/Game.InsertXSP","name":"Game.InsertXSP","line":135,"end_line":145,"hash":"7b0b2505d9ce235222740e44e258791e9e79ca4d7dd0a80c918e934c221028b2"},{"id":"func/Game.SaveState","name":"Game.SaveState","line":147,"end_line":149,"hash":"7bacef1e6fdbdf872daf5baacf6a6373cd33f4d4ab06fadcfdfe283ddfa21f95"},{"id":"func/Game.RestoreState","name":"Game.RestoreState","line":151,"end_line":157,"hash":"352e99a3cda9645881c36acacd3545551dc6f081172f872f47cd1a6ecd96ef41"},{"id":"func/Game.SetParameter","name":"Game.SetParameter","line":159,"end_line":162,"hash":"4d077eb5385e321c8b8514f684b7782b2ff3b8f9884b573d832ba81df109618b"},{"id":"func/Game.ReplaceWorld","name":"Game.ReplaceWorld","line":164,"end_line":172,"hash":"da2c6ec8b1ee2355a08877c674cc4613bd2aba9cfb619048fcb8a28076f2590e"},{"id":"func/setAppBounds","name":"setAppBounds","line":174,"end_line":176,"hash":"f6e12fbfe7691c9547e6e9530c3479b783bd58849842b6008d515c951775a34d"},{"id":"func/appBounds","name":"appBounds","line":178,"end_line":180,"hash":"fd2879f4622b6f4bd561230b7a429f07bd33d6d9fb77d1d2aa18b47eb1d78029"}]}
+// {"version":1,"tested_at":"2026-05-22T08:52:06-05:00","module_hash":"f3b1606d7ab5c77d20903a379472bc55ca683a3f60869045e1060bcf65ead05c","functions":[{"id":"func/Game.RunCommand","name":"Game.RunCommand","line":9,"end_line":16,"hash":"d9d03b55281863f9fff9e59453398529c7b65a7dd54f863854807db946456701"},{"id":"func/Game.resetWorld","name":"Game.resetWorld","line":38,"end_line":41,"hash":"dcee62912c6fb5cc65e726ddfe5550b5b240d7acff3ef826d55332b27c4c8160"},{"id":"func/Game.restoreWorldState","name":"Game.restoreWorldState","line":43,"end_line":46,"hash":"b6ec3f31e5383f2e6bb58a1bcff86b15f4c0d3c93adb5019b483ec2e44a4ba61"},{"id":"func/Game.selectAllObjects","name":"Game.selectAllObjects","line":48,"end_line":51,"hash":"edcb26766c21b30a65d2522ee2110e47550a05b01668794e9479a25875458133"},{"id":"func/Game.deleteSelection","name":"Game.deleteSelection","line":53,"end_line":57,"hash":"8449958529aa99dde99f7c4e01915ffe9987d353df23931856a7644eab20b34d"},{"id":"func/Game.cutSelection","name":"Game.cutSelection","line":59,"end_line":62,"hash":"f94aaf7910d0712a18442b0c34c7cb71f8e8a8b1f7ba643c517bb368a141dd4b"},{"id":"func/Game.pasteAtCursor","name":"Game.pasteAtCursor","line":64,"end_line":69,"hash":"073417983cc55cb0258176466fe4922d8cbb63359624f3cc0867bc6c1253ee6f"},{"id":"func/Game.duplicateSelection","name":"Game.duplicateSelection","line":71,"end_line":76,"hash":"82da47b69b31118b77899e4e1eb4ac4db16a3a9e0df9a3e599df5d6a26afedac"},{"id":"func/Game.clearSelection","name":"Game.clearSelection","line":78,"end_line":81,"hash":"b88b303601c82d2fba4e9315b575f42975ad621fcf823720fd52a6daf80e20e6"},{"id":"func/Game.syncSelectionState","name":"Game.syncSelectionState","line":83,"end_line":85,"hash":"fbb27ef1490e2958d713663c5d5a3b995d56eec4c66907cb026416939ab80572"},{"id":"func/Game.openDemoPicker","name":"Game.openDemoPicker","line":87,"end_line":92,"hash":"cb9907d9e1982d1cae2655be0919db980ab1229c501d705fe43aad95fdc136e7"},{"id":"func/pathEntryLabel","name":"pathEntryLabel","line":94,"end_line":96,"hash":"6ca44d01998a5b0df0580e44ae8af4ba450a842944056541e6e921ed5f386df7"},{"id":"func/Game.SaveXSP","name":"Game.SaveXSP","line":104,"end_line":107,"hash":"e3576ebe0eccce468aa723beaf2f7e66505632fab6e9079c8bcad75347a2e983"},{"id":"func/Game.LoadXSP","name":"Game.LoadXSP","line":109,"end_line":122,"hash":"dd275d269afd098ba42f9efb776bf52de43954ba279cfc228bf5b4a305d40c59"},{"id":"func/Game.LoadXSPFromFile","name":"Game.LoadXSPFromFile","line":124,"end_line":130,"hash":"116725efa47c8f0d307dd49156fc9bd6d1d0f37a9fa11526f9e5b8854f2daa21"},{"id":"func/Game.InsertXSP","name":"Game.InsertXSP","line":132,"end_line":142,"hash":"f33ea9d04908585e54ca644162f4b4d343956c835f3aa3e8e240064a6e6dfbff"},{"id":"func/Game.SaveState","name":"Game.SaveState","line":144,"end_line":146,"hash":"7bacef1e6fdbdf872daf5baacf6a6373cd33f4d4ab06fadcfdfe283ddfa21f95"},{"id":"func/Game.RestoreState","name":"Game.RestoreState","line":148,"end_line":154,"hash":"80456fab4a182172997bc3fb7f424ab212094e75f9beaef92c0d4bd969008d24"},{"id":"func/Game.SetParameter","name":"Game.SetParameter","line":156,"end_line":159,"hash":"a9abf4475cc53b6e02d47ca61b8bce31fce28ccf53d25d2663b3aeba4371d086"},{"id":"func/Game.ReplaceWorld","name":"Game.ReplaceWorld","line":161,"end_line":166,"hash":"9ed966b136ffb2d7a179bd9419d238ae95d360529574d143666a35d0ce2eb647"},{"id":"func/setAppBounds","name":"setAppBounds","line":168,"end_line":170,"hash":"f6e12fbfe7691c9547e6e9530c3479b783bd58849842b6008d515c951775a34d"},{"id":"func/appBounds","name":"appBounds","line":172,"end_line":174,"hash":"fd2879f4622b6f4bd561230b7a429f07bd33d6d9fb77d1d2aa18b47eb1d78029"}]}
 // mutate4go-manifest-end

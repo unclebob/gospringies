@@ -5,7 +5,6 @@ package app
 import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
@@ -29,33 +28,23 @@ func (g *Game) drawSaveFilenameCursor(screen *ebiten.Image) {
 }
 
 func (g *Game) pollSaveFilenameDialogKeyboard() {
-	if !g.overlays.save.Open {
-		return
-	}
-	g.insertSaveFilenameText(string(ebiten.AppendInputChars(nil)))
-	g.handleSaveFilenameDialogControlKeys()
-}
-
-func (g *Game) handleSaveFilenameDialogControlKeys() {
-	g.handleSaveFilenameDialogBackspace()
-	g.handleSaveFilenameDialogSubmit()
-	g.handleSaveFilenameDialogCancel()
+	g.pollTextDialogKeyboard(
+		g.overlays.save.Open,
+		func(chars []rune) { g.insertSaveFilenameText(string(chars)) },
+		g.handleSaveFilenameDialogBackspace,
+		g.handleSaveFilenameDialogSubmit,
+		g.handleSaveFilenameDialogCancel,
+	)
 }
 
 func (g *Game) handleSaveFilenameDialogBackspace() {
-	if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
-		g.deleteSaveFilenameCharacter()
-	}
+	handleBackspaceKey(g.deleteSaveFilenameCharacter)
 }
 
 func (g *Game) handleSaveFilenameDialogSubmit() {
-	if valueDialogSubmitPressed() {
-		_ = g.SubmitSaveFilenameDialog()
-	}
+	handleSubmitKey(func() { _ = g.SubmitSaveFilenameDialog() })
 }
 
 func (g *Game) handleSaveFilenameDialogCancel() {
-	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
-		g.overlays.save.Open = false
-	}
+	handleEscapeKey(func() { g.overlays.save.Open = false })
 }
