@@ -94,6 +94,7 @@ func TestParseOptionsAcceptsWorkers(t *testing.T) {
 		"-workers", "4",
 		"-timeout", "3m",
 		"-mutant-timeout", "5s",
+		"-level", "soft",
 	}, &stderr)
 	if err != nil {
 		t.Fatalf("parseOptions returned error: %v", err)
@@ -106,6 +107,9 @@ func TestParseOptionsAcceptsWorkers(t *testing.T) {
 	}
 	if options.mutantTimeout != 5*time.Second {
 		t.Fatalf("mutant timeout = %v, want 5s", options.mutantTimeout)
+	}
+	if options.level != acceptancemutation.ScenarioManifestSoft {
+		t.Fatalf("level = %q, want soft", options.level)
 	}
 }
 
@@ -123,6 +127,17 @@ func TestParseOptionsDefaults(t *testing.T) {
 	}
 	if options.mutantTimeout != 30*time.Second {
 		t.Fatalf("mutant timeout = %v, want 30s", options.mutantTimeout)
+	}
+	if options.level != acceptancemutation.ScenarioManifestHard {
+		t.Fatalf("level = %q, want hard", options.level)
+	}
+}
+
+func TestParseOptionsRejectsInvalidLevel(t *testing.T) {
+	var stderr bytes.Buffer
+	_, err := parseOptions([]string{"-level", "medium"}, &stderr)
+	if err == nil || !strings.Contains(err.Error(), "invalid mutation level") {
+		t.Fatalf("err = %v", err)
 	}
 }
 
@@ -288,6 +303,48 @@ func TestRunSkipsStampedFeature(t *testing.T) {
 	}
 }
 
+func TestCanSkipStampedFeatureRespectsLevelAndManifest(t *testing.T) {
+	dir := t.TempDir()
+	featurePath := filepath.Join(dir, "empty.feature")
+	writeFile(t, featurePath, "Feature: Empty\n\nScenario: no examples\n  Given nothing\n")
+	if err := mutationstamp.Stamp(featurePath); err != nil {
+		t.Fatal(err)
+	}
+
+	if !canSkipStampedFeature(options{featurePath: featurePath, level: acceptancemutation.ScenarioManifestHard}, false) {
+		t.Fatal("hard level should skip stamped feature without manifest")
+	}
+	if canSkipStampedFeature(options{featurePath: featurePath, level: acceptancemutation.ScenarioManifestFull}, false) {
+		t.Fatal("full level should not skip stamped feature")
+	}
+	if canSkipStampedFeature(options{featurePath: featurePath, level: acceptancemutation.ScenarioManifestHard}, true) {
+		t.Fatal("feature with scenario manifest should not use stamp-only skip")
+	}
+}
+
+func TestRunFullLevelIgnoresStampedFeature(t *testing.T) {
+	dir := t.TempDir()
+	featurePath := filepath.Join(dir, "empty.feature")
+	writeFile(t, featurePath, "Feature: Empty\n\nScenario: no examples\n  Given nothing\n")
+	if err := mutationstamp.Stamp(featurePath); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	code := run([]string{"-feature", featurePath, "-work-dir", filepath.Join(dir, "mutations"), "-level", "full"}, &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, stderr = %s", code, stderr.String())
+	}
+	if strings.Contains(stdout.String(), "mutation stamp valid; skipping") {
+		t.Fatalf("stdout = %s", stdout.String())
+	}
+	if !strings.Contains(readFile(t, featurePath), "acceptance-mutation-manifest-begin") {
+		t.Fatal("full level did not write manifest")
+	}
+}
+
 func TestRunSkipsScenariosFromManifest(t *testing.T) {
 	dir := t.TempDir()
 	featurePath := filepath.Join(dir, "manifest.feature")
@@ -338,6 +395,62 @@ func TestRunSkipsScenariosFromManifest(t *testing.T) {
 	if !strings.Contains(readFile(t, featurePath), mutationstamp.Prefix) {
 		t.Fatal("feature was not stamped after manifest skip")
 	}
+}
+
+func TestRunLevelsWithStaleImplementationHash(t *testing.T) {
+	for _, tt := range []struct {
+		level      string
+		wantOutput string
+		rejectText string
+	}{
+		{level: "soft", wantOutput: "skipped_scenarios=1"},
+		{level: "hard", rejectText: "skipped_scenarios"},
+	} {
+		t.Run(tt.level, func(t *testing.T) {
+			dir, featurePath := writeStaleManifestFeature(t)
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+			code := run([]string{"-feature", featurePath, "-work-dir", filepath.Join(dir, "mutations"), "-level", tt.level}, &stdout, &stderr)
+
+			if code != 0 {
+				t.Fatalf("exit code = %d, stderr = %s", code, stderr.String())
+			}
+			if tt.wantOutput != "" && !strings.Contains(stdout.String(), tt.wantOutput) {
+				t.Fatalf("stdout = %s", stdout.String())
+			}
+			if tt.rejectText != "" && strings.Contains(stdout.String(), tt.rejectText) {
+				t.Fatalf("stdout = %s", stdout.String())
+			}
+		})
+	}
+}
+
+func writeStaleManifestFeature(t *testing.T) (string, string) {
+	t.Helper()
+	dir := t.TempDir()
+	featurePath := filepath.Join(dir, "manifest.feature")
+	writeFile(t, featurePath, strings.Join([]string{
+		"Feature: Manifest skip",
+		"",
+		"Scenario Outline: first",
+		"  Then value <value>",
+		"",
+		"Examples:",
+		"  | value |",
+		"  | 1     |",
+		"",
+	}, "\n"))
+	feature, err := gherkin.ReadFile(featurePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest := acceptancemutation.BuildScenarioManifest(featurePath, feature, acceptancemutation.ScenarioManifest{}, acceptancemutation.ScenarioSkipPlan{SkipScenarios: map[int]bool{}}, []acceptancemutation.MutationResult{
+		{Mutation: acceptancemutation.Mutation{Scenario: 0}, Status: acceptancemutation.MutationKilled},
+	}, "stale-impl", time.Unix(1, 0).UTC())
+	if err := acceptancemutation.WriteScenarioManifestFile(featurePath, feature, manifest, acceptancemutation.ScenarioSkipPlan{SkipScenarios: map[int]bool{0: true}}, nil, "stale-impl", time.Unix(1, 0).UTC()); err != nil {
+		t.Fatal(err)
+	}
+	return dir, featurePath
 }
 
 func writeFile(t *testing.T, path, content string) {

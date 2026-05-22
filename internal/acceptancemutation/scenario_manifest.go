@@ -100,9 +100,21 @@ func RemoveScenarioManifest(content string) string {
 	return out.String()
 }
 
+type ScenarioManifestMode string
+
+const (
+	ScenarioManifestHard ScenarioManifestMode = "hard"
+	ScenarioManifestSoft ScenarioManifestMode = "soft"
+	ScenarioManifestFull ScenarioManifestMode = "full"
+)
+
 func ScenarioSkipPlanFor(feature gherkin.Feature, featurePath string, manifest ScenarioManifest, implementationHash string) ScenarioSkipPlan {
+	return ScenarioSkipPlanForMode(feature, featurePath, manifest, implementationHash, ScenarioManifestHard)
+}
+
+func ScenarioSkipPlanForMode(feature gherkin.Feature, featurePath string, manifest ScenarioManifest, implementationHash string, mode ScenarioManifestMode) ScenarioSkipPlan {
 	plan := ScenarioSkipPlan{SkipScenarios: map[int]bool{}}
-	if !scenarioManifestMatches(feature, featurePath, manifest, implementationHash) {
+	if mode == ScenarioManifestFull || !scenarioManifestMatchesMode(feature, featurePath, manifest, implementationHash, mode) {
 		return plan
 	}
 	entries := scenarioManifestEntriesByIndex(manifest)
@@ -117,11 +129,16 @@ func ScenarioSkipPlanFor(feature gherkin.Feature, featurePath string, manifest S
 }
 
 func scenarioManifestMatches(feature gherkin.Feature, featurePath string, manifest ScenarioManifest, implementationHash string) bool {
+	return scenarioManifestMatchesMode(feature, featurePath, manifest, implementationHash, ScenarioManifestHard)
+}
+
+func scenarioManifestMatchesMode(feature gherkin.Feature, featurePath string, manifest ScenarioManifest, implementationHash string, mode ScenarioManifestMode) bool {
+	implementationMatches := manifest.ImplementationHash == implementationHash || mode == ScenarioManifestSoft
 	return manifest.Version == ScenarioManifestVersion &&
 		manifest.FeatureName == feature.Name &&
 		manifest.FeaturePath == featurePath &&
 		manifest.BackgroundHash == BackgroundHash(feature) &&
-		manifest.ImplementationHash == implementationHash
+		implementationMatches
 }
 
 func scenarioManifestEntriesByIndex(manifest ScenarioManifest) map[int]ScenarioManifestEntry {
