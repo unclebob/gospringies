@@ -352,15 +352,18 @@ func TestWallSpringLengthCorrectionDoesNotMoveEndpointThroughOtherWallSpring(t *
 }
 
 func TestWallSpringLengthCorrectionTreatsBoundaryStartAsCollision(t *testing.T) {
-	world := NewWorld()
-	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: 600, Y: 400}, Mass: 1, Fixed: true})
-	_ = world.AddMass(Mass{ID: 2, Position: Vec2{X: 690, Y: 400}, Mass: 1, Fixed: true})
-	_ = world.AddMass(Mass{ID: 3, Position: Vec2{X: 687, Y: 400}, Mass: 1})
-	_ = world.AddMass(Mass{ID: 4, Position: Vec2{X: 687, Y: 350}, Mass: 1, Fixed: true})
-	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, Wall: true})
-	_ = world.AddSpring(Spring{ID: 2, MassA: 3, MassB: 4, RestLength: 40, Wall: true})
-
-	world.Step(1)
+	world := steppedWallSpringWorld(
+		[]Mass{
+			{ID: 1, Position: Vec2{X: 600, Y: 400}, Mass: 1, Fixed: true},
+			{ID: 2, Position: Vec2{X: 690, Y: 400}, Mass: 1, Fixed: true},
+			{ID: 3, Position: Vec2{X: 687, Y: 400}, Mass: 1},
+			{ID: 4, Position: Vec2{X: 687, Y: 350}, Mass: 1, Fixed: true},
+		},
+		[]Spring{
+			{ID: 1, MassA: 1, MassB: 2, Wall: true},
+			{ID: 2, MassA: 3, MassB: 4, RestLength: 40, Wall: true},
+		},
+	)
 
 	endpoint, _ := world.MassByID(3)
 	if endpoint.Position.Y < 400 {
@@ -369,22 +372,37 @@ func TestWallSpringLengthCorrectionTreatsBoundaryStartAsCollision(t *testing.T) 
 }
 
 func TestWallSpringLengthCorrectionCannotLeakAroundCorner(t *testing.T) {
-	world := NewWorld()
-	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: 600, Y: 400}, Mass: 1, Fixed: true})
-	_ = world.AddMass(Mass{ID: 2, Position: Vec2{X: 690, Y: 400}, Mass: 1, Fixed: true})
-	_ = world.AddMass(Mass{ID: 3, Position: Vec2{X: 690, Y: 520}, Mass: 1, Fixed: true})
-	_ = world.AddMass(Mass{ID: 4, Position: Vec2{X: 687, Y: 400}, Mass: 1})
-	_ = world.AddMass(Mass{ID: 5, Position: Vec2{X: 707, Y: 360}, Mass: 1, Fixed: true})
-	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, Wall: true})
-	_ = world.AddSpring(Spring{ID: 2, MassA: 2, MassB: 3, Wall: true})
-	_ = world.AddSpring(Spring{ID: 3, MassA: 4, MassB: 5, RestLength: 20, Wall: true})
-
-	world.Step(1)
+	world := steppedWallSpringWorld(
+		[]Mass{
+			{ID: 1, Position: Vec2{X: 600, Y: 400}, Mass: 1, Fixed: true},
+			{ID: 2, Position: Vec2{X: 690, Y: 400}, Mass: 1, Fixed: true},
+			{ID: 3, Position: Vec2{X: 690, Y: 520}, Mass: 1, Fixed: true},
+			{ID: 4, Position: Vec2{X: 687, Y: 400}, Mass: 1},
+			{ID: 5, Position: Vec2{X: 707, Y: 360}, Mass: 1, Fixed: true},
+		},
+		[]Spring{
+			{ID: 1, MassA: 1, MassB: 2, Wall: true},
+			{ID: 2, MassA: 2, MassB: 3, Wall: true},
+			{ID: 3, MassA: 4, MassB: 5, RestLength: 20, Wall: true},
+		},
+	)
 
 	endpoint, _ := world.MassByID(4)
 	if endpoint.Position.Y < 400 || endpoint.Position.X > 690 {
 		t.Fatalf("length correction leaked around wall-spring corner: %#v", endpoint)
 	}
+}
+
+func steppedWallSpringWorld(masses []Mass, springs []Spring) *Simulation {
+	world := NewWorld()
+	for _, mass := range masses {
+		_ = world.AddMass(mass)
+	}
+	for _, spring := range springs {
+		_ = world.AddSpring(spring)
+	}
+	world.Step(1)
+	return world
 }
 
 func TestWallSpringLengthConstraintCollisionSkipsFixedAndUnchangedEndpoints(t *testing.T) {
