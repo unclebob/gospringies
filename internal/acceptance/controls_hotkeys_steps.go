@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"springs/internal/app"
 	"springs/internal/sim"
 )
 
@@ -52,7 +51,7 @@ func runFileCommand(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	return withConcreteGame(w, func(game *app.Game) error { return runNamedFileCommand(w, game, command) })
+	return withConcreteGame(w, func(game *driverGame) error { return runNamedFileCommand(w, game, command) })
 }
 
 func assertControlWorldState(w *world, example map[string]string) error {
@@ -110,11 +109,11 @@ func runResetCommand(w *world, _ map[string]string) error {
 }
 
 func assertControlMassCountZero(w *world, _ map[string]string) error {
-	return assertControlObjectCount(w, "mass", func(game *app.Game) int { return len(game.World().Masses) })
+	return assertControlObjectCount(w, "mass", func(game *driverGame) int { return len(game.World().Masses) })
 }
 
 func assertControlSpringCountZero(w *world, _ map[string]string) error {
-	return assertControlObjectCount(w, "spring", func(game *app.Game) int { return len(game.World().Springs) })
+	return assertControlObjectCount(w, "spring", func(game *driverGame) int { return len(game.World().Springs) })
 }
 
 func assertControlParametersDefault(w *world, _ map[string]string) error {
@@ -166,7 +165,7 @@ func assertControlParameterValue(w *world, example map[string]string) error {
 	return assertControlParameter(game, parameter, value)
 }
 
-func runNamedFileCommand(w *world, game *app.Game, command string) error {
+func runNamedFileCommand(w *world, game *driverGame, command string) error {
 	switch command {
 	case "save":
 		w.xspSavedFirst = game.SaveXSP()
@@ -180,9 +179,9 @@ func runNamedFileCommand(w *world, game *app.Game, command string) error {
 	return nil
 }
 
-func controlWorldStateAssertions(w *world) map[string]func(*app.Game) error {
-	return map[string]func(*app.Game) error{
-		"written to XSP file": func(*app.Game) error {
+func controlWorldStateAssertions(w *world) map[string]func(*driverGame) error {
+	return map[string]func(*driverGame) error{
+		"written to XSP file": func(*driverGame) error {
 			return requirePrerequisite(strings.HasPrefix(w.xspSavedFirst, "#1.0"), "world was not saved")
 		},
 		"replaced by XSP file":       assertLoadedControlWorld,
@@ -190,8 +189,8 @@ func controlWorldStateAssertions(w *world) map[string]func(*app.Game) error {
 	}
 }
 
-func assertControlObjectCount(w *world, objectType string, count func(*app.Game) int) error {
-	return withConcreteGame(w, func(game *app.Game) error {
+func assertControlObjectCount(w *world, objectType string, count func(*driverGame) int) error {
+	return withConcreteGame(w, func(game *driverGame) error {
 		if actual := count(game); actual != 0 {
 			return fmt.Errorf("%s count = %d", objectType, actual)
 		}
@@ -199,7 +198,7 @@ func assertControlObjectCount(w *world, objectType string, count func(*app.Game)
 	})
 }
 
-func withConcreteGame(w *world, action func(*app.Game) error) error {
+func withConcreteGame(w *world, action func(*driverGame) error) error {
 	game, err := concreteGame(w)
 	if err != nil {
 		return err
@@ -207,7 +206,7 @@ func withConcreteGame(w *world, action func(*app.Game) error) error {
 	return action(game)
 }
 
-func concreteGame(w *world) (*app.Game, error) {
+func concreteGame(w *world) (*driverGame, error) {
 	return concreteApplicationDriver(w)
 }
 
@@ -215,7 +214,7 @@ func controlFileXSP() string {
 	return "#1.0\ncmas " + controlLoadedValue + "\nmass 9 10 20 1 0\n"
 }
 
-func assertLoadedControlWorld(game *app.Game) error {
+func assertLoadedControlWorld(game *driverGame) error {
 	if err := assertControlMassPresence(game, 9, true, "loaded mass missing"); err != nil {
 		return err
 	}
@@ -225,14 +224,14 @@ func assertLoadedControlWorld(game *app.Game) error {
 	return nil
 }
 
-func assertInsertedControlWorld(game *app.Game) error {
+func assertInsertedControlWorld(game *driverGame) error {
 	if err := assertControlMassPresence(game, 1, true, "current mass missing"); err != nil {
 		return err
 	}
 	return assertControlMassPresence(game, 9, true, "inserted mass missing")
 }
 
-func assertControlMassPresence(game *app.Game, id int, expected bool, message string) error {
+func assertControlMassPresence(game *driverGame, id int, expected bool, message string) error {
 	_, ok := game.World().MassByID(id)
 	if ok != expected {
 		return fmt.Errorf("%s", message)
@@ -240,7 +239,7 @@ func assertControlMassPresence(game *app.Game, id int, expected bool, message st
 	return nil
 }
 
-func assertControlParameter(game *app.Game, parameter string, expected string) error {
+func assertControlParameter(game *driverGame, parameter string, expected string) error {
 	if got := game.World().Parameters.Value(parameter); got != expected {
 		return fmt.Errorf("parameter %q = %q, expected %q", parameter, got, expected)
 	}

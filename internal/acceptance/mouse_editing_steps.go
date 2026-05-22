@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"springs/internal/app"
 	"springs/internal/edit"
 	"springs/internal/sim"
 )
@@ -199,11 +198,11 @@ func dragMouseMassToPosition(w *world, example map[string]string, key string) er
 	return ensureMouseEditor(w).DragMass(id, position)
 }
 
-func dragModeGame(w *world) (*app.Game, bool) {
+func dragModeGame(w *world) (*driverGame, bool) {
 	return optionalConcreteApplicationDriver(w)
 }
 
-func dragAppMass(w *world, game *app.Game, id int, position sim.Vec2) error {
+func dragAppMass(w *world, game *driverGame, id int, position sim.Vec2) error {
 	if w.domainWorld != nil {
 		game.ReplaceWorld(w.domainWorld)
 	}
