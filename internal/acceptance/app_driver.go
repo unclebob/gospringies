@@ -10,6 +10,8 @@ import (
 type editorScreen = app.EditorScreen
 type renderResult = app.RenderResult
 type drawFrameReport = app.DrawFrameReport
+type numericSettingReport = app.NumericSettingFrame
+type driverGame = app.Game
 
 type appGame interface {
 	Update() error
@@ -29,13 +31,13 @@ type appGame interface {
 	Closed() bool
 }
 
-func startApplicationDriver(w *world) *app.Game {
+func startApplicationDriver(w *world) *driverGame {
 	game := newApplicationDriverGame()
 	w.appGame = game
 	return game
 }
 
-func newApplicationDriverGame() *app.Game {
+func newApplicationDriverGame() *driverGame {
 	return app.NewGame()
 }
 
@@ -47,18 +49,22 @@ func applicationWindowResizable() bool {
 	return app.DefaultWindowConfig().Resizable
 }
 
-func ensureConcreteApplicationDriver(w *world) (*app.Game, error) {
+func defaultStartupScenePath() string {
+	return app.DefaultStartupScenePath()
+}
+
+func ensureConcreteApplicationDriver(w *world) (*driverGame, error) {
 	if w.appGame == nil {
 		startApplicationDriver(w)
 	}
 	return concreteApplicationDriver(w)
 }
 
-func concreteApplicationDriver(w *world) (*app.Game, error) {
+func concreteApplicationDriver(w *world) (*driverGame, error) {
 	return concreteApplicationDriverWithMessage(w, "application is not running")
 }
 
-func concreteApplicationDriverWithMessage(w *world, message string) (*app.Game, error) {
+func concreteApplicationDriverWithMessage(w *world, message string) (*driverGame, error) {
 	game, ok := w.appGame.(*app.Game)
 	if !ok || game == nil {
 		return nil, errors.New(message)
@@ -66,7 +72,7 @@ func concreteApplicationDriverWithMessage(w *world, message string) (*app.Game, 
 	return game, nil
 }
 
-func optionalConcreteApplicationDriver(w *world) (*app.Game, bool) {
+func optionalConcreteApplicationDriver(w *world) (*driverGame, bool) {
 	game, ok := w.appGame.(*app.Game)
 	return game, ok && game != nil
 }

@@ -6,7 +6,6 @@ import (
 	"slices"
 	"strings"
 
-	"springs/internal/app"
 	"springs/internal/sim"
 )
 
@@ -1001,7 +1000,7 @@ func assertSelectedSpringsWallValues(w *world, example map[string]string) error 
 	return nil
 }
 
-func assertAppSpringWallValue(game *app.Game, springID int, expected bool) error {
+func assertAppSpringWallValue(game *driverGame, springID int, expected bool) error {
 	spring, ok := game.World().SpringByID(springID)
 	if !ok {
 		return fmt.Errorf("spring %d not found", springID)
@@ -1182,11 +1181,11 @@ func appSpringWallExample(example map[string]string, wallKey string) (int, bool,
 	return springIDAndWall(example, wallKey)
 }
 
-func newAppGameWithSpring(springID int, wall bool) (*app.Game, error) {
+func newAppGameWithSpring(springID int, wall bool) (*driverGame, error) {
 	return newAppGameWithSprings([]int{springID}, []bool{wall})
 }
 
-func newAppGameWithSprings(springIDs []int, walls []bool) (*app.Game, error) {
+func newAppGameWithSprings(springIDs []int, walls []bool) (*driverGame, error) {
 	game := newApplicationDriverGame()
 	world := sim.NewWorld()
 	ensureWallSpringMass(world, 1, sim.Vec2{})
@@ -1200,7 +1199,7 @@ func newAppGameWithSprings(springIDs []int, walls []bool) (*app.Game, error) {
 	return game, nil
 }
 
-func selectAppSpringIfRequested(game *app.Game, springID int, selectSpring bool) error {
+func selectAppSpringIfRequested(game *driverGame, springID int, selectSpring bool) error {
 	if !selectSpring {
 		return nil
 	}

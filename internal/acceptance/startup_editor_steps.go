@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"reflect"
 
-	"springs/internal/app"
 	xspfmt "springs/internal/format"
 	"springs/internal/sim"
 )
@@ -89,8 +88,8 @@ func assertStartupWorldLoadedFromDemo(w *world, example map[string]string) error
 	if err != nil {
 		return err
 	}
-	if defaultDemo != app.DefaultStartupScenePath() {
-		return fmt.Errorf("startup demo = %q, want %q", app.DefaultStartupScenePath(), defaultDemo)
+	if defaultDemo != defaultStartupScenePath() {
+		return fmt.Errorf("startup demo = %q, want %q", defaultStartupScenePath(), defaultDemo)
 	}
 	_, err = startupDemoWorld(defaultDemo)
 	return err
@@ -211,6 +210,6 @@ func startupRegions() []string {
 	return []string{"canvas", "left toolbar", "top bar", "right inspector"}
 }
 
-func concreteStartupGame(w *world) (*app.Game, error) {
+func concreteStartupGame(w *world) (*driverGame, error) {
 	return concreteApplicationDriverWithMessage(w, "startup application was not started")
 }

@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"slices"
 
-	"springs/internal/app"
 	"springs/internal/sim"
 )
 
@@ -21,7 +20,7 @@ func createMemoryWorldState(w *world, example map[string]string) error {
 }
 
 func saveApplicationState(w *world, _ map[string]string) error {
-	return withConcreteGame(w, func(game *app.Game) error {
+	return withConcreteGame(w, func(game *driverGame) error {
 		game.SaveState()
 		return nil
 	})
@@ -51,7 +50,7 @@ func assertApplicationStateWorld(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	return withConcreteGame(w, func(game *app.Game) error {
+	return withConcreteGame(w, func(game *driverGame) error {
 		expected, err := applicationStateWorld(state)
 		if err != nil {
 			return err
@@ -77,7 +76,7 @@ func restoreApplicationStateOnce(w *world, _ map[string]string) error {
 }
 
 func assertInitialApplicationState(w *world, _ map[string]string) error {
-	return withConcreteGame(w, func(game *app.Game) error {
+	return withConcreteGame(w, func(game *driverGame) error {
 		expected := newApplicationDriverGame().World()
 		if !simulationStateEqual(game.World(), expected) {
 			return fmt.Errorf("world state = %#v, want initial state", game.World())
@@ -91,7 +90,7 @@ func runStateFileOperation(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	return withConcreteGame(w, func(game *app.Game) error {
+	return withConcreteGame(w, func(game *driverGame) error {
 		switch operation {
 		case "save file":
 			w.xspSavedFirst = game.SaveXSP()
@@ -116,7 +115,7 @@ func setApplicationStateWorld(w *world, state string) error {
 }
 
 func replaceApplicationWorld(w *world, state string) error {
-	return withConcreteGame(w, func(game *app.Game) error {
+	return withConcreteGame(w, func(game *driverGame) error {
 		world, err := applicationStateWorld(state)
 		if err != nil {
 			return err
@@ -127,7 +126,7 @@ func replaceApplicationWorld(w *world, state string) error {
 }
 
 func restoreApplicationState(w *world, count int) error {
-	return withConcreteGame(w, func(game *app.Game) error {
+	return withConcreteGame(w, func(game *driverGame) error {
 		for i := 0; i < count; i++ {
 			game.RestoreState()
 		}

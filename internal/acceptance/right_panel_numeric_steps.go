@@ -3,8 +3,6 @@ package acceptance
 import (
 	"fmt"
 	"image"
-
-	"springs/internal/app"
 )
 
 func renderRightInspector(w *world, _ map[string]string) error {
@@ -386,7 +384,7 @@ func rectanglesOverlap(a image.Rectangle, b image.Rectangle) bool {
 	return a.Min.X < b.Max.X && a.Max.X > b.Min.X && a.Min.Y < b.Max.Y && a.Max.Y > b.Min.Y
 }
 
-func numericSettingControlsOverlap(report app.NumericSettingFrame, rect image.Rectangle) bool {
+func numericSettingControlsOverlap(report numericSettingReport, rect image.Rectangle) bool {
 	return rectanglesOverlap(report.LabelRect, rect) ||
 		rectanglesOverlap(report.CheckboxRect, rect) ||
 		rectanglesOverlap(report.DecrementRect, rect) ||
@@ -403,7 +401,7 @@ func numericTextEntryValue(example map[string]string) (string, error) {
 	return stringValue(example, "final_value")
 }
 
-func focusNumericSettingFromExample(game *app.Game, example map[string]string) {
+func focusNumericSettingFromExample(game *driverGame, example map[string]string) {
 	setting, err := stringValue(example, "setting")
 	if err != nil {
 		return
