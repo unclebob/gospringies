@@ -6,8 +6,8 @@ import (
 )
 
 func (g *Game) updateSpringChainEnd(position sim.Vec2) {
-	if g.springChainActive {
-		g.pendingSpringEnd = g.clampToCanvas(position)
+	if g.pointer.springChainActive {
+		g.pointer.pendingSpringEnd = g.clampToCanvas(position)
 	}
 }
 
@@ -17,16 +17,16 @@ func (g *Game) beginControlPlacementAt(position sim.Vec2) {
 	}
 	if id, ok := g.massAt(position); ok {
 		g.beginSpringAt(position)
-		g.pendingSpringID = id
+		g.pointer.pendingSpringID = id
 		return
 	}
 	id, ok := g.createMassAt(position, false)
 	if !ok {
 		return
 	}
-	g.pendingSpringID = id
-	g.pendingSpringEnd = g.massPosition(id, position)
-	g.springChainActive = true
+	g.pointer.pendingSpringID = id
+	g.pointer.pendingSpringEnd = g.massPosition(id, position)
+	g.pointer.springChainActive = true
 }
 
 func (g *Game) continueSpringChainAt(position sim.Vec2, keepChain bool) {
@@ -37,7 +37,7 @@ func (g *Game) continueSpringChainAt(position sim.Vec2, keepChain bool) {
 	if !ok {
 		return
 	}
-	g.createSpringBetween(g.pendingSpringID, endID)
+	g.createSpringBetween(g.pointer.pendingSpringID, endID)
 	g.finishSpringChainStep(endID, position, keepChain && !existing)
 }
 
@@ -54,9 +54,9 @@ func (g *Game) finishSpringChainStep(endID int, position sim.Vec2, keepChain boo
 		g.clearPendingSpring()
 		return
 	}
-	g.pendingSpringID = endID
-	g.pendingSpringEnd = g.massPosition(endID, position)
-	g.springChainActive = true
+	g.pointer.pendingSpringID = endID
+	g.pointer.pendingSpringEnd = g.massPosition(endID, position)
+	g.pointer.springChainActive = true
 }
 
 func (g *Game) createSpringBetween(startID int, endID int) bool {
@@ -73,9 +73,9 @@ func (g *Game) createSpringBetween(startID int, endID int) bool {
 }
 
 func (g *Game) clearPendingSpring() {
-	g.pendingSpringID = 0
-	g.pendingSpringEnd = sim.Vec2{}
-	g.springChainActive = false
+	g.pointer.pendingSpringID = 0
+	g.pointer.pendingSpringEnd = sim.Vec2{}
+	g.pointer.springChainActive = false
 }
 
 func (g *Game) massPosition(id int, fallback sim.Vec2) sim.Vec2 {

@@ -12,8 +12,8 @@ func TestAppUnitPointerPressBranches(t *testing.T) {
 	game := appUnitGameWithMasses(sim.Mass{ID: 1, Position: sim.Vec2{X: 500, Y: 300}, Mass: 1})
 
 	game.beginPointerPress(sim.Vec2{X: 500, Y: 300}, 500, 300)
-	if game.draggingMassID != 1 || !game.editing().MassSelected(1) {
-		t.Fatalf("mass press state dragging=%d selected=%#v", game.draggingMassID, game.editing().SelectedMasses)
+	if game.pointer.draggingMassID != 1 || !game.editing().MassSelected(1) {
+		t.Fatalf("mass press state dragging=%d selected=%#v", game.pointer.draggingMassID, game.editing().SelectedMasses)
 	}
 	game.releasePointer(sim.Vec2{X: 500, Y: 300})
 
@@ -25,43 +25,43 @@ func TestAppUnitPointerPressBranches(t *testing.T) {
 
 	game.controlDown = true
 	game.beginPointerPress(sim.Vec2{X: 580, Y: 320}, 580, 320)
-	if game.pendingSpringID == 0 || !game.springChainActive {
-		t.Fatalf("control placement pending=%d active=%t", game.pendingSpringID, game.springChainActive)
+	if game.pointer.pendingSpringID == 0 || !game.pointer.springChainActive {
+		t.Fatalf("control placement pending=%d active=%t", game.pointer.pendingSpringID, game.pointer.springChainActive)
 	}
 	game.controlDown = false
 	game.beginPointerPress(sim.Vec2{X: 620, Y: 320}, 620, 320)
-	if len(game.World().Springs) != 1 || game.pendingSpringID != 0 || game.springChainActive {
-		t.Fatalf("chain finish springs=%#v pending=%d active=%t", game.World().Springs, game.pendingSpringID, game.springChainActive)
+	if len(game.World().Springs) != 1 || game.pointer.pendingSpringID != 0 || game.pointer.springChainActive {
+		t.Fatalf("chain finish springs=%#v pending=%d active=%t", game.World().Springs, game.pointer.pendingSpringID, game.pointer.springChainActive)
 	}
 }
 
 func TestAppUnitContinuePointerPressBranches(t *testing.T) {
 	game := appUnitGameWithMasses(sim.Mass{ID: 1, Position: sim.Vec2{X: 500, Y: 300}, Mass: 1})
 
-	game.draggingMassID = 1
-	game.draggingStart = sim.Vec2{X: 500, Y: 300}
-	game.draggingLast = sim.Vec2{X: 500, Y: 300}
+	game.pointer.draggingMassID = 1
+	game.pointer.draggingStart = sim.Vec2{X: 500, Y: 300}
+	game.pointer.draggingLast = sim.Vec2{X: 500, Y: 300}
 	game.continuePointerPress(sim.Vec2{X: 520, Y: 310}, 520)
 	mass, _ := game.World().MassByID(1)
-	if mass.Position != (sim.Vec2{X: 520, Y: 310}) || !game.dragMoved {
-		t.Fatalf("drag branch mass=%#v moved=%t", mass, game.dragMoved)
+	if mass.Position != (sim.Vec2{X: 520, Y: 310}) || !game.pointer.dragMoved {
+		t.Fatalf("drag branch mass=%#v moved=%t", mass, game.pointer.dragMoved)
 	}
 
-	game.draggingMassID = 0
-	game.pendingSpringID = 1
+	game.pointer.draggingMassID = 0
+	game.pointer.pendingSpringID = 1
 	game.continuePointerPress(sim.Vec2{X: 2000, Y: 2000}, 2000)
-	if game.pendingSpringEnd != (sim.Vec2{X: 1340, Y: 1000}) {
-		t.Fatalf("pending spring end = %#v", game.pendingSpringEnd)
+	if game.pointer.pendingSpringEnd != (sim.Vec2{X: 1340, Y: 1000}) {
+		t.Fatalf("pending spring end = %#v", game.pointer.pendingSpringEnd)
 	}
 
-	game.pendingSpringID = 0
-	game.selectionDrag = true
+	game.pointer.pendingSpringID = 0
+	game.pointer.selectionDrag = true
 	game.continuePointerPress(sim.Vec2{X: 700, Y: 500}, 700)
-	if game.selectionEnd != (sim.Vec2{X: 700, Y: 500}) {
-		t.Fatalf("selection end = %#v", game.selectionEnd)
+	if game.pointer.selectionEnd != (sim.Vec2{X: 700, Y: 500}) {
+		t.Fatalf("selection end = %#v", game.pointer.selectionEnd)
 	}
 
-	game.selectionDrag = false
+	game.pointer.selectionDrag = false
 	game.activeNumericStep = "mass increment"
 	game.numericStepTicks = numericStepHoldDelayTicks - 1
 	game.continuePointerPress(sim.Vec2{}, 0)
@@ -83,9 +83,9 @@ func TestAppUnitFinishWorldPointerCompletesGestures(t *testing.T) {
 		sim.Mass{ID: 2, Position: sim.Vec2{X: 540, Y: 300}, Mass: 1},
 	)
 
-	game.draggingMassID = 1
-	game.draggingStart = sim.Vec2{X: 500, Y: 300}
-	game.dragMoved = true
+	game.pointer.draggingMassID = 1
+	game.pointer.draggingStart = sim.Vec2{X: 500, Y: 300}
+	game.pointer.dragMoved = true
 	game.throwDown = true
 	game.finishWorldPointer(sim.Vec2{X: 530, Y: 320})
 	mass, _ := game.World().MassByID(1)
@@ -94,26 +94,26 @@ func TestAppUnitFinishWorldPointerCompletesGestures(t *testing.T) {
 	}
 
 	game.throwDown = false
-	game.draggingMassID = 0
-	game.pendingSpringID = 1
+	game.pointer.draggingMassID = 0
+	game.pointer.pendingSpringID = 1
 	game.finishWorldPointer(sim.Vec2{X: 540, Y: 300})
-	if len(game.World().Springs) != 1 || game.pendingSpringID != 0 {
-		t.Fatalf("spring finish springs=%#v pending=%d", game.World().Springs, game.pendingSpringID)
+	if len(game.World().Springs) != 1 || game.pointer.pendingSpringID != 0 {
+		t.Fatalf("spring finish springs=%#v pending=%d", game.World().Springs, game.pointer.pendingSpringID)
 	}
 
-	game.selectionDrag = true
-	game.selectionStart = sim.Vec2{X: 700, Y: 300}
+	game.pointer.selectionDrag = true
+	game.pointer.selectionStart = sim.Vec2{X: 700, Y: 300}
 	game.finishWorldPointer(sim.Vec2{X: 700, Y: 300})
-	if len(game.World().Masses) != 3 || game.selectionDrag {
-		t.Fatalf("selection finish masses=%#v selectionDrag=%t", game.World().Masses, game.selectionDrag)
+	if len(game.World().Masses) != 3 || game.pointer.selectionDrag {
+		t.Fatalf("selection finish masses=%#v selectionDrag=%t", game.World().Masses, game.pointer.selectionDrag)
 	}
 }
 
 func TestAppUnitFinishMassDragNonThrowBranches(t *testing.T) {
 	game := appUnitGameWithMasses(sim.Mass{ID: 1, Position: sim.Vec2{X: 500, Y: 300}, Velocity: sim.Vec2{X: 3, Y: 4}, Mass: 1})
-	game.draggingMassID = 1
-	game.draggingStart = sim.Vec2{X: 500, Y: 300}
-	game.dragMoved = true
+	game.pointer.draggingMassID = 1
+	game.pointer.draggingStart = sim.Vec2{X: 500, Y: 300}
+	game.pointer.dragMoved = true
 
 	game.finishMassDrag(sim.Vec2{X: 530, Y: 320})
 	mass, _ := game.World().MassByID(1)
@@ -121,8 +121,8 @@ func TestAppUnitFinishMassDragNonThrowBranches(t *testing.T) {
 		t.Fatalf("non-throw drag velocity = %#v", mass.Velocity)
 	}
 
-	game.dragMoved = false
-	game.selectionAdd = true
+	game.pointer.dragMoved = false
+	game.pointer.selectionAdd = true
 	game.finishMassDrag(sim.Vec2{X: 500, Y: 300})
 	if game.editing().MassSelected(1) {
 		t.Fatal("selection-add drag release should not replace selection")
@@ -137,9 +137,9 @@ func TestAppUnitSmallPointerHelpers(t *testing.T) {
 
 	game.paused = false
 	game.simulationSpeed = 1
-	game.lastCursor = sim.Vec2{X: 110, Y: 110}
-	game.draggingMassID = 1
-	game.draggingOffsets = map[int]sim.Vec2{1: {X: 1, Y: 2}}
+	game.pointer.lastCursor = sim.Vec2{X: 110, Y: 110}
+	game.pointer.draggingMassID = 1
+	game.pointer.draggingOffsets = map[int]sim.Vec2{1: {X: 1, Y: 2}}
 	game.advanceSimulationFrame()
 	mass, _ := game.World().MassByID(1)
 	if mass.Position != (sim.Vec2{X: 110, Y: 110}) {
@@ -147,21 +147,21 @@ func TestAppUnitSmallPointerHelpers(t *testing.T) {
 	}
 
 	game.handleRightPointer(true, 110, 110)
-	if !game.rightMousePressed || !game.massMenu.Open {
-		t.Fatalf("right pointer state pressed=%t menu=%#v", game.rightMousePressed, game.massMenu)
+	if !game.pointer.rightMousePressed || !game.massMenu.Open {
+		t.Fatalf("right pointer state pressed=%t menu=%#v", game.pointer.rightMousePressed, game.massMenu)
 	}
 	game.handleRightPointer(false, 100, 900)
-	if game.rightMousePressed {
+	if game.pointer.rightMousePressed {
 		t.Fatal("right pointer release stayed pressed")
 	}
 
-	game.pendingSpringID = 0
+	game.pointer.pendingSpringID = 0
 	game.beginSpringAt(sim.Vec2{X: 110, Y: 110})
-	if game.pendingSpringID != 1 || game.pendingSpringEnd != (sim.Vec2{X: 110, Y: 110}) {
-		t.Fatalf("pending spring state id=%d end=%#v", game.pendingSpringID, game.pendingSpringEnd)
+	if game.pointer.pendingSpringID != 1 || game.pointer.pendingSpringEnd != (sim.Vec2{X: 110, Y: 110}) {
+		t.Fatalf("pending spring state id=%d end=%#v", game.pointer.pendingSpringID, game.pointer.pendingSpringEnd)
 	}
 
-	game.draggingOffsets = map[int]sim.Vec2{1: {}, 2: {}}
+	game.pointer.draggingOffsets = map[int]sim.Vec2{1: {}, 2: {}}
 	game.throwSelectedDraggingMasses(sim.Vec2{X: 7, Y: 9})
 	first, _ := game.World().MassByID(1)
 	second, _ := game.World().MassByID(2)

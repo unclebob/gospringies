@@ -403,13 +403,13 @@ func TestAppUnitDragMassSnapsToGrid(t *testing.T) {
 		t.Fatal("single mass drag should succeed")
 	}
 	mass, _ := game.World().MassByID(1)
-	if mass.Position != (sim.Vec2{X: 120, Y: 90}) || mass.Velocity != (sim.Vec2{}) || !game.dirty || !game.dragMoved {
-		t.Fatalf("single dragged mass = %#v dirty=%t moved=%t", mass, game.dirty, game.dragMoved)
+	if mass.Position != (sim.Vec2{X: 120, Y: 90}) || mass.Velocity != (sim.Vec2{}) || !game.dirty || !game.pointer.dragMoved {
+		t.Fatalf("single dragged mass = %#v dirty=%t moved=%t", mass, game.dirty, game.pointer.dragMoved)
 	}
 
 	game.dirty = false
-	game.dragMoved = false
-	game.draggingOffsets = map[int]sim.Vec2{1: {X: 2, Y: 3}, 2: {X: -3, Y: -2}}
+	game.pointer.dragMoved = false
+	game.pointer.draggingOffsets = map[int]sim.Vec2{1: {X: 2, Y: 3}, 2: {X: -3, Y: -2}}
 	_ = game.editing().SelectMass(1)
 	_ = game.editing().AddMassSelection(2)
 	if !game.DragMass(1, sim.Vec2{X: 113, Y: 114}) {
@@ -420,8 +420,8 @@ func TestAppUnitDragMassSnapsToGrid(t *testing.T) {
 	if first.Position != (sim.Vec2{X: 120, Y: 120}) || second.Position != (sim.Vec2{X: 110, Y: 110}) {
 		t.Fatalf("selected dragged masses = %#v %#v", first, second)
 	}
-	if first.Velocity != (sim.Vec2{}) || second.Velocity != (sim.Vec2{}) || !game.dirty || !game.dragMoved {
-		t.Fatalf("selected drag state first=%#v second=%#v dirty=%t moved=%t", first, second, game.dirty, game.dragMoved)
+	if first.Velocity != (sim.Vec2{}) || second.Velocity != (sim.Vec2{}) || !game.dirty || !game.pointer.dragMoved {
+		t.Fatalf("selected drag state first=%#v second=%#v dirty=%t moved=%t", first, second, game.dirty, game.pointer.dragMoved)
 	}
 
 	game.World().Parameters.Set("grid snap", "0")
@@ -490,7 +490,7 @@ func TestAppUnitCommandsUpdateSelectionAndDirtyState(t *testing.T) {
 	game.editing().SelectedMasses[2] = true
 
 	game.RunCommand("copy")
-	game.lastCursor = sim.Vec2{X: 100, Y: 120}
+	game.pointer.lastCursor = sim.Vec2{X: 100, Y: 120}
 	game.RunCommand("paste")
 	if len(game.World().Masses) != 4 || !game.selected || !game.dirty {
 		t.Fatalf("paste state masses=%d selected=%t dirty=%t", len(game.World().Masses), game.selected, game.dirty)
