@@ -1570,33 +1570,46 @@ func rememberWallSpringStartingSide(w *world, example map[string]string, massID 
 		return err
 	}
 	world := ensureDomainWorld(w)
-	mass, ok := world.MassByID(massID)
-	if !ok {
-		return fmt.Errorf("mass %d not found", massID)
-	}
-	side, err := wallSpringSide(world, springID, mass.Position)
+	side, err := wallSpringStartingSideForMass(world, springID, massID)
 	if err != nil {
 		return err
 	}
-	if side == 0 {
-		normal, err := wallSpringNormal(world, springID)
-		if err != nil {
-			return err
-		}
-		side = -sideSignAcceptance(dotAcceptance(mass.Velocity, normal))
+	rememberWallSpringSide(w, massID, side)
+	return nil
+}
+
+func wallSpringStartingSideForMass(world *sim.Simulation, springID int, massID int) (float64, error) {
+	mass, ok := world.MassByID(massID)
+	if !ok {
+		return 0, fmt.Errorf("mass %d not found", massID)
 	}
+	side, err := wallSpringSide(world, springID, mass.Position)
+	if err != nil {
+		return 0, err
+	}
+	return wallSpringStartingSide(world, springID, mass, side)
+}
+
+func rememberWallSpringSide(w *world, massID int, side float64) {
 	if w.wallSpringSides == nil {
 		w.wallSpringSides = map[int]float64{}
 	}
 	w.wallSpringSides[massID] = side
-	return nil
+}
+
+func wallSpringStartingSide(world *sim.Simulation, springID int, mass sim.Mass, side float64) (float64, error) {
+	if side != 0 {
+		return side, nil
+	}
+	normal, err := wallSpringNormal(world, springID)
+	if err != nil {
+		return 0, err
+	}
+	return -sideSignAcceptance(dotAcceptance(mass.Velocity, normal)), nil
 }
 
 func sideSignAcceptance(value float64) float64 {
-	if value < 0 {
-		return -1
-	}
-	return 1
+	return math.Copysign(1, value)
 }
 
 func wallSpringSide(world *sim.Simulation, springID int, point sim.Vec2) (float64, error) {

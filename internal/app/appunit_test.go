@@ -29,6 +29,9 @@ func TestAppUnitVisibleControlsAndSliders(t *testing.T) {
 	if force.Enabled != "true" || force.Values["magnitude"] != "10" || force.Values["direction"] != "0" || !game.editState.dirty {
 		t.Fatalf("gravity force = %#v dirty=%t", force, game.editState.dirty)
 	}
+	if control, ok := visibleControlAt(image.Pt(gravityCheckbox.Rect.Min.X+1, gravityCheckbox.Rect.Min.Y+1)); !ok || control.Name != gravityCheckbox.Name {
+		t.Fatalf("visibleControlAt hit = %#v, %t, expected %q", control, ok, gravityCheckbox.Name)
+	}
 
 	control, ok := visibleControlWithName("speed slider")
 	if !ok {
@@ -45,6 +48,9 @@ func TestAppUnitVisibleControlsAndSliders(t *testing.T) {
 	}
 	if game.VisibleControlActive("missing") {
 		t.Fatal("missing control should not be active")
+	}
+	if control, ok := visibleControlAt(image.Pt(500, 300)); ok || control != (controlBox{}) {
+		t.Fatalf("visibleControlAt outside controls = %#v, %t", control, ok)
 	}
 }
 
@@ -168,6 +174,164 @@ func TestAppUnitNumericSettingTextInputBranches(t *testing.T) {
 	}
 	if game.activateVisibleControl(controlBox{Name: "missing"}) {
 		t.Fatal("missing activation should not be handled")
+	}
+}
+
+func TestAppUnitClickableControlMutationEdges(t *testing.T) {
+	game := appUnitGameWithMasses(
+		sim.Mass{ID: 1, Position: sim.Vec2{X: 100, Y: 100}, Mass: 1},
+		sim.Mass{ID: 2, Position: sim.Vec2{X: 120, Y: 120}, Mass: 1},
+	)
+
+	if game.ClickVisibleControl("missing") {
+		t.Fatal("missing visible control click should not be handled")
+	}
+	if bounds, ok := game.VisibleControlBounds("missing"); ok || bounds != (image.Rectangle{}) {
+		t.Fatalf("missing visible control bounds = %#v, %t", bounds, ok)
+	}
+	if bounds, ok := game.VisibleControlBounds("Wall"); !ok || bounds.Empty() {
+		t.Fatalf("wall visible control bounds = %#v, %t", bounds, ok)
+	}
+	if control, ok := visibleControlWithField("missing", func(controlBox) string { return "other" }); ok || control != (controlBox{}) {
+		t.Fatalf("missing package visible control field = %#v, %t", control, ok)
+	}
+
+	massIncrement, ok := visibleControlWithName("mass increment")
+	if !ok {
+		t.Fatal("missing mass increment control")
+	}
+	beforeMass := game.parameterFloat("current mass")
+	if !game.ClickAt(massIncrement.Rect.Min.X+1, massIncrement.Rect.Min.Y+1) || game.controls.activeNumericStep != "mass increment" {
+		t.Fatalf("mass increment click active step = %q", game.controls.activeNumericStep)
+	}
+	if game.controls.numericStepTicks != 0 {
+		t.Fatalf("mass increment click ticks = %d", game.controls.numericStepTicks)
+	}
+	if math.Abs(game.parameterFloat("current mass")-(beforeMass+numericStepAmount)) > 1e-9 {
+		t.Fatalf("mass increment click value = %f", game.parameterFloat("current mass"))
+	}
+
+	game.controls.editMenuOpen = true
+	if !game.activateVisibleControl(controlBox{Name: "run pause toggle command"}) || game.controls.editMenuOpen {
+		t.Fatalf("command activation edit menu open = %t command=%q", game.controls.editMenuOpen, game.editState.lastCommand)
+	}
+	if game.DragMass(99, sim.Vec2{X: 1, Y: 2}) {
+		t.Fatal("missing mass drag should not be handled")
+	}
+
+	game.controls.activeNumericStep = "mass increment"
+	game.controls.numericStepTicks = numericStepHoldDelayTicks - 1
+	beforeMass = game.parameterFloat("current mass")
+	game.continueNumericStepHold()
+	if game.controls.numericStepTicks != numericStepHoldDelayTicks || math.Abs(game.parameterFloat("current mass")-(beforeMass+numericStepAmount)) > 1e-9 {
+		t.Fatalf("first numeric repeat ticks=%d mass=%f", game.controls.numericStepTicks, game.parameterFloat("current mass"))
+	}
+	game.controls.numericStepTicks = numericStepHoldDelayTicks + numericStepRepeatTicks - 2
+	beforeMass = game.parameterFloat("current mass")
+	game.continueNumericStepHold()
+	if math.Abs(game.parameterFloat("current mass")-beforeMass) > 1e-9 {
+		t.Fatalf("numeric repeat stepped early to %f", game.parameterFloat("current mass"))
+	}
+	game.continueNumericStepHold()
+	if math.Abs(game.parameterFloat("current mass")-(beforeMass+numericStepAmount)) > 1e-9 {
+		t.Fatalf("numeric repeat did not step on interval: %f", game.parameterFloat("current mass"))
+	}
+	game.controls.activeNumericStep = "missing"
+	game.controls.numericStepTicks = 12
+	game.continueNumericStepHold()
+	if game.controls.activeNumericStep != "" || game.controls.numericStepTicks != 0 {
+		t.Fatalf("invalid numeric repeat state = %q/%d", game.controls.activeNumericStep, game.controls.numericStepTicks)
+	}
+
+	game.stepEditorControl("mass", 1)
+	if math.Abs(game.parameterFloat("current mass")-(beforeMass+numericStepAmount+1)) > 1e-9 {
+		t.Fatalf("mass editor step = %f", game.parameterFloat("current mass"))
+	}
+	game.stepEditorControl("missing", 5)
+	if game.parameterForEditorControl("missing") != 0 {
+		t.Fatalf("missing editor parameter = %f", game.parameterForEditorControl("missing"))
+	}
+	game.World().Parameters.Set("precision", "1")
+	game.stepParameter("precision", 2)
+	if got := game.World().Parameters.Value("precision"); got != "3" {
+		t.Fatalf("stepped precision = %q", got)
+	}
+
+	game.World().Parameters.Forces["gravity"] = sim.ForceConfig{Enabled: "false"}
+	game.setForceValue("gravity", "magnitude", 3)
+	force, _ := game.World().Parameters.Force("gravity")
+	if force.Enabled != "true" || force.Values["magnitude"] != "3" {
+		t.Fatalf("set disabled force value = %#v", force)
+	}
+	game.World().Parameters.Forces["gravity"] = sim.ForceConfig{Enabled: "true", Values: map[string]string{"magnitude": "3"}}
+	game.setForceValue("gravity", "direction", 90)
+	force, _ = game.World().Parameters.Force("gravity")
+	if force.Enabled != "true" || force.Values["direction"] != "90" || force.Values["magnitude"] != "3" {
+		t.Fatalf("set nil force values = %#v", force)
+	}
+	game.stepForceValue("gravity", "magnitude", 2)
+	force, _ = game.World().Parameters.Force("gravity")
+	if force.Values["magnitude"] != "5" {
+		t.Fatalf("stepped force value = %#v", force)
+	}
+	game.World().Parameters.Forces["gravity"] = sim.ForceConfig{Enabled: "true"}
+	game.toggleForce("gravity", map[string]string{"magnitude": "10"})
+	force, _ = game.World().Parameters.Force("gravity")
+	if force.Enabled != "false" || force.Values == nil {
+		t.Fatalf("disabled force = %#v", force)
+	}
+	delete(game.World().Parameters.Forces, "gravity")
+	if force := game.forceConfig("gravity"); force.Values == nil {
+		t.Fatal("forceConfig should initialize missing values map")
+	}
+	if values := nonNilStringMap(map[string]string{"kept": "true"}); values["kept"] != "true" {
+		t.Fatalf("nonNilStringMap lost values: %#v", values)
+	}
+
+	massGame := appUnitGameWithMasses(sim.Mass{ID: 1, Position: sim.Vec2{X: 100, Y: 100}, Mass: 2})
+	_ = massGame.editing().SelectMass(1)
+	beforeMassParameter := massGame.parameterForEditorControl("mass")
+	if !massGame.activateInspectorControl("mass parameter") {
+		t.Fatal("mass parameter activation should be handled")
+	}
+	changedMass, _ := massGame.World().MassByID(1)
+	if math.Abs(changedMass.Mass-(beforeMassParameter+1)) > 1e-9 {
+		t.Fatalf("mass parameter changed mass to %f", changedMass.Mass)
+	}
+
+	springGame := appUnitGameWithMasses(
+		sim.Mass{ID: 1, Position: sim.Vec2{X: 100, Y: 100}, Mass: 1},
+		sim.Mass{ID: 2, Position: sim.Vec2{X: 120, Y: 120}, Mass: 1},
+	)
+	_ = springGame.World().AddSpring(sim.Spring{ID: 1, MassA: 1, MassB: 2, SpringConstant: 5, Stiffness: 5})
+	_ = springGame.editing().SelectSpring(1)
+	beforeSpringParameter := springGame.parameterForEditorControl("Kspring")
+	if !springGame.activateInspectorControl("kspring parameter") {
+		t.Fatal("kspring parameter activation should be handled")
+	}
+	if math.Abs(springGame.World().Springs[0].SpringConstant-(beforeSpringParameter+1)) > 1e-9 {
+		t.Fatalf("kspring parameter changed spring to %f", springGame.World().Springs[0].SpringConstant)
+	}
+
+	game.World().Parameters.Set("grid snap", "0")
+	_ = game.editing().SelectMass(1)
+	game.pointer.draggingOffsets = nil
+	game.pointer.draggingLast = sim.Vec2{X: 100, Y: 100}
+	if !game.DragMass(1, sim.Vec2{X: 113, Y: 114}) {
+		t.Fatal("selected mass drag without offsets should succeed")
+	}
+	first, _ := game.World().MassByID(1)
+	if first.Position != (sim.Vec2{X: 113, Y: 114}) {
+		t.Fatalf("selected mass without offsets = %#v", first.Position)
+	}
+
+	game.pointer.draggingOffsets = map[int]sim.Vec2{1: {X: 2, Y: 3}}
+	if !game.DragMass(1, sim.Vec2{X: 120, Y: 120}) {
+		t.Fatal("selected mass drag with one offset should succeed")
+	}
+	first, _ = game.World().MassByID(1)
+	if first.Position != (sim.Vec2{X: 122, Y: 123}) {
+		t.Fatalf("selected mass with one offset = %#v", first.Position)
 	}
 }
 
