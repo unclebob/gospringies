@@ -4,6 +4,7 @@ package app
 
 import (
 	"errors"
+	"fmt"
 	"image"
 	"math"
 	"os"
@@ -332,33 +333,32 @@ func TestDrawFrameRendersVisibleControlRegions(t *testing.T) {
 func TestDrawFrameRendersReadableControlLabels(t *testing.T) {
 	report := NewGame().DrawFrameReport()
 	expected := map[string]string{
-		"edit menu":               "Edit",
-		"run command":             "Run",
-		"pause command":           "Pause",
-		"reset command":           "Reset",
-		"save state command":      "State+",
-		"restore state command":   "State",
-		"load command":            "Load",
-		"insert command":          "Insert",
-		"save command":            "Save",
-		"quit command":            "Quit",
-		"mass label":              "Mass:",
-		"elasticity label":        "Elasticity:",
-		"gravity force":           "",
-		"gravity label":           "Gravity:",
-		"center attraction force": "",
-		"center mass force":       "",
-		"wall repulsion force":    "",
-		"wall repulsion label":    "Wall Rep:",
-		"mass collision force":    "Collide",
-		"top wall toggle":         "T",
-		"bottom wall toggle":      "B",
-		"left wall toggle":        "L",
-		"right wall toggle":       "R",
-		"grid snap toggle":        "Grid",
-		"show springs toggle":     "Springs",
-		"viscosity label":         "Viscosity:",
-		"speed label":             "Speed:",
+		"edit menu":                "Edit",
+		"run pause toggle command": "Pause",
+		"reset command":            "Reset",
+		"save state command":       "State+",
+		"restore state command":    "State",
+		"load command":             "Load",
+		"insert command":           "Insert",
+		"save command":             "Save",
+		"quit command":             "Quit",
+		"mass label":               "Mass:",
+		"elasticity label":         "Elasticity:",
+		"gravity force":            "",
+		"gravity label":            "Gravity:",
+		"center attraction force":  "",
+		"center mass force":        "",
+		"wall repulsion force":     "",
+		"wall repulsion label":     "Wall Rep:",
+		"mass collision force":     "Collide",
+		"top wall toggle":          "T",
+		"bottom wall toggle":       "B",
+		"left wall toggle":         "L",
+		"right wall toggle":        "R",
+		"grid snap toggle":         "Grid",
+		"show springs toggle":      "Springs",
+		"viscosity label":          "Viscosity:",
+		"speed label":              "Speed:",
 	}
 	for control, label := range expected {
 		if report.Controls[control] != label {
@@ -398,7 +398,8 @@ func TestEditMenuShowsStandardItems(t *testing.T) {
 }
 
 func TestDrawFrameRendersInspectorAndStatusFields(t *testing.T) {
-	report := NewGame().DrawFrameReport()
+	game := NewGame()
+	report := game.DrawFrameReport()
 	for _, section := range []string{
 		sectionHeaderLabel("Selected Mass(es)"),
 		sectionHeaderLabel("Selected Spring(s)"),
@@ -411,8 +412,7 @@ func TestDrawFrameRendersInspectorAndStatusFields(t *testing.T) {
 		}
 	}
 	for field, expected := range map[string]string{
-		"run state":     "running",
-		"object counts": "object counts",
+		"object counts": fmt.Sprintf("Masses: %d", len(game.World().Masses)),
 		"file state":    "saved",
 	} {
 		if !strings.Contains(report.StatusFields[field], expected) {
@@ -945,7 +945,7 @@ func TestEditorScreenHasRequiredRegions(t *testing.T) {
 
 func TestEditorScreenHasVisibleCommandControls(t *testing.T) {
 	screen := NewGame().EditorScreen()
-	for _, command := range []string{"run", "pause", "reset", "load", "insert", "save", "quit", "delete", "select all", "cut", "copy", "paste"} {
+	for _, command := range []string{"pause toggle", "reset", "load", "insert", "save", "quit", "delete", "select all", "cut", "copy", "paste"} {
 		if !screen.HasCommandControl(command) {
 			t.Fatalf("missing command %q", command)
 		}
@@ -1020,7 +1020,7 @@ func TestSetSpringTemperatureUpdatesMatchingSpring(t *testing.T) {
 func TestKeyboardShortcutsRunVisibleCommands(t *testing.T) {
 	game := NewGame()
 	shortcuts := map[string]string{
-		"Space":  "pause",
+		"Space":  "pause toggle",
 		"Delete": "delete",
 		"Ctrl+A": "select all",
 		"Ctrl+X": "cut",
@@ -1144,8 +1144,7 @@ func TestSyncSelectionStateClearsEmptySelection(t *testing.T) {
 
 func TestClickVisibleCommandControlsRunCommands(t *testing.T) {
 	tests := map[string]string{
-		"Run":    "run",
-		"Pause":  "pause",
+		"Pause":  "pause toggle",
 		"Reset":  "reset",
 		"State+": "save state",
 		"State":  "restore state",
@@ -1160,6 +1159,15 @@ func TestClickVisibleCommandControlsRunCommands(t *testing.T) {
 		if game.LastCommand() != command {
 			t.Fatalf("command after %q = %q, want %q", label, game.LastCommand(), command)
 		}
+	}
+
+	pausedGame := NewGame()
+	pausedGame.SetPaused(true)
+	if !pausedGame.ClickVisibleControl("Run") {
+		t.Fatal("click \"Run\" was not handled")
+	}
+	if pausedGame.LastCommand() != "pause toggle" {
+		t.Fatalf("command after \"Run\" = %q, want %q", pausedGame.LastCommand(), "pause toggle")
 	}
 }
 

@@ -29,6 +29,9 @@ func TestAppUnitVisibleControlsAndSliders(t *testing.T) {
 	if force.Enabled != "true" || force.Values["magnitude"] != "10" || force.Values["direction"] != "0" || !game.editState.dirty {
 		t.Fatalf("gravity force = %#v dirty=%t", force, game.editState.dirty)
 	}
+	if control, ok := visibleControlAt(image.Pt(gravityCheckbox.Rect.Min.X+1, gravityCheckbox.Rect.Min.Y+1)); !ok || control.Name != gravityCheckbox.Name {
+		t.Fatalf("visibleControlAt hit = %#v, %t, expected %q", control, ok, gravityCheckbox.Name)
+	}
 
 	control, ok := visibleControlWithName("speed slider")
 	if !ok {
@@ -45,6 +48,9 @@ func TestAppUnitVisibleControlsAndSliders(t *testing.T) {
 	}
 	if game.VisibleControlActive("missing") {
 		t.Fatal("missing control should not be active")
+	}
+	if control, ok := visibleControlAt(image.Pt(500, 300)); ok || control != (controlBox{}) {
+		t.Fatalf("visibleControlAt outside controls = %#v, %t", control, ok)
 	}
 }
 
@@ -160,8 +166,8 @@ func TestAppUnitNumericSettingTextInputBranches(t *testing.T) {
 	if game.ClickAt(0, screenHeight-1) || game.controls.focusedNumeric != "" {
 		t.Fatalf("outside click handled=%t focused=%q", true, game.controls.focusedNumeric)
 	}
-	if !game.activateVisibleControl(controlBox{Name: "run command"}) || game.editState.lastCommand != "run" {
-		t.Fatalf("run activation command = %q", game.editState.lastCommand)
+	if !game.activateVisibleControl(controlBox{Name: "run pause toggle command"}) || game.editState.lastCommand != "pause toggle" {
+		t.Fatalf("run/pause activation command = %q", game.editState.lastCommand)
 	}
 	if !game.activateVisibleControl(controlBox{Name: "fixed mass toggle"}) {
 		t.Fatal("inspector toggle activation should be handled")
@@ -285,7 +291,7 @@ func TestAppUnitVisibleControlLayoutAndReport(t *testing.T) {
 	if !game.activeControl("gravity force") || !game.activeControl("fixed mass toggle") || !game.activeControl("top wall toggle") {
 		t.Fatal("enabled controls should be active")
 	}
-	for _, name := range []string{"missing", "pause command", "center attraction force", "adaptive timestep toggle", "left wall toggle"} {
+	for _, name := range []string{"missing", "center attraction force", "adaptive timestep toggle", "left wall toggle"} {
 		if game.activeControl(name) {
 			t.Fatalf("%s should not be active", name)
 		}
@@ -339,13 +345,9 @@ func TestAppUnitVisibleControlLayoutAndReport(t *testing.T) {
 	x = inspectorLeft() + 16
 	right = screenWidth - 16
 	wantStatus := []image.Rectangle{
-		image.Rect(x, screenHeight-82, x+74, screenHeight-62),
-		image.Rect(x+82, screenHeight-82, x+188, screenHeight-62),
-		image.Rect(x+196, screenHeight-82, x+266, screenHeight-62),
-		image.Rect(x+274, screenHeight-82, right, screenHeight-62),
-		image.Rect(x, screenHeight-56, right, screenHeight-36),
-		image.Rect(x, screenHeight-30, x+82, screenHeight-10),
-		image.Rect(x+90, screenHeight-30, right, screenHeight-10),
+		image.Rect(x, screenHeight-56, x+120, screenHeight-36),
+		image.Rect(x+128, screenHeight-56, right, screenHeight-36),
+		image.Rect(x, screenHeight-30, right, screenHeight-10),
 	}
 	for i, want := range wantStatus {
 		if status[i].Rect != want {
@@ -371,7 +373,7 @@ func TestAppUnitVisibleControlLayoutAndReport(t *testing.T) {
 	if got := game.visibleRegionPixels("right inspector"); got != regionControlPixels(visibleControls(), "right inspector")+regionControlPixels(inspectorSections(), "right inspector")+game.regionStatusPixels("right inspector") {
 		t.Fatalf("right inspector pixels = %d", got)
 	}
-	if got := game.regionStatusPixels("right inspector"); got != rectPixels(status[0].Rect)+rectPixels(status[1].Rect)+rectPixels(status[2].Rect)+rectPixels(status[3].Rect)+rectPixels(status[4].Rect)+rectPixels(status[5].Rect)+rectPixels(status[6].Rect) {
+	if got := game.regionStatusPixels("right inspector"); got != rectPixels(status[0].Rect)+rectPixels(status[1].Rect)+rectPixels(status[2].Rect) {
 		t.Fatalf("status pixels = %d", got)
 	}
 	if game.regionStatusPixels("canvas") != 0 {
@@ -453,7 +455,7 @@ func TestAppUnitEditorScreenAndShortcuts(t *testing.T) {
 	if purpose, ok := screen.RegionPurpose("missing"); ok || purpose != "" {
 		t.Fatalf("missing purpose = %q, %t", purpose, ok)
 	}
-	if !screen.HasCommandControl("run") || screen.HasCommandControl("missing") {
+	if !screen.HasCommandControl("pause toggle") || screen.HasCommandControl("missing") {
 		t.Fatalf("command controls = %#v", screen.CommandControls)
 	}
 

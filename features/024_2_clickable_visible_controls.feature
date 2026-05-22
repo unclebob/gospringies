@@ -14,7 +14,6 @@ Scenario Outline: clicking command controls runs commands
 Examples:
   | control | command |
   | Pause   | pause   |
-  | Run     | run     |
   | Reset   | reset   |
   | Quit    | quit    |
 

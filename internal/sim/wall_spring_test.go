@@ -38,6 +38,56 @@ func TestWallSpringStopsFastMassPathCrossingSegment(t *testing.T) {
 	}
 }
 
+func TestWallSpringStopsMassStartingOnWallAndMovingThroughSegment(t *testing.T) {
+	world := NewWorld()
+	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: 500, Y: 400}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 2, Position: Vec2{X: 690, Y: 400}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 31, Position: Vec2{X: 640, Y: 400}, Velocity: Vec2{Y: -40}, Mass: 1})
+	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, Wall: true})
+
+	world.Step(1)
+
+	mass, _ := world.MassByID(31)
+	if mass.Position.Y < 400 {
+		t.Fatalf("boundary-start mass crossed wall spring: %#v", mass)
+	}
+	if mass.Velocity.Y < 0 {
+		t.Fatalf("boundary-start mass velocity still penetrates wall spring: %#v", mass.Velocity)
+	}
+}
+
+func TestWallSpringDoesNotBounceTangentialBoundaryMotion(t *testing.T) {
+	world := NewWorld()
+	_ = world.AddMass(Mass{ID: 1, Position: Vec2{}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 2, Position: Vec2{X: 100}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 3, Position: Vec2{X: 50}, Velocity: Vec2{X: 10}, Mass: 1})
+	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, Wall: true})
+
+	world.Step(1)
+
+	mass, _ := world.MassByID(3)
+	if mass.Velocity != (Vec2{X: 10}) {
+		t.Fatalf("tangential boundary velocity = %#v, expected unchanged", mass.Velocity)
+	}
+}
+
+func TestWallSpringBoundaryStartRequiresPenetratingVelocity(t *testing.T) {
+	endpointA := Mass{Position: Vec2{}}
+	endpointB := Mass{Position: Vec2{X: 100}}
+	if !wallSpringBoundaryStartPenetrating(Mass{Position: Vec2{X: 50, Y: -1}, Velocity: Vec2{Y: -10}}, endpointA, endpointB, Vec2{X: 50}, endpointA.Position) {
+		t.Fatal("penetrating boundary-start motion was not allowed")
+	}
+	if wallSpringBoundaryStartPenetrating(Mass{Position: Vec2{X: 50, Y: 1}}, endpointA, endpointB, Vec2{X: 50}, endpointA.Position) {
+		t.Fatal("zero-velocity boundary-start motion was allowed")
+	}
+	if wallSpringBoundaryStartPenetrating(Mass{Position: Vec2{X: 50}, Velocity: Vec2{Y: -10}}, endpointA, endpointB, Vec2{X: 50}, endpointA.Position) {
+		t.Fatal("current boundary motion was allowed")
+	}
+	if wallSpringBoundaryStartPenetrating(Mass{Position: Vec2{X: 50, Y: -1}, Velocity: Vec2{Y: -10}}, endpointA, endpointA, Vec2{X: 50}, endpointA.Position) {
+		t.Fatal("zero-length wall boundary motion was allowed")
+	}
+}
+
 func TestFloatingWallSpringCollisionConservesMomentumWithUnequalEndpointMasses(t *testing.T) {
 	world := unequalEndpointMassWallSpringCollisionWorld()
 	before := wallSpringMomentum(world, 1, 2, 3)
@@ -154,15 +204,14 @@ func TestMovingWallSpringFixedEndpointCollisionSkipsNonWallAndFixedSources(t *te
 	}
 }
 
-func TestMovingWallSpringFixedEndpointCollisionAllowsSingleFixedSourceEndpoint(t *testing.T) {
+func TestMovingWallSpringFixedEndpointCollisionSkipsSingleFixedSourceEndpoint(t *testing.T) {
 	world := movingWallSpringFixedEndpointCollisionWorld()
 	world.Masses[2].Fixed = true
+	before := append([]Mass{}, world.Masses...)
 
-	world.Step(1)
+	world.applyMovingWallSpringFixedEndpointCollisions(1, massPositions(before))
 
-	if world.Masses[3].Velocity.Y >= 10 {
-		t.Fatalf("free source endpoint velocity = %#v, expected collision response", world.Masses[3].Velocity)
-	}
+	assertMassesUnchanged(t, world.Masses, before)
 }
 
 func TestMovingWallSpringFixedEndpointCollisionSkipsInvalidTargets(t *testing.T) {
