@@ -537,28 +537,42 @@ func createFixedWallEndpointMass(w *world, example map[string]string) error {
 }
 
 func createMovingWallSpringTowardFixedEndpoint(w *world, example map[string]string) error {
-	springID, err := intValue(example, "moving_spring")
+	spring, endpointA, endpointB, err := movingWallSpringTowardFixedEndpointSpec(example)
 	if err != nil {
 		return err
 	}
-	values, err := floatValues(example, "moving_x1", "moving_y1", "moving_x2", "moving_y2", "moving_vx", "moving_vy")
-	if err != nil {
-		return err
-	}
-	x1, y1, x2, y2, vx, vy := values[0], values[1], values[2], values[3], values[4], values[5]
-	world := ensureDomainWorld(w)
-	endpointA := 30
-	endpointB := 31
-	if err := world.AddMass(sim.Mass{ID: endpointA, Position: sim.Vec2{X: x1, Y: y1}, Velocity: sim.Vec2{X: vx, Y: vy}, Mass: 1}); err != nil {
-		return err
-	}
-	if err := world.AddMass(sim.Mass{ID: endpointB, Position: sim.Vec2{X: x2, Y: y2}, Velocity: sim.Vec2{X: vx, Y: vy}, Mass: 1}); err != nil {
-		return err
-	}
-	if err := world.AddSpring(sim.Spring{ID: springID, MassA: endpointA, MassB: endpointB, RestLength: distanceAcceptance(sim.Vec2{X: x2 - x1, Y: y2 - y1}), Wall: true}); err != nil {
+	if err := addMovingWallSpringTowardFixedEndpoint(ensureDomainWorld(w), spring, endpointA, endpointB); err != nil {
 		return err
 	}
 	return rememberMovingWallSpringFixedEndpointSide(w, example)
+}
+
+func addMovingWallSpringTowardFixedEndpoint(world *sim.Simulation, spring sim.Spring, endpointA, endpointB sim.Mass) error {
+	if err := world.AddMass(endpointA); err != nil {
+		return err
+	}
+	if err := world.AddMass(endpointB); err != nil {
+		return err
+	}
+	return world.AddSpring(spring)
+}
+
+func movingWallSpringTowardFixedEndpointSpec(example map[string]string) (sim.Spring, sim.Mass, sim.Mass, error) {
+	springID, err := intValue(example, "moving_spring")
+	if err != nil {
+		return sim.Spring{}, sim.Mass{}, sim.Mass{}, err
+	}
+	values, err := floatValues(example, "moving_x1", "moving_y1", "moving_x2", "moving_y2", "moving_vx", "moving_vy")
+	if err != nil {
+		return sim.Spring{}, sim.Mass{}, sim.Mass{}, err
+	}
+	x1, y1, x2, y2, vx, vy := values[0], values[1], values[2], values[3], values[4], values[5]
+	endpointA := 30
+	endpointB := 31
+	first := sim.Mass{ID: endpointA, Position: sim.Vec2{X: x1, Y: y1}, Velocity: sim.Vec2{X: vx, Y: vy}, Mass: 1}
+	second := sim.Mass{ID: endpointB, Position: sim.Vec2{X: x2, Y: y2}, Velocity: sim.Vec2{X: vx, Y: vy}, Mass: 1}
+	spring := sim.Spring{ID: springID, MassA: endpointA, MassB: endpointB, RestLength: distanceAcceptance(sim.Vec2{X: x2 - x1, Y: y2 - y1}), Wall: true}
+	return spring, first, second, nil
 }
 
 func advanceThroughFixedEndpointCollision(w *world, _ map[string]string) error {
@@ -600,60 +614,78 @@ type fixedEndpointWallSpringState struct {
 }
 
 func fixedEndpointWallSpringStateFor(w *world, example map[string]string) (fixedEndpointWallSpringState, error) {
-	springID, fixedID, err := intPair(example, "moving_spring", "fixed_mass")
+	context, err := fixedEndpointWallSpringContextFor(w, example)
 	if err != nil {
 		return fixedEndpointWallSpringState{}, err
 	}
-	world := ensureDomainWorld(w)
-	fixed, ok := world.MassByID(fixedID)
+	normal, ok := w.fixedEndpointSides[context.fixedID]
 	if !ok {
-		return fixedEndpointWallSpringState{}, fmt.Errorf("fixed mass %d not found", fixedID)
+		return fixedEndpointWallSpringState{}, fmt.Errorf("starting side for fixed mass %d was not recorded", context.fixedID)
 	}
-	spring, ok := world.SpringByID(springID)
-	if !ok {
-		return fixedEndpointWallSpringState{}, fmt.Errorf("spring %d not found", springID)
-	}
-	endpointA, okA := world.MassByID(spring.MassA)
-	endpointB, okB := world.MassByID(spring.MassB)
-	if !okA || !okB {
-		return fixedEndpointWallSpringState{}, fmt.Errorf("spring %d endpoints not found", springID)
-	}
-	normal, ok := w.fixedEndpointSides[fixedID]
-	if !ok {
-		return fixedEndpointWallSpringState{}, fmt.Errorf("starting side for fixed mass %d was not recorded", fixedID)
-	}
-	return fixedEndpointWallSpringState{springID: springID, fixed: fixed, endpointA: endpointA, endpointB: endpointB, normal: normal}, nil
+	return fixedEndpointWallSpringState{springID: context.springID, fixed: context.fixed, endpointA: context.endpointA, endpointB: context.endpointB, normal: normal}, nil
 }
 
 func rememberMovingWallSpringFixedEndpointSide(w *world, example map[string]string) error {
-	springID, fixedID, err := intPair(example, "moving_spring", "fixed_mass")
+	context, err := fixedEndpointWallSpringContextFor(w, example)
 	if err != nil {
 		return err
 	}
-	world := ensureDomainWorld(w)
-	fixed, ok := world.MassByID(fixedID)
-	if !ok {
-		return fmt.Errorf("fixed mass %d not found", fixedID)
-	}
-	spring, ok := world.SpringByID(springID)
-	if !ok {
-		return fmt.Errorf("spring %d not found", springID)
-	}
-	endpointA, okA := world.MassByID(spring.MassA)
-	endpointB, okB := world.MassByID(spring.MassB)
-	if !okA || !okB {
-		return fmt.Errorf("spring %d endpoints not found", springID)
-	}
-	contact := closestAcceptancePointOnSegment(fixed.Position, endpointA.Position, endpointB.Position.Sub(endpointA.Position))
-	normal := contact.Sub(fixed.Position).Normalize()
-	if normal == (sim.Vec2{}) {
-		return fmt.Errorf("moving wall spring %d starts on fixed endpoint mass %d", springID, fixedID)
+	normal, err := fixedEndpointStartNormal(context)
+	if err != nil {
+		return err
 	}
 	if w.fixedEndpointSides == nil {
 		w.fixedEndpointSides = map[int]sim.Vec2{}
 	}
-	w.fixedEndpointSides[fixedID] = normal
+	w.fixedEndpointSides[context.fixedID] = normal
 	return nil
+}
+
+type fixedEndpointWallSpringContext struct {
+	springID  int
+	fixedID   int
+	fixed     sim.Mass
+	endpointA sim.Mass
+	endpointB sim.Mass
+}
+
+func fixedEndpointWallSpringContextFor(w *world, example map[string]string) (fixedEndpointWallSpringContext, error) {
+	springID, fixedID, err := intPair(example, "moving_spring", "fixed_mass")
+	if err != nil {
+		return fixedEndpointWallSpringContext{}, err
+	}
+	world := ensureDomainWorld(w)
+	fixed, ok := world.MassByID(fixedID)
+	if !ok {
+		return fixedEndpointWallSpringContext{}, fmt.Errorf("fixed mass %d not found", fixedID)
+	}
+	endpointA, endpointB, err := wallSpringEndpoints(world, springID)
+	if err != nil {
+		return fixedEndpointWallSpringContext{}, err
+	}
+	return fixedEndpointWallSpringContext{springID: springID, fixedID: fixedID, fixed: fixed, endpointA: endpointA, endpointB: endpointB}, nil
+}
+
+func wallSpringEndpoints(world *sim.Simulation, springID int) (sim.Mass, sim.Mass, error) {
+	spring, ok := world.SpringByID(springID)
+	if !ok {
+		return sim.Mass{}, sim.Mass{}, fmt.Errorf("spring %d not found", springID)
+	}
+	endpointA, okA := world.MassByID(spring.MassA)
+	endpointB, okB := world.MassByID(spring.MassB)
+	if !okA || !okB {
+		return sim.Mass{}, sim.Mass{}, fmt.Errorf("spring %d endpoints not found", springID)
+	}
+	return endpointA, endpointB, nil
+}
+
+func fixedEndpointStartNormal(context fixedEndpointWallSpringContext) (sim.Vec2, error) {
+	contact := closestAcceptancePointOnSegment(context.fixed.Position, context.endpointA.Position, context.endpointB.Position.Sub(context.endpointA.Position))
+	normal := contact.Sub(context.fixed.Position).Normalize()
+	if normal == (sim.Vec2{}) {
+		return sim.Vec2{}, fmt.Errorf("moving wall spring %d starts on fixed endpoint mass %d", context.springID, context.fixedID)
+	}
+	return normal, nil
 }
 
 func closestAcceptancePointOnSegment(point, start, segment sim.Vec2) sim.Vec2 {
