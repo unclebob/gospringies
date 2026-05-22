@@ -239,7 +239,7 @@ func forceEvaluationHasForce(evaluation sim.ForceEvaluation) bool {
 }
 
 func createWallSpringByCoordinates(w *world, example map[string]string) error {
-	return createDefaultWallSpringByCoordinateKeys(w, example, "spring_id", []string{"wall_x1", "wall_y1", "wall_x2", "wall_y2"})
+	return createWallSpringByCoordinateKeys(w, example, "spring_id", "wall_x1", "wall_y1", "wall_x2", "wall_y2")
 }
 
 func createMovingWallSpringByCoordinates(w *world, example map[string]string) error {
@@ -342,28 +342,7 @@ func createConstrainedWallSpring(w *world, example map[string]string) error {
 }
 
 func createBarrierMovingMass(w *world, example map[string]string) error {
-	if err := requireWallSpringExampleValues(example, map[string]string{
-		"mass_id": "3",
-		"mass_x":  "-5",
-		"mass_y":  "50",
-		"mass_vx": "10",
-		"mass_vy": "0",
-	}); err != nil {
-		return err
-	}
-	id, err := intValue(example, "mass_id")
-	if err != nil {
-		return err
-	}
-	values, err := floatValues(example, "mass_x", "mass_y", "mass_vx", "mass_vy")
-	if err != nil {
-		return err
-	}
-	world := ensureDomainWorld(w)
-	if err := world.AddMass(sim.Mass{ID: id, Position: sim.Vec2{X: values[0], Y: values[1]}, Velocity: sim.Vec2{X: values[2], Y: values[3]}, Mass: 1}); err != nil {
-		return err
-	}
-	return rememberWallSpringStartingSide(w, example, id)
+	return createBarrierMovingMassWithoutExampleRestriction(w, example)
 }
 
 func createFastBarrierMovingMass(w *world, example map[string]string) error {
@@ -954,15 +933,14 @@ func parseExpectedImpulseShare(value string) (float64, error) {
 }
 
 func createUnequalMassFloatingWall(w *world, example map[string]string) error {
-	endpointAMass, err := floatValue(example, "endpoint_a_mass")
+	masses, err := floatValues(example, "endpoint_a_mass", "endpoint_b_mass")
 	if err != nil {
 		return err
 	}
-	endpointBMass, err := floatValue(example, "endpoint_b_mass")
-	if err != nil {
-		return err
-	}
-	world := ensureDomainWorld(w)
+	return addUnequalMassFloatingWall(ensureDomainWorld(w), masses[0], masses[1])
+}
+
+func addUnequalMassFloatingWall(world *sim.Simulation, endpointAMass, endpointBMass float64) error {
 	if err := world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{}, Mass: endpointAMass}); err != nil {
 		return err
 	}
@@ -973,46 +951,46 @@ func createUnequalMassFloatingWall(w *world, example map[string]string) error {
 }
 
 func createMassAimedAtFloatingWall(w *world, example map[string]string) error {
-	massID, err := intValue(example, "mass_id")
-	if err != nil {
-		return err
-	}
-	massValue, err := floatValue(example, "moving_mass")
-	if err != nil {
-		return err
-	}
-	x, err := floatValue(example, "mass_x")
-	if err != nil {
-		return err
-	}
-	y, err := floatValue(example, "mass_y")
-	if err != nil {
-		return err
-	}
-	vx, err := floatValue(example, "mass_vx")
-	if err != nil {
-		return err
-	}
-	vy, err := floatValue(example, "mass_vy")
+	mass, err := floatingWallCollisionMass(example)
 	if err != nil {
 		return err
 	}
 	world := ensureDomainWorld(w)
-	if err := world.AddMass(sim.Mass{ID: massID, Position: sim.Vec2{X: x, Y: y}, Velocity: sim.Vec2{X: vx, Y: vy}, Mass: massValue}); err != nil {
+	if err := world.AddMass(mass); err != nil {
 		return err
 	}
-	w.wallSpringMomentum = totalMassMomentum(world, 1, 2, massID)
-	w.wallSpringMomentumID = massID
+	w.wallSpringMomentum = totalMassMomentum(world, 1, 2, mass.ID)
+	w.wallSpringMomentumID = mass.ID
 	return nil
 }
 
+func floatingWallCollisionMass(example map[string]string) (sim.Mass, error) {
+	massID, err := intValue(example, "mass_id")
+	if err != nil {
+		return sim.Mass{}, err
+	}
+	return floatingWallCollisionMassWithID(example, massID)
+}
+
+func floatingWallCollisionMassWithID(example map[string]string, massID int) (sim.Mass, error) {
+	values, err := floatValues(example, "moving_mass", "mass_x", "mass_y", "mass_vx", "mass_vy")
+	if err != nil {
+		return sim.Mass{}, err
+	}
+	return sim.Mass{ID: massID, Position: sim.Vec2{X: values[1], Y: values[2]}, Velocity: sim.Vec2{X: values[3], Y: values[4]}, Mass: values[0]}, nil
+}
+
 func advanceUntilFloatingWallCollision(w *world, _ map[string]string) error {
-	ensureDomainWorld(w).Step(1)
-	return nil
+	return advanceDomainWorld(w, 1)
 }
 
 func assertFloatingWallMomentumUnchanged(w *world, _ map[string]string) error {
 	return assertMomentum("floating wall collision momentum", totalMassMomentum(ensureDomainWorld(w), 1, 2, w.wallSpringMomentumID), w.wallSpringMomentum)
+}
+
+func advanceDomainWorld(w *world, dt float64) error {
+	ensureDomainWorld(w).Step(dt)
+	return nil
 }
 
 func totalMassMomentum(world *sim.Simulation, ids ...int) sim.Vec2 {
@@ -1568,11 +1546,25 @@ func rememberWallSpringStartingSide(w *world, example map[string]string, massID 
 	if err != nil {
 		return err
 	}
+	if side == 0 {
+		normal, err := wallSpringNormal(world, springID)
+		if err != nil {
+			return err
+		}
+		side = -sideSignAcceptance(dotAcceptance(mass.Velocity, normal))
+	}
 	if w.wallSpringSides == nil {
 		w.wallSpringSides = map[int]float64{}
 	}
 	w.wallSpringSides[massID] = side
 	return nil
+}
+
+func sideSignAcceptance(value float64) float64 {
+	if value < 0 {
+		return -1
+	}
+	return 1
 }
 
 func wallSpringSide(world *sim.Simulation, springID int, point sim.Vec2) (float64, error) {

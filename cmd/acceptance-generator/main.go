@@ -24,5 +24,5 @@ func run(args []string) int {
 }
 
 // mutate4go-manifest-begin
-// {"version":1,"tested_at":"2026-05-18T21:14:20-05:00","module_hash":"3bce3be60cc81c27ab59617b80e3c5b0ca66219e48f5da2f1a83a21552c7a107","functions":[{"id":"func/main","name":"main","line":10,"end_line":12,"hash":"456fb961f0d5d132d6d1e97ed1c9a19d21495a7ede09523a5327d7ed85c0b4f4"},{"id":"func/run","name":"run","line":14,"end_line":24,"hash":"e576d2f4ba4d48652eab7801d0613bf95e6307bf48076b7ca7d6bd8206ff9fff"}]}
+// {"version":1,"tested_at":"2026-05-22T10:51:49-05:00","module_hash":"e0724313bfd2a6e4aedd42f9a45ed091ac2c3967f063e3ae3c67ba0a4f2401d5","functions":[{"id":"func/main","name":"main","line":10,"end_line":12,"hash":"456fb961f0d5d132d6d1e97ed1c9a19d21495a7ede09523a5327d7ed85c0b4f4"},{"id":"func/run","name":"run","line":14,"end_line":24,"hash":"07ede0653fa9fd6438c934af6db586a56adaa704418279aaa9850b0d47f9b655"}]}
 // mutate4go-manifest-end

@@ -12,7 +12,7 @@ import (
 )
 
 func (g *Game) drawVisibleControls(screen *ebiten.Image) {
-	for _, control := range visibleControls() {
+	for _, control := range g.visibleControls() {
 		g.drawControl(screen, control)
 	}
 	for _, control := range g.editMenuControls() {

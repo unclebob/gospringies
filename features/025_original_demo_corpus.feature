@@ -1,4 +1,7 @@
-# mutation-stamp: sha256=52be68892c0cd18ca4c1195514346d727636d350a5a2eb10ea947494e0c22d59
+# mutation-stamp: sha256=6a6393e7990cab20a52ebdcc6d2d63a13d5a6d29d49d22197e2ef97deaef1856
+# acceptance-mutation-manifest-begin
+# {"version":1,"tested_at":"2026-05-22T12:29:17-05:00","feature_name":"Original demo corpus","feature_path":"features/025_original_demo_corpus.feature","background_hash":"052419339e916fa760e56cb8c4f98be0e1e2506c603043d8fcc993bb2c674b53","implementation_hash":"0a770bae08f130ca996aec47a8d033925e33cb9481c31df3fd9eeaca32e1424c","scenarios":[{"index":0,"name":"original demos are imported from a documented source","scenario_hash":"4bfc86925a83ec73be35b31cf4e068d7ae32e711f1e648bc9cfe8de9efb10a2e","mutation_count":134,"result":{"Total":134,"Killed":134,"Survived":0,"Errors":0},"tested_at":"2026-05-22T12:29:17-05:00"},{"index":1,"name":"every imported original demo loads","scenario_hash":"1097c2f2881fbfc885ab5b83e8e364e480e16c633ecc7e1f2b94dcac056f6403","mutation_count":67,"result":{"Total":67,"Killed":67,"Survived":0,"Errors":0},"tested_at":"2026-05-22T12:29:17-05:00"},{"index":2,"name":"imported original demos remain separate from starter demos","scenario_hash":"9ee084c69251b0f2edf8d87d43835ed64d2252e39c0622f58caaca6d57df1185","mutation_count":9,"result":{"Total":9,"Killed":9,"Survived":0,"Errors":0},"tested_at":"2026-05-22T12:29:17-05:00"},{"index":3,"name":"demo provenance is documented","scenario_hash":"b0a525e0b25405f3edae35d0e5b4e133a7a774fccd214b069cffe685bd71c6eb","mutation_count":4,"result":{"Total":4,"Killed":4,"Survived":0,"Errors":0},"tested_at":"2026-05-22T12:29:17-05:00"}]}
+# acceptance-mutation-manifest-end
 Feature: Original demo corpus
 
 Background:

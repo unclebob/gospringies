@@ -216,10 +216,34 @@ func (s *Simulation) applyWallSpringCollisions(dt float64, startPositions []Vec2
 		}
 		for i := range s.Masses {
 			if s.shouldApplyWallSpringCollision(i, aIndex, bIndex) {
-				s.applyWallSpringCollision(spring, &s.Masses[i], &s.Masses[aIndex], &s.Masses[bIndex], wallSpringPreviousPosition(s.Masses[i], startPositions, i, dt), wallSpringPreviousPosition(s.Masses[aIndex], startPositions, aIndex, dt), false)
+				previousMass := wallSpringPreviousPosition(s.Masses[i], startPositions, i, dt)
+				previousEndpointA := wallSpringPreviousPosition(s.Masses[aIndex], startPositions, aIndex, dt)
+				allowBoundaryStart := wallSpringBoundaryStartPenetrating(s.Masses[i], s.Masses[aIndex], s.Masses[bIndex], previousMass, previousEndpointA)
+				s.applyWallSpringCollision(spring, &s.Masses[i], &s.Masses[aIndex], &s.Masses[bIndex], previousMass, previousEndpointA, allowBoundaryStart)
 			}
 		}
 	}
+}
+
+func wallSpringBoundaryStartPenetrating(mass, endpointA, endpointB Mass, previousMass, previousEndpointA Vec2) bool {
+	segment := endpointB.Position.Sub(endpointA.Position)
+	lengthSquared := dot(segment, segment)
+	if lengthSquared == 0 {
+		return false
+	}
+	normal := Vec2{X: -segment.Y, Y: segment.X}.Normalize()
+	previousSide := dot(previousMass.Sub(previousEndpointA), normal)
+	currentSide := dot(mass.Position.Sub(endpointA.Position), normal)
+	if previousSide != 0 || currentSide == 0 {
+		return false
+	}
+	contactFraction, ok := wallSpringContactFraction(previousMass.Sub(previousEndpointA), mass.Position.Sub(endpointA.Position), segment, lengthSquared, previousSide, currentSide, true)
+	if !ok {
+		return false
+	}
+	wallVelocity := wallSpringContactVelocity(&endpointA, &endpointB, contactFraction)
+	normalVelocity := dot(mass.Velocity.Sub(wallVelocity), normal)
+	return !wallSpringVelocitySeparating(normalVelocity, collisionStartSide(previousSide, currentSide))
 }
 
 func (s *Simulation) applyMovingWallSpringFixedEndpointCollisions(dt float64, startPositions []Vec2) {
@@ -228,7 +252,7 @@ func (s *Simulation) applyMovingWallSpringFixedEndpointCollisions(dt float64, st
 	}
 	for sourceIndex, source := range s.Springs {
 		aIndex, bIndex, ok := s.wallSpringEndpointIndexes(source)
-		if !ok || s.Masses[aIndex].Fixed && s.Masses[bIndex].Fixed {
+		if !ok || s.Masses[aIndex].Fixed || s.Masses[bIndex].Fixed {
 			continue
 		}
 		for targetIndex, target := range s.Springs {
@@ -389,16 +413,30 @@ func fullScreenGravityKick(s *Simulation) float64 {
 }
 
 func wallSpringContactFraction(previous, current, segment Vec2, lengthSquared float64, previousSide, currentSide float64, allowBoundaryStart bool) (float64, bool) {
-	if currentSide == 0 || sameSign(previousSide, currentSide) || (previousSide == 0 && !allowBoundaryStart) {
+	if wallSpringCrossingRejected(previousSide, currentSide, allowBoundaryStart) {
 		return 0, false
 	}
-	intersectionFraction := 0.0
-	if previousSide != 0 {
-		intersectionFraction = previousSide / (previousSide - currentSide)
-	}
+	intersectionFraction := wallSpringIntersectionFraction(previousSide, currentSide)
 	crossing := previous.Add(current.Sub(previous).Scale(intersectionFraction))
 	projection := dot(crossing, segment) / lengthSquared
 	return projection, projection >= 0 && projection <= 1
+}
+
+func wallSpringCrossingRejected(previousSide, currentSide float64, allowBoundaryStart bool) bool {
+	if currentSide == 0 {
+		return true
+	}
+	if sameSign(previousSide, currentSide) {
+		return true
+	}
+	return previousSide == 0 && !allowBoundaryStart
+}
+
+func wallSpringIntersectionFraction(previousSide, currentSide float64) float64 {
+	if previousSide == 0 {
+		return 0
+	}
+	return previousSide / (previousSide - currentSide)
 }
 
 func sameSign(a, b float64) bool {
