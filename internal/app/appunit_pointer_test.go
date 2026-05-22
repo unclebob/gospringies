@@ -147,8 +147,8 @@ func TestAppUnitSmallPointerHelpers(t *testing.T) {
 	}
 
 	game.handleRightPointer(true, 110, 110)
-	if !game.pointer.rightMousePressed || !game.massMenu.Open {
-		t.Fatalf("right pointer state pressed=%t menu=%#v", game.pointer.rightMousePressed, game.massMenu)
+	if !game.pointer.rightMousePressed || !game.overlays.massMenu.Open {
+		t.Fatalf("right pointer state pressed=%t menu=%#v", game.pointer.rightMousePressed, game.overlays.massMenu)
 	}
 	game.handleRightPointer(false, 100, 900)
 	if game.pointer.rightMousePressed {
