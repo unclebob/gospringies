@@ -70,15 +70,15 @@ func TestGameLayoutUsesWindowSize(t *testing.T) {
 
 func TestNewGameStartsWithYUpCanvas(t *testing.T) {
 	game := NewGame()
-	if !game.canvasYUp {
+	if !game.run.canvasYUp {
 		t.Fatal("new game should use a y-up canvas")
 	}
 }
 
 func TestAdvanceSimulationFrameRequiresPositiveSpeed(t *testing.T) {
 	game := NewGame()
-	game.paused = false
-	game.simulationSpeed = -1
+	game.run.paused = false
+	game.run.simulationSpeed = -1
 
 	game.advanceSimulationFrame()
 
@@ -89,8 +89,8 @@ func TestAdvanceSimulationFrameRequiresPositiveSpeed(t *testing.T) {
 
 func TestZeroSpeedDoesNotPinDraggingMass(t *testing.T) {
 	game := gameWithMasses(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1})
-	game.paused = false
-	game.simulationSpeed = 0
+	game.run.paused = false
+	game.run.simulationSpeed = 0
 	game.pointer.draggingMassID = 1
 	game.pointer.draggingOffsets = map[int]sim.Vec2{1: {X: 1, Y: 1}}
 	game.pointer.lastCursor = sim.Vec2{X: 50, Y: 50}
@@ -125,7 +125,7 @@ func TestAppWorldBoundsUseWindowSize(t *testing.T) {
 	if game.World().Bounds != yDownWant {
 		t.Fatalf("replacement bounds = %#v, want %#v", game.World().Bounds, yDownWant)
 	}
-	if game.editor.World != game.simulation || game.editor.World == staleEditorWorld {
+	if game.world.editor.World != game.world.simulation || game.world.editor.World == staleEditorWorld {
 		t.Fatal("replacement should reattach editor world to game simulation")
 	}
 }
@@ -206,7 +206,7 @@ func TestThrowSingleDraggingMassSetsVelocity(t *testing.T) {
 	if got := game.World().Masses[0].Velocity; got != (sim.Vec2{X: 4, Y: -2}) {
 		t.Fatalf("velocity = %#v", got)
 	}
-	if !game.dirty {
+	if !game.editState.dirty {
 		t.Fatal("throw should mark game dirty")
 	}
 }
@@ -214,7 +214,7 @@ func TestThrowSingleDraggingMassSetsVelocity(t *testing.T) {
 func TestDrawCoversOpenOverlayBranches(t *testing.T) {
 	game := gameWithMasses(sim.Mass{ID: 1, Position: sim.Vec2{X: 120, Y: 120}})
 	_ = game.editing().SelectMass(1)
-	game.selected = true
+	game.editState.selected = true
 	game.controls.demoFiles = []string{"demos/pendulum.xsp", "demos/spring-chain.xsp"}
 	game.controls.demoPickerOpen = true
 	game.overlays.massMenu = massContextMenu{Open: true, MassID: 1, X: 120, Y: 120}
@@ -871,7 +871,7 @@ func TestCoordinateTransformsRespectCanvasOrientation(t *testing.T) {
 		t.Fatalf("worldToScreen y-up = %#v", got)
 	}
 
-	game.canvasYUp = false
+	game.run.canvasYUp = false
 	if got := game.screenToWorld(point); got != point {
 		t.Fatalf("screenToWorld y-down = %#v", got)
 	}
@@ -884,7 +884,7 @@ func TestEditingRebuildsWhenWorldChanges(t *testing.T) {
 	game := NewGame()
 	editor := game.editing()
 	replacement := sim.NewWorld()
-	game.simulation = replacement
+	game.world.simulation = replacement
 
 	if got := game.editing(); got == editor || got.World != replacement {
 		t.Fatalf("editor was not rebuilt for replacement world")
@@ -1084,8 +1084,8 @@ func TestCopyPasteDuplicatesSelectedObjects(t *testing.T) {
 	if !game.editing().MassSelected(3) || !game.editing().MassSelected(4) || !game.editing().SpringSelected(2) {
 		t.Fatalf("pasted selection = %#v %#v", game.editing().SelectedMasses, game.editing().SelectedSprings)
 	}
-	if !game.selected || !game.dirty {
-		t.Fatalf("paste state selected=%t dirty=%t", game.selected, game.dirty)
+	if !game.editState.selected || !game.editState.dirty {
+		t.Fatalf("paste state selected=%t dirty=%t", game.editState.selected, game.editState.dirty)
 	}
 }
 
@@ -1101,8 +1101,8 @@ func TestCutCopiesThenDeletesSelection(t *testing.T) {
 	if len(game.World().Masses) != 0 {
 		t.Fatalf("mass count after cut = %d, want 0", len(game.World().Masses))
 	}
-	if game.selected || !game.dirty {
-		t.Fatalf("cut state selected=%t dirty=%t", game.selected, game.dirty)
+	if game.editState.selected || !game.editState.dirty {
+		t.Fatalf("cut state selected=%t dirty=%t", game.editState.selected, game.editState.dirty)
 	}
 	game.pointer.lastCursor = sim.Vec2{X: 200, Y: 220}
 	game.RunCommand("paste")
@@ -1113,11 +1113,11 @@ func TestCutCopiesThenDeletesSelection(t *testing.T) {
 
 func TestSyncSelectionStateClearsEmptySelection(t *testing.T) {
 	game := NewGame()
-	game.selected = true
+	game.editState.selected = true
 
 	game.syncSelectionState()
 
-	if game.selected {
+	if game.editState.selected {
 		t.Fatal("empty selection should clear selected state")
 	}
 }
@@ -1364,8 +1364,8 @@ func TestNumericSettingTextAndSliderDefaultBuild(t *testing.T) {
 	game.appendNumericSettingInput([]rune("9"))
 	game.deleteNumericSettingCharacter()
 
-	if !game.SetNumericSettingValue("Speed", "99") || game.simulationSpeed != maxSpeed {
-		t.Fatalf("speed = %f, want %f", game.simulationSpeed, maxSpeed)
+	if !game.SetNumericSettingValue("Speed", "99") || game.run.simulationSpeed != maxSpeed {
+		t.Fatalf("speed = %f, want %f", game.run.simulationSpeed, maxSpeed)
 	}
 	if game.SetNumericSettingValue("Speed", "not numeric") {
 		t.Fatal("invalid numeric value should not be handled")
@@ -1498,7 +1498,7 @@ func TestLoadDemoAtOutOfRangeKeepsPickerOpen(t *testing.T) {
 func TestClickVisibleGravityControlEnablesGravity(t *testing.T) {
 	game := NewGame()
 	game.World().Parameters.Forces["gravity"] = sim.ForceConfig{Enabled: "false", Values: map[string]string{"magnitude": "0", "direction": "90"}}
-	game.dirty = false
+	game.editState.dirty = false
 
 	control, ok := visibleControlWithName("gravity force")
 	if !ok {
@@ -1515,7 +1515,7 @@ func TestClickVisibleGravityControlEnablesGravity(t *testing.T) {
 	if !game.activeControl("gravity force") {
 		t.Fatal("expected Gravity control to show active state")
 	}
-	if !game.dirty {
+	if !game.editState.dirty {
 		t.Fatal("Gravity control should mark game dirty")
 	}
 }
@@ -1575,7 +1575,7 @@ func TestSetForceValueInitializesAndEnablesForce(t *testing.T) {
 func TestGravitySliderSetsGravity(t *testing.T) {
 	game := NewGame()
 	game.World().Parameters.EnableForce("gravity", map[string]string{"magnitude": "10", "direction": "0"})
-	game.dirty = false
+	game.editState.dirty = false
 	control, ok := visibleControlWithName("gravity slider")
 	if !ok {
 		t.Fatal("missing gravity slider")
@@ -1590,7 +1590,7 @@ func TestGravitySliderSetsGravity(t *testing.T) {
 	if force.Enabled != "true" || force.Values["magnitude"] != "25" {
 		t.Fatalf("gravity force = %#v", force)
 	}
-	if !game.dirty {
+	if !game.editState.dirty {
 		t.Fatal("gravity slider should mark game dirty")
 	}
 }
@@ -1608,7 +1608,7 @@ func TestSpeedSliderSetsSimulationSpeed(t *testing.T) {
 		t.Fatal("speed slider click was not handled")
 	}
 
-	if got := game.simulationSpeed; got != maxSpeed {
+	if got := game.run.simulationSpeed; got != maxSpeed {
 		t.Fatalf("simulation speed = %f, want %f", got, maxSpeed)
 	}
 	if got := game.World().Parameters.Value("timestep"); got != "0.016" {
@@ -1629,7 +1629,7 @@ func TestSpeedSliderMinimumIsZero(t *testing.T) {
 		t.Fatal("speed slider click was not handled")
 	}
 
-	if got := game.simulationSpeed; got != 0 {
+	if got := game.run.simulationSpeed; got != 0 {
 		t.Fatalf("simulation speed = %f, want 0", got)
 	}
 	if got := game.World().Parameters.Value("timestep"); got != "0.016" {
@@ -1639,7 +1639,7 @@ func TestSpeedSliderMinimumIsZero(t *testing.T) {
 
 func TestViscositySliderSetsViscosity(t *testing.T) {
 	game := NewGame()
-	game.dirty = false
+	game.editState.dirty = false
 	control, ok := visibleControlWithName("viscosity slider")
 	if !ok {
 		t.Fatal("missing viscosity slider")
@@ -1653,7 +1653,7 @@ func TestViscositySliderSetsViscosity(t *testing.T) {
 	if got := game.World().Parameters.Value("viscosity"); got != "1.0" {
 		t.Fatalf("viscosity = %q, want 1.0", got)
 	}
-	if !game.dirty {
+	if !game.editState.dirty {
 		t.Fatal("viscosity slider should mark game dirty")
 	}
 }
@@ -1735,7 +1735,7 @@ func TestNumericSettingReportsIncludeCurrentValues(t *testing.T) {
 	game.World().Parameters.EnableForce("gravity", map[string]string{"magnitude": "12", "direction": "0"})
 	game.World().Parameters.Set("viscosity", "0.5")
 	game.World().Parameters.Set("timestep", "0.025")
-	game.simulationSpeed = 2
+	game.run.simulationSpeed = 2
 
 	tests := map[string]string{
 		"Gravity":   "12.0",
@@ -1828,7 +1828,7 @@ func TestSlidersDragWhileMouseHeld(t *testing.T) {
 	game.handlePointer(true, track.Max.X, track.Min.Y)
 	game.handlePointer(false, track.Max.X, track.Min.Y)
 
-	if got := game.simulationSpeed; got != maxSpeed {
+	if got := game.run.simulationSpeed; got != maxSpeed {
 		t.Fatalf("simulation speed after drag = %f, want %f", got, maxSpeed)
 	}
 }
@@ -1922,7 +1922,7 @@ func TestDemoPickerScrollClampsBothDirections(t *testing.T) {
 func TestUpdateAdvancesBySpeedWithoutChangingTimestep(t *testing.T) {
 	game := NewGame()
 	game.World().Parameters.Set("timestep", "0.001")
-	game.simulationSpeed = 2
+	game.run.simulationSpeed = 2
 
 	if err := game.Update(); err != nil {
 		t.Fatalf("Update() error = %v", err)
@@ -1941,7 +1941,7 @@ func TestUpdateAdvancesBySpeedWithoutChangingTimestep(t *testing.T) {
 
 func TestZeroSpeedPausesSimulationAdvance(t *testing.T) {
 	game := NewGame()
-	game.simulationSpeed = 0
+	game.run.simulationSpeed = 0
 
 	if err := game.Update(); err != nil {
 		t.Fatalf("Update() error = %v", err)
@@ -2243,8 +2243,8 @@ func TestThrowDraggedMassesMarksDirtyForSelectionOffsets(t *testing.T) {
 	game.throwDraggedMasses(sim.Vec2{X: 7, Y: 8})
 
 	mass, _ := game.World().MassByID(1)
-	if mass.Velocity != (sim.Vec2{X: 7, Y: 8}) || !game.dirty {
-		t.Fatalf("throw selected state velocity=%#v dirty=%t", mass.Velocity, game.dirty)
+	if mass.Velocity != (sim.Vec2{X: 7, Y: 8}) || !game.editState.dirty {
+		t.Fatalf("throw selected state velocity=%#v dirty=%t", mass.Velocity, game.editState.dirty)
 	}
 }
 
@@ -2273,8 +2273,8 @@ func TestCreateMassAtMarksDirtyAndSelectsCreatedMass(t *testing.T) {
 	if !ok || id == 0 {
 		t.Fatalf("createMassAt = %d, %t", id, ok)
 	}
-	if !game.dirty || !game.editing().MassSelected(id) || !game.selected {
-		t.Fatalf("created mass state dirty=%t selected=%t editor=%#v", game.dirty, game.selected, game.editing().SelectedMasses)
+	if !game.editState.dirty || !game.editing().MassSelected(id) || !game.editState.selected {
+		t.Fatalf("created mass state dirty=%t selected=%t editor=%#v", game.editState.dirty, game.editState.selected, game.editing().SelectedMasses)
 	}
 }
 
@@ -2287,15 +2287,15 @@ func TestFinishSpringAtMarksDirtyOnlyForValidDifferentEndpoint(t *testing.T) {
 
 	game.finishSpringAt(sim.Vec2{X: 130, Y: 110})
 
-	if len(game.World().Springs) != 1 || !game.dirty || game.pointer.pendingSpringID != 0 {
-		t.Fatalf("finish spring state springs=%#v dirty=%t pending=%d", game.World().Springs, game.dirty, game.pointer.pendingSpringID)
+	if len(game.World().Springs) != 1 || !game.editState.dirty || game.pointer.pendingSpringID != 0 {
+		t.Fatalf("finish spring state springs=%#v dirty=%t pending=%d", game.World().Springs, game.editState.dirty, game.pointer.pendingSpringID)
 	}
 
-	game.dirty = false
+	game.editState.dirty = false
 	game.pointer.pendingSpringID = 1
 	game.finishSpringAt(sim.Vec2{X: 110, Y: 110})
-	if len(game.World().Springs) != 1 || game.dirty {
-		t.Fatalf("self spring changed state springs=%#v dirty=%t", game.World().Springs, game.dirty)
+	if len(game.World().Springs) != 1 || game.editState.dirty {
+		t.Fatalf("self spring changed state springs=%#v dirty=%t", game.World().Springs, game.editState.dirty)
 	}
 }
 
@@ -2312,8 +2312,8 @@ func TestSpringPlacementOutsideCanvasDoesNotCreateSpring(t *testing.T) {
 
 	game.pointer.pendingSpringID = 1
 	game.finishSpringAt(sim.Vec2{X: -1, Y: 110})
-	if len(game.World().Springs) != 0 || game.dirty {
-		t.Fatalf("spring placement outside canvas changed state springs=%#v dirty=%t", game.World().Springs, game.dirty)
+	if len(game.World().Springs) != 0 || game.editState.dirty {
+		t.Fatalf("spring placement outside canvas changed state springs=%#v dirty=%t", game.World().Springs, game.editState.dirty)
 	}
 }
 
@@ -2425,7 +2425,7 @@ func TestClickOnEmptyCanvasCreatesMassAndReplacesSelection(t *testing.T) {
 	if len(game.World().Masses) != 2 {
 		t.Fatalf("empty click should create a mass, count = %d", len(game.World().Masses))
 	}
-	if !game.editing().MassSelected(2) || !game.selected {
+	if !game.editing().MassSelected(2) || !game.editState.selected {
 		t.Fatalf("new mass was not selected: %#v", game.editing().SelectedMasses)
 	}
 }
@@ -2501,8 +2501,8 @@ func TestDragSelectedMassesWithoutOffsetsMovesByDelta(t *testing.T) {
 	if mass1.Position != (sim.Vec2{X: 113, Y: 114}) || mass2.Position != (sim.Vec2{X: 123, Y: 114}) {
 		t.Fatalf("selected drag positions = %#v %#v", mass1.Position, mass2.Position)
 	}
-	if !game.pointer.dragMoved || !game.dirty {
-		t.Fatalf("selected drag state moved=%t dirty=%t", game.pointer.dragMoved, game.dirty)
+	if !game.pointer.dragMoved || !game.editState.dirty {
+		t.Fatalf("selected drag state moved=%t dirty=%t", game.pointer.dragMoved, game.editState.dirty)
 	}
 }
 
@@ -2599,8 +2599,8 @@ func TestDraggingMassPinsItToCursorWhileSimulationRuns(t *testing.T) {
 	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 500, Y: 300}, Mass: 1})
 	world.Parameters.EnableForce("gravity", map[string]string{"magnitude": "1000", "direction": "90"})
 	game.ReplaceWorld(world)
-	game.paused = false
-	game.simulationSpeed = 1
+	game.run.paused = false
+	game.run.simulationSpeed = 1
 
 	game.handlePointer(true, 500, 300)
 	game.handlePointer(true, 540, 340)
@@ -2624,8 +2624,8 @@ func TestDraggingMassWhileSimulationRunsDoesNotChangeAttachedSpringRestLength(t 
 	_ = world.AddSpring(sim.Spring{ID: 1, MassA: 1, MassB: 2, RestLength: 100, SpringConstant: 12})
 	world.Parameters.EnableForce("gravity", map[string]string{"magnitude": "1000", "direction": "90"})
 	game.ReplaceWorld(world)
-	game.paused = false
-	game.simulationSpeed = 1
+	game.run.paused = false
+	game.run.simulationSpeed = 1
 
 	game.handlePointer(true, 500, 300)
 	game.handlePointer(true, 540, 340)
@@ -2815,7 +2815,7 @@ func TestShiftClickEmptyCanvasAddsCreatedMassToSelection(t *testing.T) {
 	game.handlePointer(true, 500, 300)
 	game.handlePointer(false, 500, 300)
 
-	if !game.editing().MassSelected(1) || !game.editing().MassSelected(2) || !game.selected {
+	if !game.editing().MassSelected(1) || !game.editing().MassSelected(2) || !game.editState.selected {
 		t.Fatalf("shift empty click selection = %#v", game.editing().SelectedMasses)
 	}
 }
@@ -2832,7 +2832,7 @@ func TestEscapeClearsSelection(t *testing.T) {
 		t.Fatal("Esc shortcut was not handled")
 	}
 
-	if game.editing().MassSelected(1) || game.selected {
+	if game.editing().MassSelected(1) || game.editState.selected {
 		t.Fatalf("selection after Esc = %#v", game.editing().SelectedMasses)
 	}
 }
@@ -2883,7 +2883,7 @@ func TestEscapeCancelsSpringChainWithoutClearingSelection(t *testing.T) {
 	if game.pointer.springChainActive || game.pointer.pendingSpringID != 0 {
 		t.Fatalf("spring chain remained pending=%d active=%t", game.pointer.pendingSpringID, game.pointer.springChainActive)
 	}
-	if !game.editing().MassSelected(2) || !game.selected {
+	if !game.editing().MassSelected(2) || !game.editState.selected {
 		t.Fatalf("selection was cleared while cancelling spring chain: %#v", game.editing().SelectedMasses)
 	}
 }
@@ -2909,7 +2909,7 @@ func TestSelectedMassesImplicitSelectionRequiresNoSpringSelection(t *testing.T) 
 		sim.Mass{ID: 2, Position: sim.Vec2{X: 30, Y: 10}, Mass: 1},
 	)
 	game.World().Springs = []sim.Spring{{ID: 1, MassA: 1, MassB: 2}}
-	game.selected = true
+	game.editState.selected = true
 
 	if got := game.selectedMasses(); len(got) != 2 {
 		t.Fatalf("implicit selected masses = %#v, want all masses", got)
@@ -3312,10 +3312,10 @@ func TestFileCommandsSaveLoadAndInsertXSP(t *testing.T) {
 	if _, ok := game.World().MassByID(9); !ok || game.World().Parameters.Value("current mass") != "7" {
 		t.Fatalf("loaded world = %#v", game.World())
 	}
-	if game.selected {
+	if game.editState.selected {
 		t.Fatal("load should clear selected state")
 	}
-	if game.editor.World != game.simulation || game.editor.World == staleEditorWorld {
+	if game.world.editor.World != game.world.simulation || game.world.editor.World == staleEditorWorld {
 		t.Fatal("load should reattach editor world to game simulation")
 	}
 	if game.EditorScreen().Indicators["file state"] != "saved" {
@@ -3377,11 +3377,11 @@ func TestRestoreStateWithoutSavedStateRestoresInitialWorld(t *testing.T) {
 func TestRestoreCommandMarksWorldDirty(t *testing.T) {
 	game := NewGame()
 	game.SaveState()
-	game.dirty = false
+	game.editState.dirty = false
 
 	game.RunCommand("restore state")
 
-	if !game.dirty {
+	if !game.editState.dirty {
 		t.Fatal("restore command should mark game dirty")
 	}
 }

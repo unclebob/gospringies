@@ -16,7 +16,7 @@ import (
 func TestAppUnitVisibleControlsAndSliders(t *testing.T) {
 	game := NewGame()
 	game.World().Parameters.Forces["gravity"] = sim.ForceConfig{Enabled: "false", Values: map[string]string{"magnitude": "0", "direction": "90"}}
-	game.dirty = false
+	game.editState.dirty = false
 
 	gravityCheckbox, ok := visibleControlWithName("gravity force")
 	if !ok {
@@ -26,8 +26,8 @@ func TestAppUnitVisibleControlsAndSliders(t *testing.T) {
 		t.Fatal("Gravity checkbox click was not handled")
 	}
 	force, _ := game.World().Parameters.Force("gravity")
-	if force.Enabled != "true" || force.Values["magnitude"] != "10" || force.Values["direction"] != "0" || !game.dirty {
-		t.Fatalf("gravity force = %#v dirty=%t", force, game.dirty)
+	if force.Enabled != "true" || force.Values["magnitude"] != "10" || force.Values["direction"] != "0" || !game.editState.dirty {
+		t.Fatalf("gravity force = %#v dirty=%t", force, game.editState.dirty)
 	}
 
 	control, ok := visibleControlWithName("speed slider")
@@ -36,12 +36,12 @@ func TestAppUnitVisibleControlsAndSliders(t *testing.T) {
 	}
 	track := sliderTrack(control)
 	game.ClickAt(track.Max.X, track.Min.Y)
-	if game.simulationSpeed != maxSpeed {
-		t.Fatalf("simulation speed = %f, want %f", game.simulationSpeed, maxSpeed)
+	if game.run.simulationSpeed != maxSpeed {
+		t.Fatalf("simulation speed = %f, want %f", game.run.simulationSpeed, maxSpeed)
 	}
 	game.ClickAt(track.Min.X, track.Min.Y)
-	if game.simulationSpeed != 0 {
-		t.Fatalf("simulation speed = %f, want 0", game.simulationSpeed)
+	if game.run.simulationSpeed != 0 {
+		t.Fatalf("simulation speed = %f, want 0", game.run.simulationSpeed)
 	}
 	if game.VisibleControlActive("missing") {
 		t.Fatal("missing control should not be active")
@@ -115,8 +115,8 @@ func TestAppUnitNumericSettingTextInputBranches(t *testing.T) {
 	game.appendNumericSettingInput([]rune("9"))
 	game.deleteNumericSettingCharacter()
 
-	if !game.SetNumericSettingValue("Speed", "99") || game.simulationSpeed != maxSpeed {
-		t.Fatalf("speed = %f, want %f", game.simulationSpeed, maxSpeed)
+	if !game.SetNumericSettingValue("Speed", "99") || game.run.simulationSpeed != maxSpeed {
+		t.Fatalf("speed = %f, want %f", game.run.simulationSpeed, maxSpeed)
 	}
 	if game.SetNumericSettingValue("Speed", "not numeric") {
 		t.Fatal("invalid numeric value should not be handled")
@@ -149,8 +149,8 @@ func TestAppUnitNumericSettingTextInputBranches(t *testing.T) {
 	if !game.activateVisibleControl(controlBox{Name: "edit menu"}) || !game.controls.editMenuOpen {
 		t.Fatal("edit menu activation should open menu")
 	}
-	if !game.ClickAt(10, 32) || game.lastCommand != "cut" {
-		t.Fatalf("edit menu item click command = %q", game.lastCommand)
+	if !game.ClickAt(10, 32) || game.editState.lastCommand != "cut" {
+		t.Fatalf("edit menu item click command = %q", game.editState.lastCommand)
 	}
 	game.controls.editMenuOpen = true
 	if !game.ClickAt(0, screenHeight-1) || game.controls.editMenuOpen {
@@ -160,8 +160,8 @@ func TestAppUnitNumericSettingTextInputBranches(t *testing.T) {
 	if game.ClickAt(0, screenHeight-1) || game.controls.focusedNumeric != "" {
 		t.Fatalf("outside click handled=%t focused=%q", true, game.controls.focusedNumeric)
 	}
-	if !game.activateVisibleControl(controlBox{Name: "run pause toggle command"}) || game.lastCommand != "pause toggle" {
-		t.Fatalf("run/pause activation command = %q", game.lastCommand)
+	if !game.activateVisibleControl(controlBox{Name: "run pause toggle command"}) || game.editState.lastCommand != "pause toggle" {
+		t.Fatalf("run/pause activation command = %q", game.editState.lastCommand)
 	}
 	if !game.activateVisibleControl(controlBox{Name: "fixed mass toggle"}) {
 		t.Fatal("inspector toggle activation should be handled")
@@ -280,7 +280,7 @@ func TestAppUnitVisibleControlLayoutAndReport(t *testing.T) {
 	game.World().Parameters.EnableForce("gravity", map[string]string{"magnitude": "25"})
 	game.World().Parameters.Set("fixed mass", "true")
 	game.World().Parameters.EnableWall("top")
-	game.simulationSpeed = maxSpeed / 2
+	game.run.simulationSpeed = maxSpeed / 2
 	game.World().Parameters.Set("viscosity", "1")
 	if !game.activeControl("gravity force") || !game.activeControl("fixed mass toggle") || !game.activeControl("top wall toggle") {
 		t.Fatal("enabled controls should be active")
@@ -399,11 +399,11 @@ func TestAppUnitDragMassSnapsToGrid(t *testing.T) {
 		t.Fatal("single mass drag should succeed")
 	}
 	mass, _ := game.World().MassByID(1)
-	if mass.Position != (sim.Vec2{X: 120, Y: 90}) || mass.Velocity != (sim.Vec2{}) || !game.dirty || !game.pointer.dragMoved {
-		t.Fatalf("single dragged mass = %#v dirty=%t moved=%t", mass, game.dirty, game.pointer.dragMoved)
+	if mass.Position != (sim.Vec2{X: 120, Y: 90}) || mass.Velocity != (sim.Vec2{}) || !game.editState.dirty || !game.pointer.dragMoved {
+		t.Fatalf("single dragged mass = %#v dirty=%t moved=%t", mass, game.editState.dirty, game.pointer.dragMoved)
 	}
 
-	game.dirty = false
+	game.editState.dirty = false
 	game.pointer.dragMoved = false
 	game.pointer.draggingOffsets = map[int]sim.Vec2{1: {X: 2, Y: 3}, 2: {X: -3, Y: -2}}
 	_ = game.editing().SelectMass(1)
@@ -416,8 +416,8 @@ func TestAppUnitDragMassSnapsToGrid(t *testing.T) {
 	if first.Position != (sim.Vec2{X: 120, Y: 120}) || second.Position != (sim.Vec2{X: 110, Y: 110}) {
 		t.Fatalf("selected dragged masses = %#v %#v", first, second)
 	}
-	if first.Velocity != (sim.Vec2{}) || second.Velocity != (sim.Vec2{}) || !game.dirty || !game.pointer.dragMoved {
-		t.Fatalf("selected drag state first=%#v second=%#v dirty=%t moved=%t", first, second, game.dirty, game.pointer.dragMoved)
+	if first.Velocity != (sim.Vec2{}) || second.Velocity != (sim.Vec2{}) || !game.editState.dirty || !game.pointer.dragMoved {
+		t.Fatalf("selected drag state first=%#v second=%#v dirty=%t moved=%t", first, second, game.editState.dirty, game.pointer.dragMoved)
 	}
 
 	game.World().Parameters.Set("grid snap", "0")
@@ -488,22 +488,22 @@ func TestAppUnitCommandsUpdateSelectionAndDirtyState(t *testing.T) {
 	game.RunCommand("copy")
 	game.pointer.lastCursor = sim.Vec2{X: 100, Y: 120}
 	game.RunCommand("paste")
-	if len(game.World().Masses) != 4 || !game.selected || !game.dirty {
-		t.Fatalf("paste state masses=%d selected=%t dirty=%t", len(game.World().Masses), game.selected, game.dirty)
+	if len(game.World().Masses) != 4 || !game.editState.selected || !game.editState.dirty {
+		t.Fatalf("paste state masses=%d selected=%t dirty=%t", len(game.World().Masses), game.editState.selected, game.editState.dirty)
 	}
 	if !game.editing().MassSelected(3) || !game.editing().MassSelected(4) {
 		t.Fatalf("pasted masses were not selected: %#v", game.editing().SelectedMasses)
 	}
 
 	game.RunCommand("cut")
-	if game.selected || !game.dirty {
-		t.Fatalf("cut state selected=%t dirty=%t", game.selected, game.dirty)
+	if game.editState.selected || !game.editState.dirty {
+		t.Fatalf("cut state selected=%t dirty=%t", game.editState.selected, game.editState.dirty)
 	}
 
 	game.SaveState()
-	game.dirty = false
+	game.editState.dirty = false
 	game.RunCommand("restore state")
-	if !game.dirty {
+	if !game.editState.dirty {
 		t.Fatal("restore command should mark game dirty")
 	}
 }
@@ -521,10 +521,10 @@ func TestAppUnitClipboardCopiesSpringsAndComputesOrigin(t *testing.T) {
 
 	game.copySelection()
 
-	if len(game.editClipboard.Masses) != 2 || len(game.editClipboard.Springs) != 1 {
-		t.Fatalf("clipboard = %#v", game.editClipboard)
+	if len(game.editState.clipboard.Masses) != 2 || len(game.editState.clipboard.Springs) != 1 {
+		t.Fatalf("clipboard = %#v", game.editState.clipboard)
 	}
-	if got := game.editClipboard.origin(); got != (sim.Vec2{X: 10, Y: 40}) {
+	if got := game.editState.clipboard.origin(); got != (sim.Vec2{X: 10, Y: 40}) {
 		t.Fatalf("origin = %#v", got)
 	}
 	if got := (editClipboard{}).origin(); got != (sim.Vec2{}) {
@@ -541,7 +541,7 @@ func TestAppUnitPasteSelectionCopiesSpringsAndIDs(t *testing.T) {
 		sim.Mass{ID: 2, Position: sim.Vec2{X: 30, Y: 40}, Mass: 1},
 	)
 	_ = game.World().AddSpring(sim.Spring{ID: 1, MassA: 1, MassB: 2, RestLength: 20})
-	game.editClipboard = editClipboard{
+	game.editState.clipboard = editClipboard{
 		Masses:  []sim.Mass{{ID: 1, Position: sim.Vec2{X: 10, Y: 20}, Mass: 1}, {ID: 2, Position: sim.Vec2{X: 30, Y: 40}, Mass: 1}},
 		Springs: []sim.Spring{{ID: 1, MassA: 1, MassB: 2, RestLength: 20}},
 	}
@@ -556,7 +556,7 @@ func TestAppUnitPasteSelectionCopiesSpringsAndIDs(t *testing.T) {
 		t.Fatalf("pasted selection = masses %#v springs %#v", game.editing().SelectedMasses, game.editing().SelectedSprings)
 	}
 
-	game.editClipboard = editClipboard{}
+	game.editState.clipboard = editClipboard{}
 	if game.pasteSelectionAt(sim.Vec2{}) {
 		t.Fatal("empty clipboard should not paste")
 	}
@@ -598,15 +598,15 @@ func TestAppUnitLoadReplaceAndEditorAttachment(t *testing.T) {
 	if err := game.LoadXSP("#1.0\ncmas 7\nmass 9 10 20 1 0\n"); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := game.World().MassByID(9); !ok || game.selected || game.editor.World != game.simulation || game.dirty {
-		t.Fatalf("load state world=%#v selected=%t dirty=%t", game.World(), game.selected, game.dirty)
+	if _, ok := game.World().MassByID(9); !ok || game.editState.selected || game.world.editor.World != game.world.simulation || game.editState.dirty {
+		t.Fatalf("load state world=%#v selected=%t dirty=%t", game.World(), game.editState.selected, game.editState.dirty)
 	}
 
 	game.editing().World = sim.NewWorld()
 	replacement := sim.NewWorld()
 	_ = replacement.AddMass(sim.Mass{ID: 3, Position: sim.Vec2{X: 3, Y: 4}, Mass: 1})
 	game.ReplaceWorld(replacement)
-	if _, ok := game.World().MassByID(3); !ok || game.editor.World != game.simulation {
+	if _, ok := game.World().MassByID(3); !ok || game.world.editor.World != game.world.simulation {
 		t.Fatalf("replace state world=%#v", game.World())
 	}
 }
@@ -872,7 +872,7 @@ func TestAppUnitSpringValueDialogAndDistance(t *testing.T) {
 		sim.Mass{ID: 2, Position: sim.Vec2{X: 30, Y: 10}, Mass: 1},
 	)
 	_ = game.World().AddSpring(sim.Spring{ID: 3, MassA: 1, MassB: 2, SpringConstant: 12})
-	game.canvasYUp = false
+	game.run.canvasYUp = false
 
 	if game.openSpringConstantDialogAt(200, 200) {
 		t.Fatal("far spring dialog should not open")
@@ -884,24 +884,24 @@ func TestAppUnitSpringValueDialogAndDistance(t *testing.T) {
 		t.Fatalf("spring value dialog = %#v", game.overlays.value)
 	}
 	game.overlays.value.Text = "22"
-	game.dirty = false
+	game.editState.dirty = false
 	game.applyValueDialog()
 	spring, _ := game.World().SpringByID(3)
-	if spring.SpringConstant != 22 || spring.Stiffness != 22 || !game.dirty || game.overlays.value.Open {
-		t.Fatalf("spring after apply = %#v dirty=%t dialog=%#v", spring, game.dirty, game.overlays.value)
+	if spring.SpringConstant != 22 || spring.Stiffness != 22 || !game.editState.dirty || game.overlays.value.Open {
+		t.Fatalf("spring after apply = %#v dirty=%t dialog=%#v", spring, game.editState.dirty, game.overlays.value)
 	}
 
-	game.dirty = false
+	game.editState.dirty = false
 	game.setSpringConstant(99, 33)
-	if game.dirty {
+	if game.editState.dirty {
 		t.Fatal("missing spring constant update should not mark dirty")
 	}
 	game.setSpringDamping(99, 33)
-	if game.dirty {
+	if game.editState.dirty {
 		t.Fatal("missing spring damping update should not mark dirty")
 	}
 	game.setSpringRestLength(99, 33)
-	if game.dirty {
+	if game.editState.dirty {
 		t.Fatal("missing spring rest length update should not mark dirty")
 	}
 
@@ -1279,13 +1279,13 @@ func TestAppUnitGroupedLoadPickerEntries(t *testing.T) {
 
 func TestAppUnitMassContextMenuActionsAndGeometry(t *testing.T) {
 	game := appUnitGameWithMasses(sim.Mass{ID: 1, Position: sim.Vec2{X: 20, Y: 20}, Mass: 3})
-	game.canvasYUp = false
+	game.run.canvasYUp = false
 
 	if !game.openMassContextMenu(20, 20) {
 		t.Fatal("mass context menu did not open")
 	}
-	if !game.overlays.massMenu.Open || game.overlays.massMenu.MassID != 1 || !game.selected {
-		t.Fatalf("mass menu = %#v selected=%t", game.overlays.massMenu, game.selected)
+	if !game.overlays.massMenu.Open || game.overlays.massMenu.MassID != 1 || !game.editState.selected {
+		t.Fatalf("mass menu = %#v selected=%t", game.overlays.massMenu, game.editState.selected)
 	}
 	rect := game.massContextMenuRect()
 	if rect.Dx() != massMenuWidth || rect.Dy() != (massMenuTitleRows+len(game.massContextMenuItems()))*massMenuRowHeight {
@@ -1299,8 +1299,8 @@ func TestAppUnitMassContextMenuActionsAndGeometry(t *testing.T) {
 
 	game.clickMassContextMenu(row0.Min.X+1, row0.Min.Y+1)
 	mass, _ := game.World().MassByID(1)
-	if !mass.Fixed || game.overlays.massMenu.Open || !game.dirty {
-		t.Fatalf("fixed toggle mass=%#v menu=%#v dirty=%t", mass, game.overlays.massMenu, game.dirty)
+	if !mass.Fixed || game.overlays.massMenu.Open || !game.editState.dirty {
+		t.Fatalf("fixed toggle mass=%#v menu=%#v dirty=%t", mass, game.overlays.massMenu, game.editState.dirty)
 	}
 
 	game.overlays.massMenu = massContextMenu{Open: true, MassID: 1, X: 20, Y: 20}
@@ -1310,19 +1310,19 @@ func TestAppUnitMassContextMenuActionsAndGeometry(t *testing.T) {
 		t.Fatalf("value dialog = %#v", game.overlays.value)
 	}
 	game.overlays.value.Text = "7"
-	game.dirty = false
+	game.editState.dirty = false
 	game.applyValueDialog()
 	mass, _ = game.World().MassByID(1)
-	if mass.Mass != 7 || !game.dirty {
-		t.Fatalf("mass value = %f dirty=%t", mass.Mass, game.dirty)
+	if mass.Mass != 7 || !game.editState.dirty {
+		t.Fatalf("mass value = %f dirty=%t", mass.Mass, game.editState.dirty)
 	}
 
 	game.overlays.massMenu = massContextMenu{Open: true, MassID: 1, X: 20, Y: 20}
 	row2 := game.massContextMenuRowRect(2)
-	game.dirty = false
+	game.editState.dirty = false
 	game.clickMassContextMenu(row2.Min.X+1, row2.Min.Y+1)
-	if game.World().CenterMassID() != 1 || game.overlays.massMenu.Open || !game.dirty {
-		t.Fatalf("center mass = %d menu=%#v dirty=%t", game.World().CenterMassID(), game.overlays.massMenu, game.dirty)
+	if game.World().CenterMassID() != 1 || game.overlays.massMenu.Open || !game.editState.dirty {
+		t.Fatalf("center mass = %d menu=%#v dirty=%t", game.World().CenterMassID(), game.overlays.massMenu, game.editState.dirty)
 	}
 
 	game.overlays.massMenu = massContextMenu{Open: true, MassID: 1, X: 0, Y: 0}
@@ -1347,7 +1347,7 @@ func TestAppUnitOpenContextAtChoosesSpringDialogAndIgnoresDemoPicker(t *testing.
 		sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1},
 		sim.Mass{ID: 2, Position: sim.Vec2{X: 110, Y: 10}, Mass: 1},
 	)
-	game.canvasYUp = false
+	game.run.canvasYUp = false
 	_ = game.World().AddSpring(sim.Spring{ID: 3, MassA: 1, MassB: 2, SpringConstant: 12})
 
 	game.controls.demoPickerOpen = true
@@ -1385,7 +1385,7 @@ func TestAppUnitSpringContextMenuActionsAndGeometry(t *testing.T) {
 		sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Mass: 1},
 		sim.Mass{ID: 2, Position: sim.Vec2{X: 110, Y: 10}, Mass: 1},
 	)
-	game.canvasYUp = false
+	game.run.canvasYUp = false
 	_ = game.World().AddSpring(sim.Spring{ID: 3, MassA: 1, MassB: 2, RestLength: 100, SpringConstant: 12, Damping: 0.4})
 
 	if !game.openSpringContextMenu(60, 10) {
@@ -1439,12 +1439,12 @@ func TestAppUnitSpringContextMenuActionsAndGeometry(t *testing.T) {
 	}
 
 	game.overlays.springMenu = springContextMenu{Open: true, SpringID: 3, X: 60, Y: 10}
-	game.dirty = false
+	game.editState.dirty = false
 	row3 := game.springContextMenuRowRect(3)
 	game.clickSpringContextMenu(row3.Min.X+1, row3.Min.Y+1)
 	spring, _ = game.World().SpringByID(3)
-	if !spring.Wall || !game.dirty || game.overlays.springMenu.Open {
-		t.Fatalf("wall toggle spring=%#v dirty=%t menu=%#v", spring, game.dirty, game.overlays.springMenu)
+	if !spring.Wall || !game.editState.dirty || game.overlays.springMenu.Open {
+		t.Fatalf("wall toggle spring=%#v dirty=%t menu=%#v", spring, game.editState.dirty, game.overlays.springMenu)
 	}
 
 	labels := game.SpringContextMenuLabelsForSpring(3)

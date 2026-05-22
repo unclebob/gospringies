@@ -72,8 +72,8 @@ func TestAppUnitContinuePointerPressBranches(t *testing.T) {
 	game.controls.activeNumericStep = ""
 	game.controls.activeSlider = "speed slider"
 	game.continuePointerPress(sim.Vec2{}, sliderTrack(mustVisibleControl(t, "speed slider")).Max.X)
-	if game.simulationSpeed != maxSpeed {
-		t.Fatalf("simulation speed = %f, want %f", game.simulationSpeed, maxSpeed)
+	if game.run.simulationSpeed != maxSpeed {
+		t.Fatalf("simulation speed = %f, want %f", game.run.simulationSpeed, maxSpeed)
 	}
 }
 
@@ -135,8 +135,8 @@ func TestAppUnitSmallPointerHelpers(t *testing.T) {
 		sim.Mass{ID: 2, Position: sim.Vec2{X: 140, Y: 100}, Mass: 1},
 	)
 
-	game.paused = false
-	game.simulationSpeed = 1
+	game.run.paused = false
+	game.run.simulationSpeed = 1
 	game.pointer.lastCursor = sim.Vec2{X: 110, Y: 110}
 	game.pointer.draggingMassID = 1
 	game.pointer.draggingOffsets = map[int]sim.Vec2{1: {X: 1, Y: 2}}

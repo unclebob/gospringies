@@ -34,22 +34,38 @@ var (
 )
 
 type Game struct {
-	simulation      *sim.Simulation
-	initialState    *sim.Simulation
-	savedState      *sim.Simulation
-	selected        bool
-	dirty           bool
-	lastCommand     string
+	world     worldSession
+	editState editState
+	run       simulationRunState
+	pointer   pointerState
+	keyboard  keyboardState
+	controls  controlState
+	overlays  overlayState
+	document  documentState
+	runtime   appRuntimeState
+}
+
+type worldSession struct {
+	simulation   *sim.Simulation
+	initialState *sim.Simulation
+	savedState   *sim.Simulation
+	editor       *edit.Editor
+}
+
+type editState struct {
+	selected    bool
+	dirty       bool
+	lastCommand string
+	clipboard   editClipboard
+}
+
+type simulationRunState struct {
 	paused          bool
-	pointer         pointerState
-	keyboard        keyboardState
-	controls        controlState
-	overlays        overlayState
-	document        documentState
-	editClipboard   editClipboard
 	simulationSpeed float64
 	canvasYUp       bool
-	editor          *edit.Editor
+}
+
+type appRuntimeState struct {
 	inputActive     bool
 	renderingActive bool
 	closed          bool
@@ -117,9 +133,15 @@ type WindowConfig struct {
 
 func NewGame() *Game {
 	world := newDefaultStartupWorld()
-	game := &Game{simulation: world, simulationSpeed: 1, canvasYUp: true, editor: edit.NewEditor(world)}
+	game := &Game{
+		world: worldSession{
+			simulation: world,
+			editor:     edit.NewEditor(world),
+		},
+		run: simulationRunState{simulationSpeed: 1, canvasYUp: true},
+	}
 	game.applyCanvasWallBounds(world)
-	game.initialState = world.Clone()
+	game.world.initialState = world.Clone()
 	return game
 }
 
@@ -128,8 +150,8 @@ func DefaultWindowConfig() WindowConfig {
 }
 
 func (g *Game) advanceSimulationFrame() {
-	if !g.paused && g.simulationSpeed > 0 {
-		g.simulation.AdvanceDuration(baseFrameTime * g.simulationSpeed)
+	if !g.run.paused && g.run.simulationSpeed > 0 {
+		g.world.simulation.AdvanceDuration(baseFrameTime * g.run.simulationSpeed)
 		g.pinDraggingMasses(g.pointer.lastCursor)
 	}
 }
@@ -306,27 +328,27 @@ func (g *Game) finishMassDrag(position sim.Vec2) {
 func (g *Game) throwDraggedMasses(velocity sim.Vec2) {
 	if len(g.pointer.draggingOffsets) > 0 {
 		g.throwSelectedDraggingMasses(velocity)
-		g.dirty = true
+		g.editState.dirty = true
 		return
 	}
 	g.throwSingleDraggingMass(velocity)
 }
 
 func (g *Game) throwSelectedDraggingMasses(velocity sim.Vec2) {
-	for i := range g.simulation.Masses {
-		if _, ok := g.pointer.draggingOffsets[g.simulation.Masses[i].ID]; ok {
-			g.simulation.Masses[i].Velocity = velocity
+	for i := range g.world.simulation.Masses {
+		if _, ok := g.pointer.draggingOffsets[g.world.simulation.Masses[i].ID]; ok {
+			g.world.simulation.Masses[i].Velocity = velocity
 		}
 	}
 }
 
 func (g *Game) throwSingleDraggingMass(velocity sim.Vec2) {
-	for i := range g.simulation.Masses {
-		if g.simulation.Masses[i].ID != g.pointer.draggingMassID {
+	for i := range g.world.simulation.Masses {
+		if g.world.simulation.Masses[i].ID != g.pointer.draggingMassID {
 			continue
 		}
-		g.simulation.Masses[i].Velocity = velocity
-		g.dirty = true
+		g.world.simulation.Masses[i].Velocity = velocity
+		g.editState.dirty = true
 		return
 	}
 }
@@ -347,7 +369,7 @@ func (g *Game) createMassAt(position sim.Vec2, addToSelection bool) (int, bool) 
 			_ = editor.SelectMass(id)
 		}
 		g.syncSelectionState()
-		g.dirty = true
+		g.editState.dirty = true
 		return id, true
 	}
 	return 0, false
@@ -355,7 +377,7 @@ func (g *Game) createMassAt(position sim.Vec2, addToSelection bool) (int, bool) 
 
 func (g *Game) selectNearest(position sim.Vec2) {
 	if err := g.editing().SelectNearest(position, false); err == nil {
-		g.selected = true
+		g.editState.selected = true
 	}
 }
 
@@ -442,7 +464,7 @@ func (g *Game) captureDraggingOffsets(cursor sim.Vec2) {
 	if g.captureSelectedDraggingOffsets(cursor) {
 		return
 	}
-	if mass, ok := g.simulation.MassByID(g.pointer.draggingMassID); ok {
+	if mass, ok := g.world.simulation.MassByID(g.pointer.draggingMassID); ok {
 		g.pointer.draggingOffsets[g.pointer.draggingMassID] = mass.Position.Sub(cursor)
 	}
 }
@@ -451,7 +473,7 @@ func (g *Game) captureSelectedDraggingOffsets(cursor sim.Vec2) bool {
 	if len(g.editing().SelectedMasses) == 0 || !g.editing().MassSelected(g.pointer.draggingMassID) {
 		return false
 	}
-	for _, mass := range g.simulation.Masses {
+	for _, mass := range g.world.simulation.Masses {
 		if g.editing().MassSelected(mass.ID) {
 			g.pointer.draggingOffsets[mass.ID] = mass.Position.Sub(cursor)
 		}
@@ -467,7 +489,7 @@ func (g *Game) pinDraggingMasses(cursor sim.Vec2) {
 }
 
 func (g *Game) massAt(position sim.Vec2) (int, bool) {
-	for _, mass := range g.simulation.Masses {
+	for _, mass := range g.world.simulation.Masses {
 		_, _, radius := massDrawCircle(mass)
 		if math.Hypot(mass.Position.X-position.X, mass.Position.Y-position.Y) <= float64(radius) {
 			return mass.ID, true
@@ -489,21 +511,21 @@ func (g *Game) worldToScreen(position sim.Vec2) sim.Vec2 {
 }
 
 func (g *Game) canvasCoordinate(position sim.Vec2) sim.Vec2 {
-	if !g.canvasYUp {
+	if !g.run.canvasYUp {
 		return position
 	}
 	return g.flipCanvasY(position)
 }
 
 func (g *Game) flipCanvasY(position sim.Vec2) sim.Vec2 {
-	return sim.Vec2{X: position.X, Y: g.simulation.Bounds.Height - position.Y}
+	return sim.Vec2{X: position.X, Y: g.world.simulation.Bounds.Height - position.Y}
 }
 
 func (g *Game) editing() *edit.Editor {
-	if g.editor == nil || g.editor.World != g.simulation {
-		g.editor = edit.NewEditor(g.simulation)
+	if g.world.editor == nil || g.world.editor.World != g.world.simulation {
+		g.world.editor = edit.NewEditor(g.world.simulation)
 	}
-	return g.editor
+	return g.world.editor
 }
 
 func (g *Game) Layout(int, int) (int, int) {
@@ -511,38 +533,38 @@ func (g *Game) Layout(int, int) (int, int) {
 }
 
 func (g *Game) World() *sim.Simulation {
-	return g.simulation
+	return g.world.simulation
 }
 
 func (g *Game) SetPaused(paused bool) {
-	g.paused = paused
+	g.run.paused = paused
 }
 
 func (g *Game) Paused() bool {
-	return g.paused
+	return g.run.paused
 }
 
 func (g *Game) InputActive() bool {
-	return g.inputActive
+	return g.runtime.inputActive
 }
 
 func (g *Game) RenderingActive() bool {
-	return g.renderingActive
+	return g.runtime.renderingActive
 }
 
 func (g *Game) RenderFrame() {
-	g.renderingActive = true
+	g.runtime.renderingActive = true
 }
 
 func (g *Game) Close() error {
-	g.closed = true
+	g.runtime.closed = true
 	return nil
 }
 
 func (g *Game) Closed() bool {
-	return g.closed
+	return g.runtime.closed
 }
 
 // mutate4go-manifest-begin
-// {"version":1,"tested_at":"2026-05-22T08:31:42-05:00","module_hash":"a73cb2af4862a579e80722724d4cab948dbe344340f47518ee3d43383dd1e4e8","functions":[{"id":"func/NewGame","name":"NewGame","line":118,"end_line":124,"hash":"687ee2a48042134921fd4acc355bebfefb1e005457b829c027c35e06a9ff57aa"},{"id":"func/DefaultWindowConfig","name":"DefaultWindowConfig","line":126,"end_line":128,"hash":"d07a778f3e78f2a72f6ae58d2c7afa2ecd83053f575705b5fa26512178690d50"},{"id":"func/Game.advanceSimulationFrame","name":"Game.advanceSimulationFrame","line":130,"end_line":135,"hash":"b69c280c98ef22e69395f6b86d0e51785b4275e2f1373f2079972549573bf9ae"},{"id":"func/Game.handleWindowClose","name":"Game.handleWindowClose","line":137,"end_line":141,"hash":"1fa7c9632d93845006cbfb2e5987fe93c53cc4060e482fd661e58389d2aa0d74"},{"id":"func/Game.handleRightPointer","name":"Game.handleRightPointer","line":143,"end_line":148,"hash":"a3fc0947248f134d340cbbf8800f8295391fce2d62b35e92cf1a9219bb47d06a"},{"id":"func/Game.handlePointer","name":"Game.handlePointer","line":150,"end_line":158,"hash":"9ed12bc968325df1cad2f12065c9c692da4abe248edaee27b9839fb4320826a1"},{"id":"func/Game.handlePressedPointer","name":"Game.handlePressedPointer","line":160,"end_line":166,"hash":"4342ecf36fca8e3c855125afefe412b7cce4b4a49a7fb9cec9c4214963274472"},{"id":"func/Game.continuePointerPress","name":"Game.continuePointerPress","line":168,"end_line":179,"hash":"9be7038b76b1a74ed55fd60b060a01d7981c546c2c8e62fc9b61a72be0690f60"},{"id":"func/Game.continueControlPress","name":"Game.continueControlPress","line":181,"end_line":190,"hash":"5c5b48e13323a0242b43e2470de8d6e9cbf286cbec5d892d9d1d8b972db1600c"},{"id":"func/Game.releasePointer","name":"Game.releasePointer","line":192,"end_line":203,"hash":"34c0bcde2f0f1921cb3150544cff0f8fa92d90ed3842a396777e2b844e4bde65"},{"id":"func/Game.beginPointerPress","name":"Game.beginPointerPress","line":205,"end_line":220,"hash":"fcc8ec5c4ad7b661c18415865b842634a927dd95dd233fed37bcd7851ff1a02b"},{"id":"func/Game.clickOpenOverlay","name":"Game.clickOpenOverlay","line":222,"end_line":229,"hash":"bd5b6c770d43d9d0d4843d0e7ffa1ced573a125deee18503c9fe6f9fe22ff1cf"},{"id":"func/overlayClick.run","name":"overlayClick.run","line":236,"end_line":242,"hash":"6cdb80fabb3a6fcaa4d3e7d33c230899d928b552231c4137272d329e27f0ad33"},{"id":"func/Game.openOverlayClicks","name":"Game.openOverlayClicks","line":244,"end_line":252,"hash":"fae322207183fa23f0fd9a10db90682d5e2b677cfd2be1837e92912da6c7d178"},{"id":"func/Game.controlPointerPress","name":"Game.controlPointerPress","line":254,"end_line":258,"hash":"ae34ac7cc5ca9ac4547264759269c59939550a6d2fa1bd717e049dede1faf9de"},{"id":"func/Game.scrollDemoPicker","name":"Game.scrollDemoPicker","line":260,"end_line":266,"hash":"c78d6e2d96e418e6daff83f002e782966140a5c37e40377a73af73d140b532a8"},{"id":"func/Game.demoList","name":"Game.demoList","line":268,"end_line":274,"hash":"a2b251e6bb5464680774c9189a40f4ccce99406502b8341fa65e4f80891a1a46"},{"id":"func/Game.beginCanvasGesture","name":"Game.beginCanvasGesture","line":276,"end_line":278,"hash":"197ca42d03064c4be68a351f807238cf8abd0777b55b3cf6e830680482c8003d"},{"id":"func/Game.finishWorldPointer","name":"Game.finishWorldPointer","line":280,"end_line":290,"hash":"dd9b5731c3eac78cb42665e05cbf06fd46650e79abed992c1aec7f00e58acc23"},{"id":"func/Game.finishMassDrag","name":"Game.finishMassDrag","line":292,"end_line":304,"hash":"d122c857bfcadc2fef1d0d79913252932f42f186822a863005e14dd7567c14d4"},{"id":"func/Game.throwDraggedMasses","name":"Game.throwDraggedMasses","line":306,"end_line":313,"hash":"2ba208771b3f0625bb4d6a438eaefc5475ff9b12128b29c7fda64fb4e3db8809"},{"id":"func/Game.throwSelectedDraggingMasses","name":"Game.throwSelectedDraggingMasses","line":315,"end_line":321,"hash":"a632b2e5ea2825212dec79df2f2c06b32a16d64d0127fac221c79c68b785995f"},{"id":"func/Game.throwSingleDraggingMass","name":"Game.throwSingleDraggingMass","line":323,"end_line":332,"hash":"2c420662bfed4ec391c367a3e57bf25ae4590f038378c4aa63c4dd14a99d649b"},{"id":"func/Game.createMassAt","name":"Game.createMassAt","line":334,"end_line":354,"hash":"0db0bbba5b2b4523d82ffcdc4af3e636361ded07afb26181a7181e033ee65aa0"},{"id":"func/Game.selectNearest","name":"Game.selectNearest","line":356,"end_line":360,"hash":"c64e5503f6398dce55003b362d508180e35e2b0c3d6ab50d0be690c49a26789b"},{"id":"func/Game.beginSelectGesture","name":"Game.beginSelectGesture","line":362,"end_line":383,"hash":"45ad3e7fea3d28bb752bb27b89d1343c4d4ee1c22f5419512e8134c6036e3bc2"},{"id":"func/Game.finishSelectGesture","name":"Game.finishSelectGesture","line":385,"end_line":398,"hash":"0c40acff2337b4f2ff3d6b02ce099e224795749865190bc4214804202b73301c"},{"id":"func/selectionClick","name":"selectionClick","line":400,"end_line":402,"hash":"f62199bd3dc9a322b7d12c1c28e74fcc9cb030a3565813897710ba8c44a0a3c9"},{"id":"func/Game.beginSpringAt","name":"Game.beginSpringAt","line":404,"end_line":413,"hash":"7a9047db3306e9d1de75fa42aef1d88a8a65ce5bf48f7915fc518e5b1ca0b50a"},{"id":"func/Game.finishSpringAt","name":"Game.finishSpringAt","line":415,"end_line":425,"hash":"f8b5091082d2eee0006b96ade69cc1d29538aff4689bd3b667676bd57390fca7"},{"id":"func/Game.beginMassDrag","name":"Game.beginMassDrag","line":427,"end_line":438,"hash":"64fedf1ba7b7bd1564ba7c4890821810075631d2d3ed99eb4f6326aa95d282e0"},{"id":"func/Game.captureDraggingOffsets","name":"Game.captureDraggingOffsets","line":440,"end_line":448,"hash":"01ca8dc66c60827d8c51e7480cc31abb9f4a6d012533892fcddc87e18738421e"},{"id":"func/Game.captureSelectedDraggingOffsets","name":"Game.captureSelectedDraggingOffsets","line":450,"end_line":460,"hash":"00960a8a793c7695bd4be5da7838ed652c751435d7b122548e7b1903adaf1e8d"},{"id":"func/Game.pinDraggingMasses","name":"Game.pinDraggingMasses","line":462,"end_line":467,"hash":"e77e762693460c32f2edf1c072c72665017b8726b65480cc97f3c3c863b4e27c"},{"id":"func/Game.massAt","name":"Game.massAt","line":469,"end_line":477,"hash":"473e6fecdf13bba51406f9b8e6111187d2cc4033dd3924d4490a27a32a94a25c"},{"id":"func/massDrawCircle","name":"massDrawCircle","line":479,"end_line":481,"hash":"141b72a0cb028af6c4bf4c0bf2d03b72b5298f6cfa2c5e0a19537d66c7de9cdb"},{"id":"func/Game.screenToWorld","name":"Game.screenToWorld","line":483,"end_line":485,"hash":"20d063171fc096c5763e0a5add37194d9b46437547eea38be243c0595489ca4e"},{"id":"func/Game.worldToScreen","name":"Game.worldToScreen","line":487,"end_line":489,"hash":"e02c541b189ecfde32bc8b1576f8e472ce03671dd138c3445907b27b19eb2b71"},{"id":"func/Game.canvasCoordinate","name":"Game.canvasCoordinate","line":491,"end_line":496,"hash":"207330f117cdea953807380885f4a5d60d9e7d766a52f67c9280dfb03e61c0e1"},{"id":"func/Game.flipCanvasY","name":"Game.flipCanvasY","line":498,"end_line":500,"hash":"723a020c9fdefca6b79ca834d8ed5f970e16e58f21ff6c68348ec069045a098c"},{"id":"func/Game.editing","name":"Game.editing","line":502,"end_line":507,"hash":"d8b1ccdd85577daec4370de59fa0271f4eade8301137406cf879ffdc86f5d2e5"},{"id":"func/Game.Layout","name":"Game.Layout","line":509,"end_line":511,"hash":"aab68cdc4f078367f499500c8a90603c494f128359287735d76907fe8d472cf0"},{"id":"func/Game.World","name":"Game.World","line":513,"end_line":515,"hash":"a9270d11e4300269b96797a052fe66c1e96ff42aac546663ea66d24b7f48c6ab"},{"id":"func/Game.SetPaused","name":"Game.SetPaused","line":517,"end_line":519,"hash":"022f698a4f568a12c8b3a2fe5723316d1c01b16b9e1f722d69c28b666b683e27"},{"id":"func/Game.Paused","name":"Game.Paused","line":521,"end_line":523,"hash":"423f86d8b651a7bdfc4f3430ac2d8e0369da3177056a0b8d6d2ee6c26b45aab9"},{"id":"func/Game.InputActive","name":"Game.InputActive","line":525,"end_line":527,"hash":"8ba126aecb56afb862b985e28fdf1144ebb879230d2e659cca1c16327817aea3"},{"id":"func/Game.RenderingActive","name":"Game.RenderingActive","line":529,"end_line":531,"hash":"1f935194ba70ba6592f1e82561e383760fc4b5907912de3ec32c3611503570f8"},{"id":"func/Game.RenderFrame","name":"Game.RenderFrame","line":533,"end_line":535,"hash":"93435d752bdaeafc1e6f52105b61156503e4a1acdc8f0f7ad4ddbafb0dfef512"},{"id":"func/Game.Close","name":"Game.Close","line":537,"end_line":540,"hash":"05d19586766eb286b92af2eead38992b7cfcdcdc358efc607ef6a2f1504cb980"},{"id":"func/Game.Closed","name":"Game.Closed","line":542,"end_line":544,"hash":"cd43811f993dc6eb808f5aeec63512934868aa0e2fa85aa73710dc4aef48861f"}]}
+// {"version":1,"tested_at":"2026-05-22T08:41:56-05:00","module_hash":"9c821804610f87381db06069a8aa0f9f087a44e0359988a375067f70a2b32a68","functions":[{"id":"func/NewGame","name":"NewGame","line":134,"end_line":146,"hash":"47db37f71ce2ab29ddf870ff90facecdd6dd22775c6cbf35318a8e8f5cec342c"},{"id":"func/DefaultWindowConfig","name":"DefaultWindowConfig","line":148,"end_line":150,"hash":"d07a778f3e78f2a72f6ae58d2c7afa2ecd83053f575705b5fa26512178690d50"},{"id":"func/Game.advanceSimulationFrame","name":"Game.advanceSimulationFrame","line":152,"end_line":157,"hash":"f8c98b9b8bf8859017b73642bbc7ec8a1853ae067f6e5fbddc91864bc8d1d135"},{"id":"func/Game.handleWindowClose","name":"Game.handleWindowClose","line":159,"end_line":163,"hash":"1fa7c9632d93845006cbfb2e5987fe93c53cc4060e482fd661e58389d2aa0d74"},{"id":"func/Game.handleRightPointer","name":"Game.handleRightPointer","line":165,"end_line":170,"hash":"a3fc0947248f134d340cbbf8800f8295391fce2d62b35e92cf1a9219bb47d06a"},{"id":"func/Game.handlePointer","name":"Game.handlePointer","line":172,"end_line":180,"hash":"9ed12bc968325df1cad2f12065c9c692da4abe248edaee27b9839fb4320826a1"},{"id":"func/Game.handlePressedPointer","name":"Game.handlePressedPointer","line":182,"end_line":188,"hash":"4342ecf36fca8e3c855125afefe412b7cce4b4a49a7fb9cec9c4214963274472"},{"id":"func/Game.continuePointerPress","name":"Game.continuePointerPress","line":190,"end_line":201,"hash":"9be7038b76b1a74ed55fd60b060a01d7981c546c2c8e62fc9b61a72be0690f60"},{"id":"func/Game.continueControlPress","name":"Game.continueControlPress","line":203,"end_line":212,"hash":"5c5b48e13323a0242b43e2470de8d6e9cbf286cbec5d892d9d1d8b972db1600c"},{"id":"func/Game.releasePointer","name":"Game.releasePointer","line":214,"end_line":225,"hash":"34c0bcde2f0f1921cb3150544cff0f8fa92d90ed3842a396777e2b844e4bde65"},{"id":"func/Game.beginPointerPress","name":"Game.beginPointerPress","line":227,"end_line":242,"hash":"fcc8ec5c4ad7b661c18415865b842634a927dd95dd233fed37bcd7851ff1a02b"},{"id":"func/Game.clickOpenOverlay","name":"Game.clickOpenOverlay","line":244,"end_line":251,"hash":"bd5b6c770d43d9d0d4843d0e7ffa1ced573a125deee18503c9fe6f9fe22ff1cf"},{"id":"func/overlayClick.run","name":"overlayClick.run","line":258,"end_line":264,"hash":"6cdb80fabb3a6fcaa4d3e7d33c230899d928b552231c4137272d329e27f0ad33"},{"id":"func/Game.openOverlayClicks","name":"Game.openOverlayClicks","line":266,"end_line":274,"hash":"fae322207183fa23f0fd9a10db90682d5e2b677cfd2be1837e92912da6c7d178"},{"id":"func/Game.controlPointerPress","name":"Game.controlPointerPress","line":276,"end_line":280,"hash":"ae34ac7cc5ca9ac4547264759269c59939550a6d2fa1bd717e049dede1faf9de"},{"id":"func/Game.scrollDemoPicker","name":"Game.scrollDemoPicker","line":282,"end_line":288,"hash":"c78d6e2d96e418e6daff83f002e782966140a5c37e40377a73af73d140b532a8"},{"id":"func/Game.demoList","name":"Game.demoList","line":290,"end_line":296,"hash":"a2b251e6bb5464680774c9189a40f4ccce99406502b8341fa65e4f80891a1a46"},{"id":"func/Game.beginCanvasGesture","name":"Game.beginCanvasGesture","line":298,"end_line":300,"hash":"197ca42d03064c4be68a351f807238cf8abd0777b55b3cf6e830680482c8003d"},{"id":"func/Game.finishWorldPointer","name":"Game.finishWorldPointer","line":302,"end_line":312,"hash":"dd9b5731c3eac78cb42665e05cbf06fd46650e79abed992c1aec7f00e58acc23"},{"id":"func/Game.finishMassDrag","name":"Game.finishMassDrag","line":314,"end_line":326,"hash":"d122c857bfcadc2fef1d0d79913252932f42f186822a863005e14dd7567c14d4"},{"id":"func/Game.throwDraggedMasses","name":"Game.throwDraggedMasses","line":328,"end_line":335,"hash":"324af5dae0a04bbaf882c4e4cb4c8f59074f9072609810ebe5cf623253098479"},{"id":"func/Game.throwSelectedDraggingMasses","name":"Game.throwSelectedDraggingMasses","line":337,"end_line":343,"hash":"fbf3d78192c8d57825af0cba8ee19c25aae5185dc5794c5511409976a9e792ff"},{"id":"func/Game.throwSingleDraggingMass","name":"Game.throwSingleDraggingMass","line":345,"end_line":354,"hash":"bf7e32dc72ebe0f7a5be261d52144ed838ad07c5effab974ae39e465e6f12575"},{"id":"func/Game.createMassAt","name":"Game.createMassAt","line":356,"end_line":376,"hash":"f36ce45bc786657b451c10eee31db647adcfb45a7bfa536333ecb926cec4b45f"},{"id":"func/Game.selectNearest","name":"Game.selectNearest","line":378,"end_line":382,"hash":"9ab9d8b0a35b3835e1e75067cd70de1bcab571140dc0b30398970e65d21259f8"},{"id":"func/Game.beginSelectGesture","name":"Game.beginSelectGesture","line":384,"end_line":405,"hash":"45ad3e7fea3d28bb752bb27b89d1343c4d4ee1c22f5419512e8134c6036e3bc2"},{"id":"func/Game.finishSelectGesture","name":"Game.finishSelectGesture","line":407,"end_line":420,"hash":"0c40acff2337b4f2ff3d6b02ce099e224795749865190bc4214804202b73301c"},{"id":"func/selectionClick","name":"selectionClick","line":422,"end_line":424,"hash":"f62199bd3dc9a322b7d12c1c28e74fcc9cb030a3565813897710ba8c44a0a3c9"},{"id":"func/Game.beginSpringAt","name":"Game.beginSpringAt","line":426,"end_line":435,"hash":"7a9047db3306e9d1de75fa42aef1d88a8a65ce5bf48f7915fc518e5b1ca0b50a"},{"id":"func/Game.finishSpringAt","name":"Game.finishSpringAt","line":437,"end_line":447,"hash":"f8b5091082d2eee0006b96ade69cc1d29538aff4689bd3b667676bd57390fca7"},{"id":"func/Game.beginMassDrag","name":"Game.beginMassDrag","line":449,"end_line":460,"hash":"64fedf1ba7b7bd1564ba7c4890821810075631d2d3ed99eb4f6326aa95d282e0"},{"id":"func/Game.captureDraggingOffsets","name":"Game.captureDraggingOffsets","line":462,"end_line":470,"hash":"e95c3b367d00da8939c3a741020cecf45f7d14a04350147363edffe72e161f2b"},{"id":"func/Game.captureSelectedDraggingOffsets","name":"Game.captureSelectedDraggingOffsets","line":472,"end_line":482,"hash":"0f0daf6c57e4f765045bdde34f75bf3952ab775e997da8e6b5a0239b319b2d74"},{"id":"func/Game.pinDraggingMasses","name":"Game.pinDraggingMasses","line":484,"end_line":489,"hash":"e77e762693460c32f2edf1c072c72665017b8726b65480cc97f3c3c863b4e27c"},{"id":"func/Game.massAt","name":"Game.massAt","line":491,"end_line":499,"hash":"3ff80823eb103b2b67167abb1f6f1c560442cfac60cc1790b7a3d506f09d7ac6"},{"id":"func/massDrawCircle","name":"massDrawCircle","line":501,"end_line":503,"hash":"141b72a0cb028af6c4bf4c0bf2d03b72b5298f6cfa2c5e0a19537d66c7de9cdb"},{"id":"func/Game.screenToWorld","name":"Game.screenToWorld","line":505,"end_line":507,"hash":"20d063171fc096c5763e0a5add37194d9b46437547eea38be243c0595489ca4e"},{"id":"func/Game.worldToScreen","name":"Game.worldToScreen","line":509,"end_line":511,"hash":"e02c541b189ecfde32bc8b1576f8e472ce03671dd138c3445907b27b19eb2b71"},{"id":"func/Game.canvasCoordinate","name":"Game.canvasCoordinate","line":513,"end_line":518,"hash":"35a00aa3fe34efe7bf6dcfcc8e214822d61bb6a715c366d38b844342c079ab8b"},{"id":"func/Game.flipCanvasY","name":"Game.flipCanvasY","line":520,"end_line":522,"hash":"d83a41b60cd87dee4025d8245fd79519e489c0ebcb8016b38fbb9e56affd0f17"},{"id":"func/Game.editing","name":"Game.editing","line":524,"end_line":529,"hash":"bcf09a98a5f419f295a2fd6c7c7e85d7b1a9aaf656db9a844e7e63cdf465d673"},{"id":"func/Game.Layout","name":"Game.Layout","line":531,"end_line":533,"hash":"aab68cdc4f078367f499500c8a90603c494f128359287735d76907fe8d472cf0"},{"id":"func/Game.World","name":"Game.World","line":535,"end_line":537,"hash":"7fc326e28e4dfddaa10b2905d3e99ea6fd531ba2a6f4c96433203191da8b51c1"},{"id":"func/Game.SetPaused","name":"Game.SetPaused","line":539,"end_line":541,"hash":"a7f2a3c7ec5e2816b287d6c35c13d3e2f50cf91ff080f0402f932c4e43bf555b"},{"id":"func/Game.Paused","name":"Game.Paused","line":543,"end_line":545,"hash":"c8d2e386a87960313955f0049367542112021d80e438d778709fbb844c3a19d6"},{"id":"func/Game.InputActive","name":"Game.InputActive","line":547,"end_line":549,"hash":"f91d0fd54dc7aaff10c504b1c9bf4dbcfdfc0387add7cf29fbf873ed528ee66e"},{"id":"func/Game.RenderingActive","name":"Game.RenderingActive","line":551,"end_line":553,"hash":"988262465f3679184feef405a117d1050eb0a730ac6761f8c261e56e81a0657e"},{"id":"func/Game.RenderFrame","name":"Game.RenderFrame","line":555,"end_line":557,"hash":"6e9d3826815b3d345002e53402029fc9eec62a43124acc31742f795d57f7e7d5"},{"id":"func/Game.Close","name":"Game.Close","line":559,"end_line":562,"hash":"df8cfa513463e44f848de31c611e1efb6d0f4dfcfcba23e8cbf9c7947bf5a97e"},{"id":"func/Game.Closed","name":"Game.Closed","line":564,"end_line":566,"hash":"0fa4138145c5b4d4d164f60f1336e23b1759e704dfe312bfc890f2ede5e2e373"}]}
 // mutate4go-manifest-end

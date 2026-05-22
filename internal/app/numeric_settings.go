@@ -203,12 +203,12 @@ func (g *Game) committedNumericSettingValueText(setting numericSetting) string {
 func (g *Game) rawNumericSettingValue(setting numericSetting) string {
 	switch {
 	case setting.Speed:
-		return formatControlFloat(g.simulationSpeed)
+		return formatControlFloat(g.run.simulationSpeed)
 	case setting.Force != "":
-		force, _ := g.simulation.Parameters.Force(setting.Force)
+		force, _ := g.world.simulation.Parameters.Force(setting.Force)
 		return force.Values[setting.ForceKey]
 	default:
-		return g.simulation.Parameters.Value(setting.Parameter)
+		return g.world.simulation.Parameters.Value(setting.Parameter)
 	}
 }
 
@@ -260,18 +260,18 @@ func (g *Game) setNumericSettingValue(setting numericSetting, text string) bool 
 	}
 	switch {
 	case setting.Speed:
-		g.simulationSpeed = clampFloat(value, setting.Min, setting.Max)
+		g.run.simulationSpeed = clampFloat(value, setting.Min, setting.Max)
 	case setting.Force != "":
 		g.setForceValue(setting.Force, setting.ForceKey, value)
 	default:
 		g.setParameterNumericSetting(setting, text)
 	}
-	g.dirty = true
+	g.editState.dirty = true
 	return true
 }
 
 func (g *Game) setParameterNumericSetting(setting numericSetting, text string) {
-	g.simulation.Parameters.Set(setting.Parameter, text)
+	g.world.simulation.Parameters.Set(setting.Parameter, text)
 	if setting.Control != "" {
 		_ = g.editing().ChangeControl(setting.Control, text)
 	}
