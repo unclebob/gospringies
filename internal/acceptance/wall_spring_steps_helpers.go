@@ -240,16 +240,7 @@ func forceEvaluationHasForce(evaluation sim.ForceEvaluation) bool {
 }
 
 func createWallSpringByCoordinates(w *world, example map[string]string) error {
-	if err := requireWallSpringExampleValues(example, map[string]string{
-		"spring_id": "1",
-		"wall_x1":   "0",
-		"wall_y1":   "0",
-		"wall_x2":   "0",
-		"wall_y2":   "100",
-	}); err != nil {
-		return err
-	}
-	return createWallSpringByCoordinateKeys(w, example, "spring_id", "wall_x1", "wall_y1", "wall_x2", "wall_y2")
+	return createDefaultWallSpringByCoordinateKeys(w, example, "spring_id", []string{"wall_x1", "wall_y1", "wall_x2", "wall_y2"})
 }
 
 func createMovingWallSpringByCoordinates(w *world, example map[string]string) error {
@@ -279,16 +270,24 @@ func createMovingWallSpringByCoordinates(w *world, example map[string]string) er
 }
 
 func createBarrierWallSpringByCoordinates(w *world, example map[string]string) error {
-	if err := requireWallSpringExampleValues(example, map[string]string{
-		"barrier_spring": "1",
-		"barrier_x1":     "0",
-		"barrier_y1":     "0",
-		"barrier_x2":     "0",
-		"barrier_y2":     "100",
-	}); err != nil {
+	return createDefaultWallSpringByCoordinateKeys(w, example, "barrier_spring", []string{"barrier_x1", "barrier_y1", "barrier_x2", "barrier_y2"})
+}
+
+func createDefaultWallSpringByCoordinateKeys(w *world, example map[string]string, springKey string, coordinateKeys []string) error {
+	if err := requireWallSpringExampleValues(example, defaultWallSpringCoordinateExample(springKey, coordinateKeys)); err != nil {
 		return err
 	}
-	return createWallSpringByCoordinateKeys(w, example, "barrier_spring", "barrier_x1", "barrier_y1", "barrier_x2", "barrier_y2")
+	return createWallSpringByCoordinateKeys(w, example, springKey, coordinateKeys...)
+}
+
+func defaultWallSpringCoordinateExample(springKey string, coordinateKeys []string) map[string]string {
+	return map[string]string{
+		springKey:         "1",
+		coordinateKeys[0]: "0",
+		coordinateKeys[1]: "0",
+		coordinateKeys[2]: "0",
+		coordinateKeys[3]: "100",
+	}
 }
 
 func createWallSpringByCoordinateKeys(w *world, example map[string]string, springKey string, coordinateKeys ...string) error {
@@ -1448,25 +1447,4 @@ func endpointImpulseExpectation(example map[string]string, endpointKey string, s
 		return 0, 0, fmt.Errorf("invalid impulse share %q", expected)
 	}
 	return endpoint, expectedShare, nil
-}
-
-func intPair(example map[string]string, firstKey string, secondKey string) (int, int, error) {
-	first, err := intValue(example, firstKey)
-	if err != nil {
-		return 0, 0, err
-	}
-	second, err := intValue(example, secondKey)
-	return first, second, err
-}
-
-func floatValues(example map[string]string, keys ...string) ([]float64, error) {
-	values := make([]float64, len(keys))
-	for i, key := range keys {
-		value, err := floatValue(example, key)
-		if err != nil {
-			return nil, err
-		}
-		values[i] = value
-	}
-	return values, nil
 }
