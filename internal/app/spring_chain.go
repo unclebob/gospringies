@@ -66,7 +66,7 @@ func (g *Game) createSpringBetween(startID int, endID int) bool {
 	editor := g.editing()
 	editor.Mode = edit.ModeAddSpring
 	if _, err := editor.CreateSpring(startID, endID); err == nil {
-		g.editState.dirty = true
+		g.markDirty()
 		return true
 	}
 	return false

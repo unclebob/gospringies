@@ -266,7 +266,7 @@ func (g *Game) setNumericSettingValue(setting numericSetting, text string) bool 
 	default:
 		g.setParameterNumericSetting(setting, text)
 	}
-	g.editState.dirty = true
+	g.markDirty()
 	return true
 }
 
