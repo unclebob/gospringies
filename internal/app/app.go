@@ -317,10 +317,7 @@ func drawSpringLine(screen *ebiten.Image, a sim.Vec2, b sim.Vec2, color color.RG
 }
 
 func springDrawColor(spring sim.Spring) color.RGBA {
-	if spring.Wall {
-		return wallSpringColor
-	}
-	return springColor
+	return drawColorFor(spring.Wall, wallSpringColor, springColor)
 }
 
 func springLineAntiAlias() bool {
@@ -375,10 +372,14 @@ func massDrawAntiAlias() bool {
 }
 
 func massDrawColor(mass sim.Mass) color.RGBA {
-	if mass.Fixed {
-		return fixedMassColor
+	return drawColorFor(mass.Fixed, fixedMassColor, massColor)
+}
+
+func drawColorFor(useAlternate bool, alternate color.RGBA, fallback color.RGBA) color.RGBA {
+	if useAlternate {
+		return alternate
 	}
-	return massColor
+	return fallback
 }
 
 func (g *Game) drawWalls(screen *ebiten.Image) {
