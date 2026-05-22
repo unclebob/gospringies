@@ -66,6 +66,331 @@ func TestMovingWallSpringStopsStationaryMassCrossingSegment(t *testing.T) {
 	}
 }
 
+func TestMovingWallSpringSegmentBouncesOffFixedWallEndpointMass(t *testing.T) {
+	world := movingWallSpringFixedEndpointCollisionWorld()
+
+	world.Step(1)
+
+	fixed, _ := world.MassByID(1)
+	endpointA, _ := world.MassByID(3)
+	endpointB, _ := world.MassByID(4)
+	contact := closestPointOnSegment(fixed.Position, endpointA.Position, endpointB.Position.Sub(endpointA.Position), dot(endpointB.Position.Sub(endpointA.Position), endpointB.Position.Sub(endpointA.Position)))
+	if contact.Y > fixed.Position.Y {
+		t.Fatalf("moving wall spring crossed fixed endpoint mass: contact=%#v fixed=%#v", contact, fixed.Position)
+	}
+	contactVelocity := wallSpringContactVelocity(&endpointA, &endpointB, 0.5)
+	if contactVelocity.Y > 0 {
+		t.Fatalf("moving wall spring contact velocity still penetrates fixed endpoint mass: %#v", contactVelocity)
+	}
+	if fixed.Velocity != (Vec2{}) {
+		t.Fatalf("fixed endpoint velocity changed: %#v", fixed.Velocity)
+	}
+}
+
+func TestMovingWallSpringFixedEndpointImpulseIsMassAware(t *testing.T) {
+	world := movingWallSpringFixedEndpointCollisionWorld()
+	world.Masses[2].Mass = 2
+	world.Masses[3].Mass = 5
+
+	world.Step(1)
+
+	endpointA, _ := world.MassByID(3)
+	endpointB, _ := world.MassByID(4)
+	if endpointA.Velocity.Y >= endpointB.Velocity.Y {
+		t.Fatalf("endpoint velocities = %#v %#v, expected lighter endpoint to receive larger contact response", endpointA.Velocity, endpointB.Velocity)
+	}
+	if got := wallSpringContactVelocity(&endpointA, &endpointB, 0.5); got.Y > 0 {
+		t.Fatalf("contact velocity still penetrates fixed endpoint mass: %#v", got)
+	}
+}
+
+func TestMovingWallSpringFixedEndpointCollisionUsesContactFraction(t *testing.T) {
+	world := movingWallSpringFixedEndpointCollisionWorld()
+	world.Masses[0].Position = Vec2{X: -5}
+	world.Masses[1].Position = Vec2{X: -5, Y: 100}
+
+	world.Step(1)
+
+	endpointA, _ := world.MassByID(3)
+	endpointB, _ := world.MassByID(4)
+	if endpointA.Velocity.Y >= endpointB.Velocity.Y {
+		t.Fatalf("endpoint velocities = %#v %#v, expected endpoint near contact to receive larger response", endpointA.Velocity, endpointB.Velocity)
+	}
+	contactVelocity := wallSpringContactVelocity(&endpointA, &endpointB, 0.25)
+	if contactVelocity.Y > 0 {
+		t.Fatalf("off-center contact velocity still penetrates fixed endpoint mass: %#v", contactVelocity)
+	}
+}
+
+func TestMovingWallSpringFixedEndpointCollisionSkipsZeroTimeStep(t *testing.T) {
+	world := movingWallSpringFixedEndpointCollisionWorld()
+	starts := massPositions(world.Masses)
+	world.Masses[2].Position.Y = 5
+	world.Masses[3].Position.Y = 5
+	before := append([]Mass{}, world.Masses...)
+
+	world.applyMovingWallSpringFixedEndpointCollisions(0, starts)
+
+	assertMassesUnchanged(t, world.Masses, before)
+}
+
+func TestMovingWallSpringFixedEndpointCollisionSkipsNonWallAndFixedSources(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		update func(*Simulation)
+	}{
+		{name: "non-wall source", update: func(world *Simulation) { world.Springs[1].Wall = false }},
+		{name: "fixed source endpoints", update: func(world *Simulation) {
+			world.Masses[2].Fixed = true
+			world.Masses[3].Fixed = true
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			world := movingWallSpringFixedEndpointCollisionWorld()
+			tc.update(world)
+			before := append([]Mass{}, world.Masses...)
+
+			world.applyMovingWallSpringFixedEndpointCollisions(1, massPositions(before))
+
+			assertMassesUnchanged(t, world.Masses, before)
+		})
+	}
+}
+
+func TestMovingWallSpringEndpointIndexesRequireMovingWallSpring(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		mass []Mass
+		want bool
+	}{
+		{name: "non-wall spring", mass: []Mass{{Mass: 1}, {Mass: 1}}, want: false},
+		{name: "invalid endpoint", mass: []Mass{{Mass: 1}, {Mass: 1}}, want: false},
+		{name: "both endpoints fixed", mass: []Mass{{Mass: 1, Fixed: true}, {Mass: 1, Fixed: true}}, want: false},
+		{name: "one endpoint moving", mass: []Mass{{Mass: 1, Fixed: true}, {Mass: 1}}, want: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			world := NewWorld()
+			for i, mass := range tc.mass {
+				mass.ID = i + 1
+				_ = world.AddMass(mass)
+			}
+			spring := Spring{MassA: 1, MassB: 2, Wall: true}
+			if tc.name == "non-wall spring" {
+				spring.Wall = false
+			}
+			if tc.name == "invalid endpoint" {
+				spring.MassB = 99
+			}
+
+			_, _, got := world.movingWallSpringEndpointIndexes(spring)
+
+			if got != tc.want {
+				t.Fatalf("moving endpoint indexes ok = %t, expected %t", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestMovingWallSpringFixedEndpointCollisionAllowsSingleFixedSourceEndpoint(t *testing.T) {
+	world := movingWallSpringFixedEndpointCollisionWorld()
+	world.Masses[2].Fixed = true
+
+	world.Step(1)
+
+	if world.Masses[3].Velocity.Y >= 10 {
+		t.Fatalf("free source endpoint velocity = %#v, expected collision response", world.Masses[3].Velocity)
+	}
+}
+
+func TestMovingWallSpringFixedEndpointCollisionSkipsInvalidTargets(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		fixedIndex int
+		update     func(*Simulation)
+	}{
+		{name: "source endpoint A", fixedIndex: 2, update: func(*Simulation) {}},
+		{name: "source endpoint B", fixedIndex: 3, update: func(*Simulation) {}},
+		{name: "non-fixed target", fixedIndex: 0, update: func(world *Simulation) { world.Masses[0].Fixed = false }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			world := movingWallSpringFixedEndpointCollisionWorld()
+			tc.update(world)
+			before := append([]Mass{}, world.Masses...)
+
+			world.applyMovingWallSpringFixedEndpointCollision(2, 3, tc.fixedIndex, massPositions(before))
+
+			assertMassesUnchanged(t, world.Masses, before)
+		})
+	}
+}
+
+func TestMovingWallSpringFixedEndpointCollisionSkipTargets(t *testing.T) {
+	world := movingWallSpringFixedEndpointCollisionWorld()
+	world.Masses[2].Fixed = true
+	world.Masses[3].Fixed = true
+
+	for _, tc := range []struct {
+		name       string
+		fixedIndex int
+		want       bool
+	}{
+		{name: "source endpoint A", fixedIndex: 2, want: true},
+		{name: "source endpoint B", fixedIndex: 3, want: true},
+		{name: "fixed other endpoint", fixedIndex: 0, want: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := world.skipMovingWallSpringFixedEndpointCollision(2, 3, tc.fixedIndex); got != tc.want {
+				t.Fatalf("skip = %t, expected %t", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestMovingWallSpringFixedEndpointCollisionSkipsDegenerateSegments(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		update func(*Simulation, []Vec2) []Vec2
+	}{
+		{name: "previous segment", update: func(world *Simulation, starts []Vec2) []Vec2 {
+			starts[3] = starts[2]
+			return starts
+		}},
+		{name: "current segment", update: func(world *Simulation, starts []Vec2) []Vec2 {
+			world.Masses[3].Position = world.Masses[2].Position
+			return starts
+		}},
+		{name: "starts on fixed endpoint", update: func(world *Simulation, starts []Vec2) []Vec2 {
+			starts[2] = Vec2{}
+			starts[3] = Vec2{}
+			return starts
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			world := movingWallSpringFixedEndpointCollisionWorld()
+			starts := tc.update(world, massPositions(world.Masses))
+			before := append([]Mass{}, world.Masses...)
+
+			world.applyMovingWallSpringFixedEndpointCollision(2, 3, 0, starts)
+
+			assertMassesUnchanged(t, world.Masses, before)
+		})
+	}
+}
+
+func TestMovingWallSpringFixedEndpointContactRejectsDegeneratePreviousNormal(t *testing.T) {
+	world := movingWallSpringFixedEndpointCollisionWorld()
+	starts := massPositions(world.Masses)
+	starts[3] = starts[2]
+
+	normal, fraction, side, ok := world.movingWallSpringFixedEndpointContact(2, 3, world.Masses[0], starts)
+
+	if ok || normal != (Vec2{}) || fraction != 0 || side != 0 {
+		t.Fatalf("contact = %#v %f %f %t, expected rejected zero contact", normal, fraction, side, ok)
+	}
+}
+
+func TestPreviousFixedEndpointNormalUsesCurrentPositionsWhenStartsMissing(t *testing.T) {
+	world := movingWallSpringFixedEndpointCollisionWorld()
+	world.Masses[2].Velocity = Vec2{Y: 10}
+	world.Masses[3].Velocity = Vec2{Y: -10}
+
+	normal, ok := world.previousFixedEndpointNormal(2, 3, world.Masses[0], nil)
+
+	if !ok || normal != (Vec2{Y: -1}) {
+		t.Fatalf("previous normal = %#v, %t, expected current-position normal", normal, ok)
+	}
+}
+
+func TestPreviousFixedEndpointNormalRejectsDegeneratePreviousSegment(t *testing.T) {
+	world := movingWallSpringFixedEndpointCollisionWorld()
+	starts := massPositions(world.Masses)
+	starts[3] = starts[2]
+
+	normal, ok := world.previousFixedEndpointNormal(2, 3, world.Masses[0], starts)
+
+	if ok || normal != (Vec2{}) {
+		t.Fatalf("previous normal = %#v, %t, expected rejected zero normal", normal, ok)
+	}
+}
+
+func TestCurrentFixedEndpointContactRejectsDegenerateCurrentSegment(t *testing.T) {
+	fraction, side, ok := currentFixedEndpointContact(Vec2{}, Vec2{X: 1}, Vec2{X: 1}, Vec2{Y: -1})
+
+	if ok || fraction != 0 || side != 0 {
+		t.Fatalf("current contact = %f %f %t, expected rejected zero contact", fraction, side, ok)
+	}
+}
+
+func TestFixedEndpointContactBoundaries(t *testing.T) {
+	if !fixedEndpointContactOutside(fixedMassCollisionRadius) {
+		t.Fatal("contact at collision radius should be outside")
+	}
+	if !fixedEndpointContactResolved(Vec2{}, 0) {
+		t.Fatal("zero delta at boundary should be resolved")
+	}
+	if fixedEndpointContactResolved(Vec2{Y: 1}, 0) {
+		t.Fatal("non-zero delta at boundary should not be resolved")
+	}
+}
+
+func TestMovingWallSpringFixedEndpointCollisionSkipsNonPenetratingContact(t *testing.T) {
+	for _, y := range []float64{-4, -2} {
+		world := movingWallSpringFixedEndpointCollisionWorld()
+		world.Masses[2].Position = Vec2{X: -10, Y: y}
+		world.Masses[3].Position = Vec2{X: 10, Y: y}
+		world.Masses[2].Velocity = Vec2{Y: -1}
+		world.Masses[3].Velocity = Vec2{Y: -1}
+		before := append([]Mass{}, world.Masses...)
+
+		world.applyMovingWallSpringFixedEndpointCollision(2, 3, 0, massPositions(before))
+
+		assertMassesUnchanged(t, world.Masses, before)
+	}
+}
+
+func TestClosestFractionOnSegmentClampsProjection(t *testing.T) {
+	segment := Vec2{X: 10}
+	if got := closestFractionOnSegment(Vec2{X: 20}, Vec2{}, segment, dot(segment, segment)); got != 1 {
+		t.Fatalf("fraction beyond segment = %f, expected 1", got)
+	}
+	if got := closestFractionOnSegment(Vec2{X: -20}, Vec2{}, segment, dot(segment, segment)); got != 0 {
+		t.Fatalf("fraction before segment = %f, expected 0", got)
+	}
+}
+
+func TestResolvedFixedEndpointContactVelocityLeavesSeparatingVelocity(t *testing.T) {
+	for _, velocity := range []Vec2{{}, {Y: -1}} {
+		if got := resolvedFixedEndpointContactVelocity(velocity, Vec2{Y: -1}); got != velocity {
+			t.Fatalf("resolved velocity = %#v, expected %#v", got, velocity)
+		}
+	}
+}
+
+func TestMovingWallSpringContactImpulseSkipsFixedEndpoints(t *testing.T) {
+	endpointA := Mass{Fixed: true}
+	endpointB := Mass{Fixed: true}
+
+	shareMovingWallSpringContactImpulse(&endpointA, &endpointB, Vec2{Y: -10}, 0.5)
+
+	if endpointA.Velocity != (Vec2{}) || endpointB.Velocity != (Vec2{}) {
+		t.Fatalf("fixed endpoint velocities = %#v %#v, expected unchanged", endpointA.Velocity, endpointB.Velocity)
+	}
+	if got := contactShareInverseMass(Mass{Fixed: true}, 0.5); got != 0 {
+		t.Fatalf("fixed endpoint inverse mass = %f, expected 0", got)
+	}
+}
+
+func TestMovingWallSpringContactImpulseSkipsZeroInverseMass(t *testing.T) {
+	endpointA := Mass{Mass: 1}
+	endpointB := Mass{Mass: -1}
+
+	shareMovingWallSpringContactImpulse(&endpointA, &endpointB, Vec2{Y: -10}, 0.5)
+
+	if endpointA.Velocity != (Vec2{}) || endpointB.Velocity != (Vec2{}) {
+		t.Fatalf("zero inverse-mass velocities = %#v %#v, expected unchanged", endpointA.Velocity, endpointB.Velocity)
+	}
+}
+
 func TestWallSpringCollisionPlacesMassAtRadius(t *testing.T) {
 	world := wallSpringCollisionWorld(false, false)
 
@@ -826,6 +1151,29 @@ func movingWallSpringCollisionWorld() *Simulation {
 	_ = world.AddMass(Mass{ID: 3, Position: Vec2{X: 0, Y: 50}, Mass: 1})
 	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, Wall: true})
 	return world
+}
+
+func movingWallSpringFixedEndpointCollisionWorld() *Simulation {
+	world := NewWorld()
+	_ = world.AddMass(Mass{ID: 1, Position: Vec2{}, Mass: 1, Fixed: true})
+	_ = world.AddMass(Mass{ID: 2, Position: Vec2{Y: 100}, Mass: 1, Fixed: true})
+	_ = world.AddMass(Mass{ID: 3, Position: Vec2{X: -10, Y: -5}, Velocity: Vec2{Y: 10}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 4, Position: Vec2{X: 10, Y: -5}, Velocity: Vec2{Y: 10}, Mass: 1})
+	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, Wall: true})
+	_ = world.AddSpring(Spring{ID: 2, MassA: 3, MassB: 4, RestLength: 20, Wall: true})
+	return world
+}
+
+func assertMassesUnchanged(t *testing.T, got, want []Mass) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("mass count = %d, expected %d", len(got), len(want))
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			t.Fatalf("mass[%d] = %#v, expected %#v", i, got[i], want[i])
+		}
+	}
 }
 
 func unequalEndpointMassWallSpringCollisionWorld() *Simulation {

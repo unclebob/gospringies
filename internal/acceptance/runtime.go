@@ -69,6 +69,7 @@ type world struct {
 	wallSpringImpulses   map[int]sim.Vec2
 	wallSpringMomentum   sim.Vec2
 	wallSpringMomentumID int
+	fixedEndpointSides   map[int]sim.Vec2
 }
 
 type stepHandler func(*world, map[string]string) error
