@@ -49,4 +49,12 @@ func init() {
 	} {
 		stepHandlers[step] = handler
 	}
+	for step, handler := range map[string]stepHandler{
+		"a stationary floating wall with endpoint masses <endpoint_a_mass> and <endpoint_b_mass>":                                                createUnequalMassFloatingWall,
+		"moving mass <mass_id> with mass <moving_mass> is aimed at the floating wall from <mass_x>, <mass_y> with velocity <mass_vx>, <mass_vy>": createMassAimedAtFloatingWall,
+		"the simulation advances until the mass collides with the floating wall":                                                                 advanceUntilFloatingWallCollision,
+		"the total momentum of the moving mass and floating wall endpoints is unchanged":                                                         assertFloatingWallMomentumUnchanged,
+	} {
+		stepHandlers[step] = handler
+	}
 }

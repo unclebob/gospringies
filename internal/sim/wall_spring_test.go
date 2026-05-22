@@ -38,6 +38,18 @@ func TestWallSpringStopsFastMassPathCrossingSegment(t *testing.T) {
 	}
 }
 
+func TestFloatingWallSpringCollisionConservesMomentumWithUnequalEndpointMasses(t *testing.T) {
+	world := unequalEndpointMassWallSpringCollisionWorld()
+	before := wallSpringMomentum(world, 1, 2, 3)
+
+	world.Step(1)
+
+	after := wallSpringMomentum(world, 1, 2, 3)
+	if !closeWallSpringLength(after.X, before.X) || !closeWallSpringLength(after.Y, before.Y) {
+		t.Fatalf("momentum = %#v, expected %#v", after, before)
+	}
+}
+
 func TestMovingWallSpringStopsStationaryMassCrossingSegment(t *testing.T) {
 	world := movingWallSpringCollisionWorld()
 
@@ -635,6 +647,31 @@ func movingWallSpringCollisionWorld() *Simulation {
 	_ = world.AddMass(Mass{ID: 3, Position: Vec2{X: 0, Y: 50}, Mass: 1})
 	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, Wall: true})
 	return world
+}
+
+func unequalEndpointMassWallSpringCollisionWorld() *Simulation {
+	world := NewWorld()
+	_ = world.AddMass(Mass{ID: 1, Position: Vec2{}, Mass: 2})
+	_ = world.AddMass(Mass{ID: 2, Position: Vec2{Y: 100}, Mass: 5})
+	_ = world.AddMass(Mass{ID: 3, Position: Vec2{X: -5, Y: 50}, Velocity: Vec2{X: 10}, Mass: 1})
+	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, Wall: true})
+	return world
+}
+
+func wallSpringMomentum(world *Simulation, ids ...int) Vec2 {
+	total := Vec2{}
+	for _, id := range ids {
+		mass, ok := world.MassByID(id)
+		if !ok {
+			continue
+		}
+		massValue := mass.Mass
+		if massValue == 0 {
+			massValue = 1
+		}
+		total = total.Add(mass.Velocity.Scale(massValue))
+	}
+	return total
 }
 
 func wallSpringLengthWorld(initialLength, restLength float64, fixedA, fixedB bool) *Simulation {
