@@ -23,24 +23,24 @@ func TestAppUnitOverlayAndDialogRepeatHelpers(t *testing.T) {
 		t.Fatalf("mass overlay open = %t", game.massMenu.Open)
 	}
 
-	game.demoPickerOpen = true
-	if !game.clickOpenOverlay(0, 0) || game.demoPickerOpen {
-		t.Fatalf("demo picker open = %t", game.demoPickerOpen)
+	game.controls.demoPickerOpen = true
+	if !game.clickOpenOverlay(0, 0) || game.controls.demoPickerOpen {
+		t.Fatalf("demo picker open = %t", game.controls.demoPickerOpen)
 	}
 	if game.clickOpenOverlay(0, 0) {
 		t.Fatal("closed overlays should not handle click")
 	}
 
 	game.valueDialog = valueDialog{Open: true, Text: "1", Min: 0, Max: 10}
-	game.activeValueStep = numericStepAmount
-	game.valueStepTicks = numericStepHoldDelayTicks - 1
+	game.controls.activeValueStep = numericStepAmount
+	game.controls.valueStepTicks = numericStepHoldDelayTicks - 1
 	game.continueValueDialogStepHold()
 	if game.valueDialog.Text != "1.1" {
 		t.Fatalf("repeated value text = %q", game.valueDialog.Text)
 	}
 	game.valueDialog.Open = false
 	game.continueValueDialogStepHold()
-	if game.activeValueStep != 0 || game.valueStepTicks != 0 {
-		t.Fatalf("closed value repeat state step=%f ticks=%d", game.activeValueStep, game.valueStepTicks)
+	if game.controls.activeValueStep != 0 || game.controls.valueStepTicks != 0 {
+		t.Fatalf("closed value repeat state step=%f ticks=%d", game.controls.activeValueStep, game.controls.valueStepTicks)
 	}
 }

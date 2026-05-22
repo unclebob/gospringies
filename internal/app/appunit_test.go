@@ -91,7 +91,7 @@ func TestAppUnitNumericSettingTextInputBranches(t *testing.T) {
 	}
 
 	game.appendNumericSettingInput([]rune("x2.5"))
-	if got := game.numericInputText; got != "2.5" {
+	if got := game.controls.numericInputText; got != "2.5" {
 		t.Fatalf("numeric input text = %q, want 2.5", got)
 	}
 	if got := game.World().Parameters.Value("current mass"); got != "1" {
@@ -103,15 +103,15 @@ func TestAppUnitNumericSettingTextInputBranches(t *testing.T) {
 	if got := game.World().Parameters.Value("current mass"); got != "2.5" {
 		t.Fatalf("current mass after commit = %q, want 2.5", got)
 	}
-	if game.focusedNumeric != "" || game.numericTextHighlighted("Mass") {
-		t.Fatalf("numeric focus/highlight after commit = %q/%t", game.focusedNumeric, game.numericTextHighlighted("Mass"))
+	if game.controls.focusedNumeric != "" || game.numericTextHighlighted("Mass") {
+		t.Fatalf("numeric focus/highlight after commit = %q/%t", game.controls.focusedNumeric, game.numericTextHighlighted("Mass"))
 	}
 	game.FocusNumericSettingTextField("Mass")
 	game.deleteNumericSettingCharacter()
-	if got := game.numericInputText; got != "2." {
+	if got := game.controls.numericInputText; got != "2." {
 		t.Fatalf("numeric input after delete = %q, want 2.", got)
 	}
-	game.focusedNumeric = "Missing"
+	game.controls.focusedNumeric = "Missing"
 	game.appendNumericSettingInput([]rune("9"))
 	game.deleteNumericSettingCharacter()
 
@@ -142,23 +142,23 @@ func TestAppUnitNumericSettingTextInputBranches(t *testing.T) {
 	if !ok {
 		t.Fatal("missing mass text field")
 	}
-	if !game.ClickAt(control.Rect.Min.X+1, control.Rect.Min.Y+1) || game.focusedNumeric != "Mass" {
-		t.Fatalf("text field click focused %q", game.focusedNumeric)
+	if !game.ClickAt(control.Rect.Min.X+1, control.Rect.Min.Y+1) || game.controls.focusedNumeric != "Mass" {
+		t.Fatalf("text field click focused %q", game.controls.focusedNumeric)
 	}
 
-	if !game.activateVisibleControl(controlBox{Name: "edit menu"}) || !game.editMenuOpen {
+	if !game.activateVisibleControl(controlBox{Name: "edit menu"}) || !game.controls.editMenuOpen {
 		t.Fatal("edit menu activation should open menu")
 	}
 	if !game.ClickAt(10, 32) || game.lastCommand != "cut" {
 		t.Fatalf("edit menu item click command = %q", game.lastCommand)
 	}
-	game.editMenuOpen = true
-	if !game.ClickAt(0, screenHeight-1) || game.editMenuOpen {
+	game.controls.editMenuOpen = true
+	if !game.ClickAt(0, screenHeight-1) || game.controls.editMenuOpen {
 		t.Fatal("outside click should close edit menu")
 	}
-	game.focusedNumeric = "Mass"
-	if game.ClickAt(0, screenHeight-1) || game.focusedNumeric != "" {
-		t.Fatalf("outside click handled=%t focused=%q", true, game.focusedNumeric)
+	game.controls.focusedNumeric = "Mass"
+	if game.ClickAt(0, screenHeight-1) || game.controls.focusedNumeric != "" {
+		t.Fatalf("outside click handled=%t focused=%q", true, game.controls.focusedNumeric)
 	}
 	if !game.activateVisibleControl(controlBox{Name: "run command"}) || game.lastCommand != "run" {
 		t.Fatalf("run activation command = %q", game.lastCommand)
@@ -820,17 +820,17 @@ func TestAppUnitValueDialogBehavior(t *testing.T) {
 		t.Fatalf("nonzero slider text = %q", game.valueDialog.Text)
 	}
 	game.clickValueDialog(game.valueDialogIncrementRect().Min.X+1, game.valueDialogIncrementRect().Min.Y+1)
-	if game.valueDialog.Text != "10.1" || game.activeValueStep != numericStepAmount {
-		t.Fatalf("increment text=%q active=%f", game.valueDialog.Text, game.activeValueStep)
+	if game.valueDialog.Text != "10.1" || game.controls.activeValueStep != numericStepAmount {
+		t.Fatalf("increment text=%q active=%f", game.valueDialog.Text, game.controls.activeValueStep)
 	}
-	game.valueStepTicks = numericStepHoldDelayTicks - 1
+	game.controls.valueStepTicks = numericStepHoldDelayTicks - 1
 	game.continueValueDialogStepHold()
 	if game.valueDialog.Text != "10.2" {
 		t.Fatalf("held increment text = %q", game.valueDialog.Text)
 	}
 	game.clickValueDialog(game.valueDialogDecrementRect().Min.X+1, game.valueDialogDecrementRect().Min.Y+1)
-	if game.valueDialog.Text != "10.1" || game.activeValueStep != -numericStepAmount {
-		t.Fatalf("decrement text=%q active=%f", game.valueDialog.Text, game.activeValueStep)
+	if game.valueDialog.Text != "10.1" || game.controls.activeValueStep != -numericStepAmount {
+		t.Fatalf("decrement text=%q active=%f", game.valueDialog.Text, game.controls.activeValueStep)
 	}
 
 	game.valueDialog = valueDialog{Open: true}
@@ -963,13 +963,13 @@ func TestAppUnitDemoPickerSelection(t *testing.T) {
 
 	game := NewGame()
 	game.ReplaceWorld(sim.NewWorld())
-	game.demoFiles = []string{first, second}
-	game.demoPickerOpen = true
-	game.demoPickerScroll = 1
+	game.controls.demoFiles = []string{first, second}
+	game.controls.demoPickerOpen = true
+	game.controls.demoPickerScroll = 1
 	row := game.demoRowRect(0)
 	game.clickDemoPicker(row.Min.X+2, row.Min.Y+2)
-	if _, ok := game.World().MassByID(2); !ok || game.demoPickerOpen {
-		t.Fatalf("demo picker load failed masses=%#v open=%t", game.World().Masses, game.demoPickerOpen)
+	if _, ok := game.World().MassByID(2); !ok || game.controls.demoPickerOpen {
+		t.Fatalf("demo picker load failed masses=%#v open=%t", game.World().Masses, game.controls.demoPickerOpen)
 	}
 
 	third := filepath.Join(dir, "third.xsp")
@@ -977,18 +977,18 @@ func TestAppUnitDemoPickerSelection(t *testing.T) {
 		t.Fatal(err)
 	}
 	game.ReplaceWorld(sim.NewWorld())
-	game.demoFiles = []string{first, second, third}
-	game.demoPickerOpen = true
-	game.demoPickerScroll = 1
+	game.controls.demoFiles = []string{first, second, third}
+	game.controls.demoPickerOpen = true
+	game.controls.demoPickerScroll = 1
 	row = game.demoRowRect(1)
 	game.clickDemoPicker(row.Min.X+2, row.Min.Y+2)
-	if _, ok := game.World().MassByID(3); !ok || game.demoPickerOpen {
-		t.Fatalf("scrolled row load failed masses=%#v open=%t", game.World().Masses, game.demoPickerOpen)
+	if _, ok := game.World().MassByID(3); !ok || game.controls.demoPickerOpen {
+		t.Fatalf("scrolled row load failed masses=%#v open=%t", game.World().Masses, game.controls.demoPickerOpen)
 	}
 
-	game.demoPickerOpen = true
+	game.controls.demoPickerOpen = true
 	game.clickDemoPicker(demoPickerRect().Max.X+1, demoPickerRect().Max.Y+1)
-	if game.demoPickerOpen {
+	if game.controls.demoPickerOpen {
 		t.Fatal("outside click should close demo picker")
 	}
 }
@@ -1211,35 +1211,35 @@ func TestAppUnitDemoPickerGeometryAndBounds(t *testing.T) {
 	if rows := demoPickerVisibleRows(); rows != 31 {
 		t.Fatalf("visible rows = %d, want 31", rows)
 	}
-	game.demoFiles = []string{"first.xsp", "second.xsp", "third.xsp"}
-	game.demoPickerScroll = 0
+	game.controls.demoFiles = []string{"first.xsp", "second.xsp", "third.xsp"}
+	game.controls.demoPickerScroll = 0
 	visible := game.visibleDemoPaths()
 	if len(visible) != 3 || visible[0] != "first.xsp" {
 		t.Fatalf("visible demo paths = %#v", visible)
 	}
-	game.demoFiles = []string{filepath.Join("..", "..", "demos", "pendulum.xsp")}
+	game.controls.demoFiles = []string{filepath.Join("..", "..", "demos", "pendulum.xsp")}
 	game.ReplaceWorld(sim.NewWorld())
-	game.demoPickerOpen = true
+	game.controls.demoPickerOpen = true
 	game.loadDemoAt(0)
-	if _, ok := game.World().MassByID(1); !ok || game.demoPickerOpen {
-		t.Fatalf("index 0 load failed masses=%#v open=%t", game.World().Masses, game.demoPickerOpen)
+	if _, ok := game.World().MassByID(1); !ok || game.controls.demoPickerOpen {
+		t.Fatalf("index 0 load failed masses=%#v open=%t", game.World().Masses, game.controls.demoPickerOpen)
 	}
 	for _, index := range []int{-1, 1} {
-		game.demoFiles = []string{filepath.Join("..", "..", "demos", "pendulum.xsp")}
-		game.demoPickerOpen = true
-		if game.loadDemoAt(index) || !game.demoPickerOpen {
-			t.Fatalf("out-of-range index %d result open=%t", index, game.demoPickerOpen)
+		game.controls.demoFiles = []string{filepath.Join("..", "..", "demos", "pendulum.xsp")}
+		game.controls.demoPickerOpen = true
+		if game.loadDemoAt(index) || !game.controls.demoPickerOpen {
+			t.Fatalf("out-of-range index %d result open=%t", index, game.controls.demoPickerOpen)
 		}
 	}
-	game.demoFiles = []string{loadPickerSeparator}
-	game.demoPickerOpen = true
-	if game.loadDemoAt(0) || !game.demoPickerOpen {
-		t.Fatalf("separator load result open=%t", game.demoPickerOpen)
+	game.controls.demoFiles = []string{loadPickerSeparator}
+	game.controls.demoPickerOpen = true
+	if game.loadDemoAt(0) || !game.controls.demoPickerOpen {
+		t.Fatalf("separator load result open=%t", game.controls.demoPickerOpen)
 	}
-	game.demoFiles = []string{"missing.xsp"}
-	game.demoPickerOpen = true
+	game.controls.demoFiles = []string{"missing.xsp"}
+	game.controls.demoPickerOpen = true
 	game.loadDemoAt(0)
-	if game.demoPickerOpen {
+	if game.controls.demoPickerOpen {
 		t.Fatal("failed file read should still close demo picker")
 	}
 }
@@ -1354,13 +1354,13 @@ func TestAppUnitOpenContextAtChoosesSpringDialogAndIgnoresDemoPicker(t *testing.
 	game.canvasYUp = false
 	_ = game.World().AddSpring(sim.Spring{ID: 3, MassA: 1, MassB: 2, SpringConstant: 12})
 
-	game.demoPickerOpen = true
+	game.controls.demoPickerOpen = true
 	game.openContextAt(10, 10)
 	if game.massMenu.Open || game.valueDialog.Open {
 		t.Fatal("demo picker should block context menu opening")
 	}
 
-	game.demoPickerOpen = false
+	game.controls.demoPickerOpen = false
 	game.springMenu.Open = true
 	game.openContextAt(10, 10)
 	if !game.massMenu.Open || game.massMenu.MassID != 1 || game.springMenu.Open || game.valueDialog.Open {
