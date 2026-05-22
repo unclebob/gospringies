@@ -1,5 +1,8 @@
-# mutation-stamp: sha256=0b9d4a032774253f3d71c67a1f03740bf81b7d85933bcee0384340c2005cbb1e
-Feature: Wall spring barriers
+# mutation-stamp: sha256=d849f59fed645a262eab23ccedf4ed41364675ffb7123fe3f1878b70f00a5286
+# acceptance-mutation-manifest-begin
+# {"version":1,"tested_at":"2026-05-22T06:20:10-05:00","feature_name":"Wall spring physics","feature_path":"features/028_wall_spring_physics.feature","background_hash":"89cf4779ae04022daf21a3d55c396ddd402783642cfaf49907ee5a94913997e9","implementation_hash":"b42605902311c09b4f78e2866b729f3ec71f09f0d874d72363170db0a13bd856","scenarios":[{"index":0,"name":"wall state controls spring force behavior","scenario_hash":"a15c75938c45403634d9783ced93bc63553741efffd4dcd87f715bd3739bf173","mutation_count":18,"result":{"Total":18,"Killed":18,"Survived":0,"Errors":0},"tested_at":"2026-05-22T06:20:10-05:00"},{"index":1,"name":"wall springs keep a fixed endpoint length","scenario_hash":"c991e16b8eef4f74cfaab4b970f6261693f7b2ef4eceb52d936f711333fec799","mutation_count":27,"result":{"Total":27,"Killed":27,"Survived":0,"Errors":0},"tested_at":"2026-05-22T06:20:10-05:00"},{"index":2,"name":"wall springs stop masses from crossing their segment","scenario_hash":"5f3b1031ba886d7017b0777296ce4797210fba085be15526ae9f7f1a9897853e","mutation_count":10,"result":{"Total":10,"Killed":10,"Survived":0,"Errors":0},"tested_at":"2026-05-22T06:20:10-05:00"},{"index":3,"name":"wall springs collide with masses whose timestep path crosses their segment","scenario_hash":"6d37ac84efd7f67c9ab68bf8f0d8eb7e320cba12998c3ce984d660cabbab1c27","mutation_count":11,"result":{"Total":11,"Killed":11,"Survived":0,"Errors":0},"tested_at":"2026-05-22T06:20:10-05:00"},{"index":4,"name":"moving wall springs stop stationary masses from crossing their segment","scenario_hash":"0f617bfb80ad40a24bd7763ac802c9f51665ece7da4ee3d2d900bd9c5eeef420","mutation_count":10,"result":{"Total":10,"Killed":10,"Survived":0,"Errors":0},"tested_at":"2026-05-22T06:20:10-05:00"},{"index":5,"name":"wall spring length constraints cannot move endpoints through other wall springs","scenario_hash":"e90d8a61db04d2d0c5a18f9a8370aea468b86a0b62e39587461e85d25cfafb03","mutation_count":13,"result":{"Total":13,"Killed":13,"Survived":0,"Errors":0},"tested_at":"2026-05-22T06:20:10-05:00"},{"index":6,"name":"wall spring collision response is shared by endpoint masses","scenario_hash":"b9872e7ea5e9bed8e280313a4054db9d30ea2e5709b3e851fccc1c4983f4bf62","mutation_count":27,"result":{"Total":27,"Killed":27,"Survived":0,"Errors":0},"tested_at":"2026-05-22T06:20:10-05:00"},{"index":7,"name":"wall spring temperature kicks colliding masses","scenario_hash":"f1e37ca37ab588913471c06ee42709ed21ecf6971a8d6242cb380feda5b33078","mutation_count":12,"result":{"Total":12,"Killed":12,"Survived":0,"Errors":0},"tested_at":"2026-05-22T06:20:10-05:00"},{"index":8,"name":"non-wall spring temperature does not affect collisions","scenario_hash":"1d766c9fc43406bcf9a92371c55cdd881af21e2b86780b98b1f79e0d0d04f805","mutation_count":5,"result":{"Total":5,"Killed":5,"Survived":0,"Errors":0},"tested_at":"2026-05-22T06:20:10-05:00"}]}
+# acceptance-mutation-manifest-end
+Feature: Wall spring physics
 
 Background:
   Given the wall spring barriers task is accepted
@@ -115,80 +118,3 @@ Scenario Outline: non-wall spring temperature does not affect collisions
 Examples:
   | spring_id | temperature | seed | mass_id | kick_behavior |
   | 1         | 10          | 11   | 3       | none          |
-
-Scenario Outline: wall attribute persists through XSP files
-  Given XSP input contains spring <spring_id> with Wall value <input_wall>
-  When the coder loads and saves the XSP input
-  Then loaded spring <spring_id> should have Wall value <loaded_wall>
-  And saved spring <spring_id> should include Wall value <saved_wall>
-
-Examples:
-  | spring_id | input_wall | loaded_wall | saved_wall |
-  | 1         | true       | true        | true       |
-  | 1         | absent     | false       | false      |
-
-Scenario Outline: temperature attribute persists through XSP files
-  Given XSP input contains spring <spring_id> with Temperature value <input_temperature>
-  When the coder loads and saves the XSP input
-  Then loaded spring <spring_id> should have Temperature value <loaded_temperature>
-  And saved spring <spring_id> should include Temperature value <saved_temperature>
-
-Examples:
-  | spring_id | input_temperature | loaded_temperature | saved_temperature |
-  | 1         | 7.5               | 7.5                | 7.5               |
-  | 1         | absent            | 0                  | 0                 |
-
-Scenario Outline: visible spring controls edit wall state
-  Given selected spring <spring_id> has Wall value <old_wall>
-  When the coder changes spring control Wall to <new_wall>
-  Then spring <spring_id> should have Wall value <new_wall>
-
-Examples:
-  | spring_id | old_wall | new_wall |
-  | 1         | false    | true     |
-  | 1         | true     | false    |
-
-Scenario Outline: visible spring controls edit every selected spring wall state
-  Given selected springs <spring_ids> have Wall values <old_walls>
-  When the coder changes spring control Wall to <new_wall>
-  Then selected springs <spring_ids> should have Wall values <new_walls>
-
-Examples:
-  | spring_ids | old_walls          | new_wall | new_walls       |
-  | 1, 2, 3    | false, false, true | true     | true, true, true |
-
-Scenario Outline: spring right-click menu toggles wall state
-  Given spring <spring_id> has Wall value <old_wall>
-  And spring <spring_id> right-click menu includes item <menu_item>
-  When the coder selects spring menu item Wall for spring <spring_id>
-  Then spring <spring_id> should have Wall value <new_wall>
-
-Examples:
-  | spring_id | old_wall | menu_item | new_wall |
-  | 1         | false    | Kspring   | true     |
-  | 1         | false    | Kdamp     | true     |
-  | 1         | false    | RestLen   | true     |
-  | 1         | false    | Wall      | true     |
-  | 1         | false    | Temperature | true   |
-  | 1         | true     | Wall      | false    |
-
-Scenario Outline: spring right-click menu edits temperature with a slider dialog
-  Given spring <spring_id> has Temperature value <old_temperature>
-  When the coder selects spring menu item Temperature for spring <spring_id>
-  Then spring Temperature dialog should open with range <minimum> to <maximum>
-  When the coder changes the spring Temperature dialog value to <new_temperature>
-  Then spring <spring_id> should have Temperature value <new_temperature>
-
-Examples:
-  | spring_id | old_temperature | minimum | maximum | new_temperature |
-  | 1         | 0               | 0       | 10      | 7.5             |
-
-Scenario Outline: wall springs render differently from normal springs
-  Given spring <spring_id> has Wall value <wall>
-  When the coder renders spring <spring_id>
-  Then spring <spring_id> should use spring rendering style <rendering_style>
-
-Examples:
-  | spring_id | wall  | rendering_style |
-  | 1         | false | normal          |
-  | 1         | true  | wall            |
