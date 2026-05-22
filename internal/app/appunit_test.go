@@ -719,59 +719,59 @@ func TestAppUnitValueDialogBehavior(t *testing.T) {
 	_ = game.World().AddSpring(sim.Spring{ID: 3, MassA: 1, MassB: 2, SpringConstant: 12})
 
 	game.openMassValueDialog(99)
-	if game.valueDialog.Open {
+	if game.overlays.value.Open {
 		t.Fatal("missing mass opened value dialog")
 	}
 	game.openMassValueDialog(1)
-	if !game.valueDialog.Open || game.valueDialog.Title != "Set Mass #1" || game.valueDialog.Text != "5" || game.valueDialog.Min != 0 || game.valueDialog.Max != 20 {
-		t.Fatalf("mass value dialog = %#v", game.valueDialog)
+	if !game.overlays.value.Open || game.overlays.value.Title != "Set Mass #1" || game.overlays.value.Text != "5" || game.overlays.value.Min != 0 || game.overlays.value.Max != 20 {
+		t.Fatalf("mass value dialog = %#v", game.overlays.value)
 	}
 
-	game.valueDialog.Text = "1"
+	game.overlays.value.Text = "1"
 	game.appendValueDialogInput([]rune{'2', 'x', '.', '-', '3'})
-	if game.valueDialog.Text != "12.-3" {
-		t.Fatalf("dialog text = %q", game.valueDialog.Text)
+	if game.overlays.value.Text != "12.-3" {
+		t.Fatalf("dialog text = %q", game.overlays.value.Text)
 	}
 	game.deleteValueDialogCharacter()
-	if game.valueDialog.Text != "12.-" {
-		t.Fatalf("dialog text after delete = %q", game.valueDialog.Text)
+	if game.overlays.value.Text != "12.-" {
+		t.Fatalf("dialog text after delete = %q", game.overlays.value.Text)
 	}
-	game.valueDialog.Text = ""
+	game.overlays.value.Text = ""
 	game.deleteValueDialogCharacter()
-	if game.valueDialog.Text != "" {
-		t.Fatalf("empty dialog text after delete = %q", game.valueDialog.Text)
+	if game.overlays.value.Text != "" {
+		t.Fatalf("empty dialog text after delete = %q", game.overlays.value.Text)
 	}
-	game.valueDialog.Text = "a"
+	game.overlays.value.Text = "a"
 	game.deleteValueDialogCharacter()
-	if game.valueDialog.Text != "" {
-		t.Fatalf("single-character dialog text after delete = %q", game.valueDialog.Text)
+	if game.overlays.value.Text != "" {
+		t.Fatalf("single-character dialog text after delete = %q", game.overlays.value.Text)
 	}
 
-	game.valueDialog = valueDialog{Open: true, Text: "15", Min: 0, Max: 10}
+	game.overlays.value = valueDialog{Open: true, Text: "15", Min: 0, Max: 10}
 	if got := game.valueDialogFraction(); got != 1 {
 		t.Fatalf("high fraction = %f", got)
 	}
-	game.valueDialog.Text = "-5"
+	game.overlays.value.Text = "-5"
 	if got := game.valueDialogFraction(); got != 0 {
 		t.Fatalf("low fraction = %f", got)
 	}
-	game.valueDialog.Text = "5"
+	game.overlays.value.Text = "5"
 	if got := game.valueDialogFraction(); got != 0.5 {
 		t.Fatalf("middle fraction = %f", got)
 	}
-	game.valueDialog = valueDialog{Text: "10", Min: 5, Max: 15}
+	game.overlays.value = valueDialog{Text: "10", Min: 5, Max: 15}
 	if got := game.valueDialogFraction(); got != 0.5 {
 		t.Fatalf("nonzero range fraction = %f", got)
 	}
-	game.valueDialog.Text = "invalid"
+	game.overlays.value.Text = "invalid"
 	if got := game.valueDialogFraction(); got != 0 {
 		t.Fatalf("invalid fraction = %f", got)
 	}
-	game.valueDialog = valueDialog{Text: "invalid", Min: -10, Max: 10}
+	game.overlays.value = valueDialog{Text: "invalid", Min: -10, Max: 10}
 	if got := game.valueDialogFraction(); got != 0 {
 		t.Fatalf("invalid nonzero-range fraction = %f", got)
 	}
-	game.valueDialog = valueDialog{Text: "10", Min: 10, Max: 10}
+	game.overlays.value = valueDialog{Text: "10", Min: 10, Max: 10}
 	if got := game.valueDialogFraction(); got != 0 {
 		t.Fatalf("flat range fraction = %f", got)
 	}
@@ -797,70 +797,70 @@ func TestAppUnitValueDialogBehavior(t *testing.T) {
 		t.Fatalf("ok rect = %#v", got)
 	}
 
-	game.valueDialog = valueDialog{Open: true, Text: "0", Min: 0, Max: 20}
+	game.overlays.value = valueDialog{Open: true, Text: "0", Min: 0, Max: 20}
 	game.setValueDialogFromSlider(track.Min.X + track.Dx()/2)
-	if game.valueDialog.Text != "10" {
-		t.Fatalf("slider text = %q", game.valueDialog.Text)
+	if game.overlays.value.Text != "10" {
+		t.Fatalf("slider text = %q", game.overlays.value.Text)
 	}
 	game.setValueDialogFromSlider(track.Min.X - track.Dx())
-	if game.valueDialog.Text != "0" {
-		t.Fatalf("slider low text = %q", game.valueDialog.Text)
+	if game.overlays.value.Text != "0" {
+		t.Fatalf("slider low text = %q", game.overlays.value.Text)
 	}
 	game.setValueDialogFromSlider(track.Max.X + track.Dx())
-	if game.valueDialog.Text != "20" {
-		t.Fatalf("slider high text = %q", game.valueDialog.Text)
+	if game.overlays.value.Text != "20" {
+		t.Fatalf("slider high text = %q", game.overlays.value.Text)
 	}
-	game.valueDialog = valueDialog{Open: true, Text: "0", Min: 5, Max: 15}
+	game.overlays.value = valueDialog{Open: true, Text: "0", Min: 5, Max: 15}
 	game.setValueDialogFromSlider(track.Min.X + track.Dx()/2)
-	if game.valueDialog.Text != "10" {
-		t.Fatalf("nonzero slider text = %q", game.valueDialog.Text)
+	if game.overlays.value.Text != "10" {
+		t.Fatalf("nonzero slider text = %q", game.overlays.value.Text)
 	}
 	game.clickValueDialog(game.valueDialogIncrementRect().Min.X+1, game.valueDialogIncrementRect().Min.Y+1)
-	if game.valueDialog.Text != "10.1" || game.controls.activeValueStep != numericStepAmount {
-		t.Fatalf("increment text=%q active=%f", game.valueDialog.Text, game.controls.activeValueStep)
+	if game.overlays.value.Text != "10.1" || game.controls.activeValueStep != numericStepAmount {
+		t.Fatalf("increment text=%q active=%f", game.overlays.value.Text, game.controls.activeValueStep)
 	}
 	game.controls.valueStepTicks = numericStepHoldDelayTicks - 1
 	game.continueValueDialogStepHold()
-	if game.valueDialog.Text != "10.2" {
-		t.Fatalf("held increment text = %q", game.valueDialog.Text)
+	if game.overlays.value.Text != "10.2" {
+		t.Fatalf("held increment text = %q", game.overlays.value.Text)
 	}
 	game.clickValueDialog(game.valueDialogDecrementRect().Min.X+1, game.valueDialogDecrementRect().Min.Y+1)
-	if game.valueDialog.Text != "10.1" || game.controls.activeValueStep != -numericStepAmount {
-		t.Fatalf("decrement text=%q active=%f", game.valueDialog.Text, game.controls.activeValueStep)
+	if game.overlays.value.Text != "10.1" || game.controls.activeValueStep != -numericStepAmount {
+		t.Fatalf("decrement text=%q active=%f", game.overlays.value.Text, game.controls.activeValueStep)
 	}
 
-	game.valueDialog = valueDialog{Open: true}
+	game.overlays.value = valueDialog{Open: true}
 	game.clickValueDialog(rect.Max.X+1, rect.Max.Y+1)
-	if game.valueDialog.Open {
+	if game.overlays.value.Open {
 		t.Fatal("outside click should close dialog")
 	}
 	applied := 0.0
-	game.valueDialog = valueDialog{Open: true, Text: "4", Apply: func(value float64) { applied = value }}
+	game.overlays.value = valueDialog{Open: true, Text: "4", Apply: func(value float64) { applied = value }}
 	game.clickValueDialog(game.valueDialogOKRect().Min.X+1, game.valueDialogOKRect().Min.Y+1)
-	if applied != 4 || game.valueDialog.Open {
-		t.Fatalf("ok click applied=%f dialog=%#v", applied, game.valueDialog)
+	if applied != 4 || game.overlays.value.Open {
+		t.Fatalf("ok click applied=%f dialog=%#v", applied, game.overlays.value)
 	}
-	game.valueDialog = valueDialog{Open: true, Text: "bad", Apply: func(value float64) { applied = value }}
+	game.overlays.value = valueDialog{Open: true, Text: "bad", Apply: func(value float64) { applied = value }}
 	game.applyValueDialog()
-	if !game.valueDialog.Open || applied != 4 {
-		t.Fatalf("invalid apply applied=%f dialog=%#v", applied, game.valueDialog)
+	if !game.overlays.value.Open || applied != 4 {
+		t.Fatalf("invalid apply applied=%f dialog=%#v", applied, game.overlays.value)
 	}
-	game.valueDialog = valueDialog{Open: true, Text: "8"}
+	game.overlays.value = valueDialog{Open: true, Text: "8"}
 	game.applyValueDialog()
-	if game.valueDialog.Open {
+	if game.overlays.value.Open {
 		t.Fatal("apply without callback should still close dialog")
 	}
 
-	game.valueDialog = valueDialog{Open: true}
+	game.overlays.value = valueDialog{Open: true}
 	game.tickValueDialog()
-	if game.valueDialog.Ticks != 1 || !game.valueDialogCursorVisible() {
-		t.Fatalf("dialog ticks=%d cursor=%t", game.valueDialog.Ticks, game.valueDialogCursorVisible())
+	if game.overlays.value.Ticks != 1 || !game.valueDialogCursorVisible() {
+		t.Fatalf("dialog ticks=%d cursor=%t", game.overlays.value.Ticks, game.valueDialogCursorVisible())
 	}
-	game.valueDialog.Ticks = valueCursorPeriod
+	game.overlays.value.Ticks = valueCursorPeriod
 	if game.valueDialogCursorVisible() {
 		t.Fatal("cursor should hide after one period")
 	}
-	game.valueDialog.Open = false
+	game.overlays.value.Open = false
 	if game.valueDialogCursorVisible() {
 		t.Fatal("closed dialog cursor should be hidden")
 	}
@@ -880,15 +880,15 @@ func TestAppUnitSpringValueDialogAndDistance(t *testing.T) {
 	if !game.openSpringConstantDialogAt(20, 10) {
 		t.Fatal("spring dialog did not open")
 	}
-	if !game.valueDialog.Open || game.valueDialog.Title != "Kspring Spring #3" || game.valueDialog.Text != "12" || game.valueDialog.Min != 0 || game.valueDialog.Max != 1000 {
-		t.Fatalf("spring value dialog = %#v", game.valueDialog)
+	if !game.overlays.value.Open || game.overlays.value.Title != "Kspring Spring #3" || game.overlays.value.Text != "12" || game.overlays.value.Min != 0 || game.overlays.value.Max != 1000 {
+		t.Fatalf("spring value dialog = %#v", game.overlays.value)
 	}
-	game.valueDialog.Text = "22"
+	game.overlays.value.Text = "22"
 	game.dirty = false
 	game.applyValueDialog()
 	spring, _ := game.World().SpringByID(3)
-	if spring.SpringConstant != 22 || spring.Stiffness != 22 || !game.dirty || game.valueDialog.Open {
-		t.Fatalf("spring after apply = %#v dirty=%t dialog=%#v", spring, game.dirty, game.valueDialog)
+	if spring.SpringConstant != 22 || spring.Stiffness != 22 || !game.dirty || game.overlays.value.Open {
+		t.Fatalf("spring after apply = %#v dirty=%t dialog=%#v", spring, game.dirty, game.overlays.value)
 	}
 
 	game.dirty = false
@@ -935,10 +935,10 @@ func TestAppUnitSpringTemperatureValueDialog(t *testing.T) {
 	if !game.SelectSpringContextMenuItem(3, "Temperature") {
 		t.Fatal("Temperature spring menu item was not handled")
 	}
-	if !game.valueDialog.Open || game.valueDialog.Title != "Temperature Spring #3" || game.valueDialog.Text != "2.5" || game.valueDialog.Min != 0 || game.valueDialog.Max != 10 {
-		t.Fatalf("temperature dialog = %#v", game.valueDialog)
+	if !game.overlays.value.Open || game.overlays.value.Title != "Temperature Spring #3" || game.overlays.value.Text != "2.5" || game.overlays.value.Min != 0 || game.overlays.value.Max != 10 {
+		t.Fatalf("temperature dialog = %#v", game.overlays.value)
 	}
-	game.valueDialog.Text = "7.5"
+	game.overlays.value.Text = "7.5"
 	game.applyValueDialog()
 	spring, _ := game.World().SpringByID(3)
 	if spring.Temperature != 7.5 {
@@ -1035,19 +1035,19 @@ func TestAppUnitSaveFilenameDialogEditsAndWritesFile(t *testing.T) {
 
 func TestAppUnitSaveFilenameDeleteEdges(t *testing.T) {
 	game := NewGame()
-	game.saveDialog = saveFilenameDialog{Open: true, Text: ".xsp", Cursor: 0}
+	game.overlays.save = saveFilenameDialog{Open: true, Text: ".xsp", Cursor: 0}
 	game.deleteSaveFilenameCharacter()
 	if game.SaveFilenameText() != ".xsp" || game.SaveFilenameCursor() != 0 {
 		t.Fatalf("delete at start changed dialog text=%q cursor=%d", game.SaveFilenameText(), game.SaveFilenameCursor())
 	}
 
-	game.saveDialog = saveFilenameDialog{Open: true, Text: "", Cursor: 1}
+	game.overlays.save = saveFilenameDialog{Open: true, Text: "", Cursor: 1}
 	game.deleteSaveFilenameCharacter()
 	if game.SaveFilenameText() != "" || game.SaveFilenameCursor() != 1 {
 		t.Fatalf("delete empty changed dialog text=%q cursor=%d", game.SaveFilenameText(), game.SaveFilenameCursor())
 	}
 
-	game.saveDialog = saveFilenameDialog{Open: true, Text: "abc.xsp", Cursor: 3}
+	game.overlays.save = saveFilenameDialog{Open: true, Text: "abc.xsp", Cursor: 3}
 	game.deleteSaveFilenameCharacter()
 	if game.SaveFilenameText() != "ab.xsp" || game.SaveFilenameCursor() != 2 {
 		t.Fatalf("delete middle text=%q cursor=%d", game.SaveFilenameText(), game.SaveFilenameCursor())
@@ -1284,8 +1284,8 @@ func TestAppUnitMassContextMenuActionsAndGeometry(t *testing.T) {
 	if !game.openMassContextMenu(20, 20) {
 		t.Fatal("mass context menu did not open")
 	}
-	if !game.massMenu.Open || game.massMenu.MassID != 1 || !game.selected {
-		t.Fatalf("mass menu = %#v selected=%t", game.massMenu, game.selected)
+	if !game.overlays.massMenu.Open || game.overlays.massMenu.MassID != 1 || !game.selected {
+		t.Fatalf("mass menu = %#v selected=%t", game.overlays.massMenu, game.selected)
 	}
 	rect := game.massContextMenuRect()
 	if rect.Dx() != massMenuWidth || rect.Dy() != (massMenuTitleRows+len(game.massContextMenuItems()))*massMenuRowHeight {
@@ -1299,17 +1299,17 @@ func TestAppUnitMassContextMenuActionsAndGeometry(t *testing.T) {
 
 	game.clickMassContextMenu(row0.Min.X+1, row0.Min.Y+1)
 	mass, _ := game.World().MassByID(1)
-	if !mass.Fixed || game.massMenu.Open || !game.dirty {
-		t.Fatalf("fixed toggle mass=%#v menu=%#v dirty=%t", mass, game.massMenu, game.dirty)
+	if !mass.Fixed || game.overlays.massMenu.Open || !game.dirty {
+		t.Fatalf("fixed toggle mass=%#v menu=%#v dirty=%t", mass, game.overlays.massMenu, game.dirty)
 	}
 
-	game.massMenu = massContextMenu{Open: true, MassID: 1, X: 20, Y: 20}
+	game.overlays.massMenu = massContextMenu{Open: true, MassID: 1, X: 20, Y: 20}
 	row1 = game.massContextMenuRowRect(1)
 	game.clickMassContextMenu(row1.Min.X+1, row1.Min.Y+1)
-	if !game.valueDialog.Open || game.valueDialog.Target != "mass" || game.valueDialog.Text != "3" {
-		t.Fatalf("value dialog = %#v", game.valueDialog)
+	if !game.overlays.value.Open || game.overlays.value.Target != "mass" || game.overlays.value.Text != "3" {
+		t.Fatalf("value dialog = %#v", game.overlays.value)
 	}
-	game.valueDialog.Text = "7"
+	game.overlays.value.Text = "7"
 	game.dirty = false
 	game.applyValueDialog()
 	mass, _ = game.World().MassByID(1)
@@ -1317,27 +1317,27 @@ func TestAppUnitMassContextMenuActionsAndGeometry(t *testing.T) {
 		t.Fatalf("mass value = %f dirty=%t", mass.Mass, game.dirty)
 	}
 
-	game.massMenu = massContextMenu{Open: true, MassID: 1, X: 20, Y: 20}
+	game.overlays.massMenu = massContextMenu{Open: true, MassID: 1, X: 20, Y: 20}
 	row2 := game.massContextMenuRowRect(2)
 	game.dirty = false
 	game.clickMassContextMenu(row2.Min.X+1, row2.Min.Y+1)
-	if game.World().CenterMassID() != 1 || game.massMenu.Open || !game.dirty {
-		t.Fatalf("center mass = %d menu=%#v dirty=%t", game.World().CenterMassID(), game.massMenu, game.dirty)
+	if game.World().CenterMassID() != 1 || game.overlays.massMenu.Open || !game.dirty {
+		t.Fatalf("center mass = %d menu=%#v dirty=%t", game.World().CenterMassID(), game.overlays.massMenu, game.dirty)
 	}
 
-	game.massMenu = massContextMenu{Open: true, MassID: 1, X: 0, Y: 0}
+	game.overlays.massMenu = massContextMenu{Open: true, MassID: 1, X: 0, Y: 0}
 	anchored := game.massContextMenuRect()
 	if anchored.Min != image.Pt(0, 0) {
 		t.Fatalf("anchored menu rect = %#v", anchored)
 	}
 
-	game.massMenu = massContextMenu{Open: true, MassID: 1, X: screenWidth + 50, Y: screenHeight + 50}
+	game.overlays.massMenu = massContextMenu{Open: true, MassID: 1, X: screenWidth + 50, Y: screenHeight + 50}
 	clamped := game.massContextMenuRect()
 	if clamped.Max.X != screenWidth || clamped.Max.Y != screenHeight {
 		t.Fatalf("clamped menu rect = %#v", clamped)
 	}
 	game.clickMassContextMenu(clamped.Max.X+1, clamped.Max.Y+1)
-	if game.massMenu.Open {
+	if game.overlays.massMenu.Open {
 		t.Fatal("outside context click should close menu")
 	}
 }
@@ -1352,31 +1352,31 @@ func TestAppUnitOpenContextAtChoosesSpringDialogAndIgnoresDemoPicker(t *testing.
 
 	game.controls.demoPickerOpen = true
 	game.openContextAt(10, 10)
-	if game.massMenu.Open || game.valueDialog.Open {
+	if game.overlays.massMenu.Open || game.overlays.value.Open {
 		t.Fatal("demo picker should block context menu opening")
 	}
 
 	game.controls.demoPickerOpen = false
-	game.springMenu.Open = true
+	game.overlays.springMenu.Open = true
 	game.openContextAt(10, 10)
-	if !game.massMenu.Open || game.massMenu.MassID != 1 || game.springMenu.Open || game.valueDialog.Open {
-		t.Fatalf("mass context = %#v spring=%#v dialog=%#v", game.massMenu, game.springMenu, game.valueDialog)
+	if !game.overlays.massMenu.Open || game.overlays.massMenu.MassID != 1 || game.overlays.springMenu.Open || game.overlays.value.Open {
+		t.Fatalf("mass context = %#v spring=%#v dialog=%#v", game.overlays.massMenu, game.overlays.springMenu, game.overlays.value)
 	}
 
-	game.massMenu.Open = true
+	game.overlays.massMenu.Open = true
 	game.openContextAt(60, 10)
-	if !game.springMenu.Open || game.springMenu.SpringID != 3 || game.massMenu.Open || game.valueDialog.Open {
-		t.Fatalf("spring menu = %#v mass menu=%#v dialog=%#v", game.springMenu, game.massMenu, game.valueDialog)
+	if !game.overlays.springMenu.Open || game.overlays.springMenu.SpringID != 3 || game.overlays.massMenu.Open || game.overlays.value.Open {
+		t.Fatalf("spring menu = %#v mass menu=%#v dialog=%#v", game.overlays.springMenu, game.overlays.massMenu, game.overlays.value)
 	}
 
 	if game.openSpringContextMenu(500, 500) {
 		t.Fatal("empty spring context position should not open a spring menu")
 	}
 
-	game.springMenu.Open = false
+	game.overlays.springMenu.Open = false
 	game.openContextAt(500, 500)
-	if game.massMenu.Open || game.springMenu.Open || game.valueDialog.Open {
-		t.Fatalf("empty context should close overlays mass=%#v spring=%#v dialog=%#v", game.massMenu, game.springMenu, game.valueDialog)
+	if game.overlays.massMenu.Open || game.overlays.springMenu.Open || game.overlays.value.Open {
+		t.Fatalf("empty context should close overlays mass=%#v spring=%#v dialog=%#v", game.overlays.massMenu, game.overlays.springMenu, game.overlays.value)
 	}
 }
 
@@ -1402,70 +1402,70 @@ func TestAppUnitSpringContextMenuActionsAndGeometry(t *testing.T) {
 	}
 
 	game.clickSpringContextMenu(row0.Min.X+1, row0.Min.Y+1)
-	if !game.valueDialog.Open || game.valueDialog.Title != "Kspring Spring #3" || game.valueDialog.Text != "12" || game.valueDialog.Target != "spring" || game.springMenu.Open {
-		t.Fatalf("kspring dialog = %#v spring menu=%#v", game.valueDialog, game.springMenu)
+	if !game.overlays.value.Open || game.overlays.value.Title != "Kspring Spring #3" || game.overlays.value.Text != "12" || game.overlays.value.Target != "spring" || game.overlays.springMenu.Open {
+		t.Fatalf("kspring dialog = %#v spring menu=%#v", game.overlays.value, game.overlays.springMenu)
 	}
-	game.valueDialog.Text = "22"
+	game.overlays.value.Text = "22"
 	game.applyValueDialog()
 	spring, _ := game.World().SpringByID(3)
 	if spring.SpringConstant != 22 || spring.Stiffness != 22 {
 		t.Fatalf("spring constant = %#v", spring)
 	}
 
-	game.springMenu = springContextMenu{Open: true, SpringID: 3, X: 60, Y: 10}
+	game.overlays.springMenu = springContextMenu{Open: true, SpringID: 3, X: 60, Y: 10}
 	row1 = game.springContextMenuRowRect(1)
 	game.clickSpringContextMenu(row1.Min.X+1, row1.Min.Y+1)
-	if !game.valueDialog.Open || game.valueDialog.Title != "Kdamp Spring #3" || game.valueDialog.Text != "0.4" {
-		t.Fatalf("kdamp dialog = %#v", game.valueDialog)
+	if !game.overlays.value.Open || game.overlays.value.Title != "Kdamp Spring #3" || game.overlays.value.Text != "0.4" {
+		t.Fatalf("kdamp dialog = %#v", game.overlays.value)
 	}
-	game.valueDialog.Text = "0.9"
+	game.overlays.value.Text = "0.9"
 	game.applyValueDialog()
 	spring, _ = game.World().SpringByID(3)
 	if spring.Damping != 0.9 {
 		t.Fatalf("spring damping = %#v", spring)
 	}
 
-	game.springMenu = springContextMenu{Open: true, SpringID: 3, X: 60, Y: 10}
+	game.overlays.springMenu = springContextMenu{Open: true, SpringID: 3, X: 60, Y: 10}
 	row2 := game.springContextMenuRowRect(2)
 	game.clickSpringContextMenu(row2.Min.X+1, row2.Min.Y+1)
-	if !game.valueDialog.Open || game.valueDialog.Title != "RestLen Spring #3" || game.valueDialog.Text != "100" {
-		t.Fatalf("rest length dialog = %#v", game.valueDialog)
+	if !game.overlays.value.Open || game.overlays.value.Title != "RestLen Spring #3" || game.overlays.value.Text != "100" {
+		t.Fatalf("rest length dialog = %#v", game.overlays.value)
 	}
-	game.valueDialog.Text = "125"
+	game.overlays.value.Text = "125"
 	game.applyValueDialog()
 	spring, _ = game.World().SpringByID(3)
 	if spring.RestLength != 125 {
 		t.Fatalf("spring rest length = %#v", spring)
 	}
 
-	game.springMenu = springContextMenu{Open: true, SpringID: 3, X: 60, Y: 10}
+	game.overlays.springMenu = springContextMenu{Open: true, SpringID: 3, X: 60, Y: 10}
 	game.dirty = false
 	row3 := game.springContextMenuRowRect(3)
 	game.clickSpringContextMenu(row3.Min.X+1, row3.Min.Y+1)
 	spring, _ = game.World().SpringByID(3)
-	if !spring.Wall || !game.dirty || game.springMenu.Open {
-		t.Fatalf("wall toggle spring=%#v dirty=%t menu=%#v", spring, game.dirty, game.springMenu)
+	if !spring.Wall || !game.dirty || game.overlays.springMenu.Open {
+		t.Fatalf("wall toggle spring=%#v dirty=%t menu=%#v", spring, game.dirty, game.overlays.springMenu)
 	}
 
 	labels := game.SpringContextMenuLabelsForSpring(3)
 	if len(labels) != 5 || labels[3] != "Wall" || labels[4] != "Temperature" {
 		t.Fatalf("spring menu labels = %#v", labels)
 	}
-	if !game.SelectSpringContextMenuItem(3, "Wall") || game.springMenu.Open || game.SelectSpringContextMenuItem(3, "Missing") {
-		t.Fatalf("spring menu selection failed, spring=%#v", game.springMenu)
+	if !game.SelectSpringContextMenuItem(3, "Wall") || game.overlays.springMenu.Open || game.SelectSpringContextMenuItem(3, "Missing") {
+		t.Fatalf("spring menu selection failed, spring=%#v", game.overlays.springMenu)
 	}
 	spring, _ = game.World().SpringByID(3)
 	if spring.Wall {
 		t.Fatalf("programmatic wall toggle spring=%#v", spring)
 	}
 
-	game.springMenu = springContextMenu{Open: true, SpringID: 3, X: screenWidth + 50, Y: screenHeight + 50}
+	game.overlays.springMenu = springContextMenu{Open: true, SpringID: 3, X: screenWidth + 50, Y: screenHeight + 50}
 	clamped := game.springContextMenuRect()
 	if clamped.Max.X != screenWidth || clamped.Max.Y != screenHeight {
 		t.Fatalf("clamped spring menu rect = %#v", clamped)
 	}
 	game.clickSpringContextMenu(clamped.Max.X+1, clamped.Max.Y+1)
-	if game.springMenu.Open {
+	if game.overlays.springMenu.Open {
 		t.Fatal("outside spring menu click should close menu")
 	}
 }
