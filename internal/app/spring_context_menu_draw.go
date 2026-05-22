@@ -9,5 +9,5 @@ import (
 )
 
 func (g *Game) drawSpringContextMenu(screen *ebiten.Image) {
-	drawContextMenu(screen, g.springContextMenuRect(), fmt.Sprintf("Spring #%d", g.springMenu.SpringID), g.springContextMenuItems())
+	drawContextMenu(screen, g.springContextMenuRect(), fmt.Sprintf("Spring #%d", g.overlays.springMenu.SpringID), g.springContextMenuItems())
 }

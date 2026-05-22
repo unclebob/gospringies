@@ -9,5 +9,5 @@ import (
 )
 
 func (g *Game) drawMassContextMenu(screen *ebiten.Image) {
-	drawContextMenu(screen, g.massContextMenuRect(), fmt.Sprintf("Mass #%d", g.massMenu.MassID), g.massContextMenuItems())
+	drawContextMenu(screen, g.massContextMenuRect(), fmt.Sprintf("Mass #%d", g.overlays.massMenu.MassID), g.massContextMenuItems())
 }

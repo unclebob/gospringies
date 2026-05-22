@@ -12,8 +12,8 @@ import (
 func (g *Game) drawValueDialog(screen *ebiten.Image) {
 	rect := valueDialogRect()
 	vector.DrawFilledRect(screen, float32(rect.Min.X), float32(rect.Min.Y), float32(rect.Dx()), float32(rect.Dy()), panelColor, false)
-	ebitenutil.DebugPrintAt(screen, g.valueDialog.Title, rect.Min.X+12, rect.Min.Y+10)
-	drawLabeledRect(screen, g.valueDialogTextRect(), controlColor, g.valueDialog.Text)
+	ebitenutil.DebugPrintAt(screen, g.overlays.value.Title, rect.Min.X+12, rect.Min.Y+10)
+	drawLabeledRect(screen, g.valueDialogTextRect(), controlColor, g.overlays.value.Text)
 	g.drawValueDialogCursor(screen)
 	drawLabeledRect(screen, g.valueDialogDecrementRect(), controlColor, "<")
 	track := g.valueDialogSliderTrack()
@@ -30,7 +30,7 @@ func (g *Game) drawValueDialogCursor(screen *ebiten.Image) {
 		return
 	}
 	rect := g.valueDialogTextRect()
-	x := rect.Min.X + 4 + len(g.valueDialog.Text)*debugGlyphWidth
+	x := rect.Min.X + 4 + len(g.overlays.value.Text)*debugGlyphWidth
 	if x > rect.Max.X-6 {
 		x = rect.Max.X - 6
 	}
@@ -38,7 +38,7 @@ func (g *Game) drawValueDialogCursor(screen *ebiten.Image) {
 }
 
 func (g *Game) pollValueDialogKeyboard() {
-	if !g.valueDialog.Open {
+	if !g.overlays.value.Open {
 		return
 	}
 	g.appendValueDialogInput(ebiten.AppendInputChars(nil))
@@ -65,7 +65,7 @@ func (g *Game) handleValueDialogSubmit() {
 
 func (g *Game) handleValueDialogCancel() {
 	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
-		g.valueDialog.Open = false
+		g.overlays.value.Open = false
 	}
 }
 
