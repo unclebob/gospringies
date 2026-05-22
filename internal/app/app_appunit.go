@@ -14,13 +14,13 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) shiftKeyPressed() bool {
-	return g.shiftDown
+	return g.keyboard.shiftDown
 }
 
 func (g *Game) controlKeyPressed() bool {
-	return g.controlDown
+	return g.keyboard.controlDown
 }
 
 func (g *Game) throwKeyPressed() bool {
-	return g.throwDown
+	return g.keyboard.throwDown
 }

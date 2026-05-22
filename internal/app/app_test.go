@@ -246,7 +246,7 @@ func TestAnyKeyPressedChecksEveryCandidate(t *testing.T) {
 
 func TestShiftDownBypassesEbitenKeyState(t *testing.T) {
 	game := NewGame()
-	game.shiftDown = true
+	game.keyboard.shiftDown = true
 
 	if !game.shiftKeyPressed() {
 		t.Fatal("shiftDown should count as shift pressed")
@@ -2035,7 +2035,7 @@ func TestWorldPointerCreatesMassAndSpring(t *testing.T) {
 		t.Fatalf("masses = %#v", game.World().Masses)
 	}
 
-	game.controlDown = true
+	game.keyboard.controlDown = true
 	game.handlePointer(true, 100, 100)
 	game.handlePointer(false, 140, 100)
 
@@ -2050,7 +2050,7 @@ func TestControlDragRubberBandsPendingSpringGesture(t *testing.T) {
 	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 100, Y: 100}, Mass: 1})
 	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 200, Y: 100}, Mass: 1})
 	game.ReplaceWorld(world)
-	game.controlDown = true
+	game.keyboard.controlDown = true
 
 	game.handlePointer(true, 100, 100)
 	game.handlePointer(true, 150, 140)
@@ -2075,7 +2075,7 @@ func TestControlDragCreatesSpringFromAnyMode(t *testing.T) {
 	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 500, Y: 300}, Mass: 1})
 	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 540, Y: 340}, Mass: 1})
 	game.ReplaceWorld(world)
-	game.controlDown = true
+	game.keyboard.controlDown = true
 
 	game.handlePointer(true, 500, 300)
 	game.handlePointer(true, 540, 340)
@@ -2096,7 +2096,7 @@ func TestControlDragRubberBandsPendingSpring(t *testing.T) {
 	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 500, Y: 300}, Mass: 1})
 	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 540, Y: 340}, Mass: 1})
 	game.ReplaceWorld(world)
-	game.controlDown = true
+	game.keyboard.controlDown = true
 
 	game.handlePointer(true, 500, 300)
 	game.handlePointer(true, 520, 330)
@@ -2114,7 +2114,7 @@ func TestControlClickEmptyCanvasStartsMassSpringChain(t *testing.T) {
 	game := NewGame()
 	game.ReplaceWorld(sim.NewWorld())
 	game.World().Parameters.Set("grid snap", "0")
-	game.controlDown = true
+	game.keyboard.controlDown = true
 
 	game.handlePointer(true, 100, 100)
 	game.handlePointer(false, 100, 100)
@@ -2134,11 +2134,11 @@ func TestSpringChainPlacesEndpointMassAndStopsWithoutControl(t *testing.T) {
 	game := NewGame()
 	game.ReplaceWorld(sim.NewWorld())
 	game.World().Parameters.Set("grid snap", "0")
-	game.controlDown = true
+	game.keyboard.controlDown = true
 
 	game.handlePointer(true, 100, 100)
 	game.handlePointer(false, 100, 100)
-	game.controlDown = false
+	game.keyboard.controlDown = false
 	game.handlePointer(true, 140, 100)
 	game.handlePointer(false, 140, 100)
 
@@ -2158,7 +2158,7 @@ func TestSpringChainContinuesWhileControlIsDown(t *testing.T) {
 	game := NewGame()
 	game.ReplaceWorld(sim.NewWorld())
 	game.World().Parameters.Set("grid snap", "0")
-	game.controlDown = true
+	game.keyboard.controlDown = true
 
 	game.handlePointer(true, 100, 100)
 	game.handlePointer(false, 100, 100)
@@ -2181,7 +2181,7 @@ func TestSpringChainTerminatesOnExistingMassEvenWithControlDown(t *testing.T) {
 	_ = world.AddMass(sim.Mass{ID: 7, Position: sim.Vec2{X: 180, Y: 100}, Mass: 1})
 	game.ReplaceWorld(world)
 	game.World().Parameters.Set("grid snap", "0")
-	game.controlDown = true
+	game.keyboard.controlDown = true
 
 	game.handlePointer(true, 100, 100)
 	game.handlePointer(false, 100, 100)
@@ -2213,7 +2213,7 @@ func TestThrowKeyWithoutDragDoesNotThrowMass(t *testing.T) {
 	game := gameWithMasses(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 10}, Velocity: sim.Vec2{X: 3, Y: 4}, Mass: 1})
 	game.pointer.draggingMassID = 1
 	game.pointer.draggingStart = sim.Vec2{X: 10, Y: 10}
-	game.throwDown = true
+	game.keyboard.throwDown = true
 
 	game.finishMassDrag(sim.Vec2{X: 10, Y: 10})
 
@@ -2557,7 +2557,7 @@ func TestDraggingMassWithThrowKeySetsVelocityFromDragVector(t *testing.T) {
 
 	game.handlePointer(true, 500, 300)
 	game.handlePointer(true, 540, 340)
-	game.throwDown = true
+	game.keyboard.throwDown = true
 	game.handlePointer(false, 540, 340)
 
 	mass, _ := game.World().MassByID(1)
@@ -2579,7 +2579,7 @@ func TestDraggingSelectedMassesWithThrowKeySetsSelectionVelocity(t *testing.T) {
 
 	game.handlePointer(true, 500, 300)
 	game.handlePointer(true, 540, 340)
-	game.throwDown = true
+	game.keyboard.throwDown = true
 	game.handlePointer(false, 540, 340)
 
 	mass1, _ := game.World().MassByID(1)
@@ -2774,7 +2774,7 @@ func TestShiftClickMassAddsToSelection(t *testing.T) {
 	game.ReplaceWorld(world)
 	_ = game.editing().SelectMass(1)
 	game.syncSelectionState()
-	game.shiftDown = true
+	game.keyboard.shiftDown = true
 
 	game.handlePointer(true, 700, 500)
 	game.handlePointer(false, 700, 500)
@@ -2792,7 +2792,7 @@ func TestShiftBoxSelectAddsToSelection(t *testing.T) {
 	game.ReplaceWorld(world)
 	_ = game.editing().SelectMass(2)
 	game.syncSelectionState()
-	game.shiftDown = true
+	game.keyboard.shiftDown = true
 
 	game.handlePointer(true, 450, 250)
 	game.handlePointer(true, 600, 400)
@@ -2810,7 +2810,7 @@ func TestShiftClickEmptyCanvasAddsCreatedMassToSelection(t *testing.T) {
 	game.ReplaceWorld(world)
 	_ = game.editing().SelectMass(1)
 	game.syncSelectionState()
-	game.shiftDown = true
+	game.keyboard.shiftDown = true
 
 	game.handlePointer(true, 500, 300)
 	game.handlePointer(false, 500, 300)
@@ -2843,7 +2843,7 @@ func TestEscapeCancelsRubberbandingSpring(t *testing.T) {
 	_ = world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{X: 100, Y: 100}, Mass: 1})
 	_ = world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{X: 200, Y: 100}, Mass: 1})
 	game.ReplaceWorld(world)
-	game.controlDown = true
+	game.keyboard.controlDown = true
 
 	game.handlePointer(true, 100, 100)
 	game.handlePointer(true, 150, 140)
@@ -2869,7 +2869,7 @@ func TestEscapeCancelsSpringChainWithoutClearingSelection(t *testing.T) {
 	game.ReplaceWorld(world)
 	_ = game.editing().SelectMass(1)
 	game.syncSelectionState()
-	game.controlDown = true
+	game.keyboard.controlDown = true
 
 	game.handlePointer(true, 100, 100)
 	game.handlePointer(false, 100, 100)
