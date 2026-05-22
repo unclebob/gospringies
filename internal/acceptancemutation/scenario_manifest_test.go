@@ -63,6 +63,31 @@ func TestScenarioSkipPlanSkipsOnlyValidCleanEntries(t *testing.T) {
 	}
 }
 
+func TestScenarioSkipPlanModes(t *testing.T) {
+	feature := manifestFeature()
+	manifest := BuildScenarioManifest("f.feature", feature, ScenarioManifest{}, ScenarioSkipPlan{SkipScenarios: map[int]bool{}}, []MutationResult{
+		{Mutation: Mutation{Scenario: 0}, Status: MutationKilled},
+		{Mutation: Mutation{Scenario: 1}, Status: MutationKilled},
+	}, "impl", time.Unix(1, 0).UTC())
+
+	for _, tt := range []struct {
+		name               string
+		implementationHash string
+		mode               ScenarioManifestMode
+		wantSkipped        int
+	}{
+		{name: "soft ignores implementation hash", implementationHash: "different", mode: ScenarioManifestSoft, wantSkipped: 2},
+		{name: "full ignores manifest", implementationHash: "impl", mode: ScenarioManifestFull, wantSkipped: 0},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			plan := ScenarioSkipPlanForMode(feature, "f.feature", manifest, tt.implementationHash, tt.mode)
+			if plan.SkippedScenarios != tt.wantSkipped {
+				t.Fatalf("plan = %#v", plan)
+			}
+		})
+	}
+}
+
 func TestScenarioSkipPlanRerunsChangedScenarioOnly(t *testing.T) {
 	feature := manifestFeature()
 	manifest := BuildScenarioManifest("f.feature", feature, ScenarioManifest{}, ScenarioSkipPlan{SkipScenarios: map[int]bool{}}, []MutationResult{

@@ -26,7 +26,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	content, _ := os.ReadFile(options.featurePath)
 	_, hasScenarioManifest, _ := acceptancemutation.ParseScenarioManifest(string(content))
-	if !hasScenarioManifest && mutationstamp.Valid(options.featurePath) {
+	if canSkipStampedFeature(options, hasScenarioManifest) {
 		fmt.Fprintf(stdout, "mutation stamp valid; skipping %s\n", options.featurePath)
 		return 0
 	}
@@ -43,6 +43,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 	printSkipReport(stdout, skipPlan)
 	printReport(stdout, stderr, options.jsonReport, summary, results)
 	return finishRun(options.featurePath, summary, manifest, skipPlan, results, feature, implementationHash, stderr)
+}
+
+func canSkipStampedFeature(options options, hasScenarioManifest bool) bool {
+	return options.level != acceptancemutation.ScenarioManifestFull && !hasScenarioManifest && mutationstamp.Valid(options.featurePath)
 }
 
 func finishRun(featurePath string, summary acceptancemutation.MutationSummary, manifest acceptancemutation.ScenarioManifest, skipPlan acceptancemutation.ScenarioSkipPlan, results []acceptancemutation.MutationResult, feature gherkin.Feature, implementationHash string, stderr io.Writer) int {
@@ -68,6 +72,7 @@ type options struct {
 	workers       int
 	timeout       time.Duration
 	mutantTimeout time.Duration
+	level         acceptancemutation.ScenarioManifestMode
 }
 
 func parseOptions(args []string, stderr io.Writer) (options, error) {
@@ -79,7 +84,12 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	workers := flags.Int("workers", runtime.NumCPU(), "maximum mutation workers")
 	timeout := flags.Duration("timeout", 0, "full mutation timeout")
 	mutantTimeout := flags.Duration("mutant-timeout", 30*time.Second, "timeout for one generated mutation test")
+	level := flags.String("level", string(acceptancemutation.ScenarioManifestHard), "mutation level: hard, soft, or full")
 	if err := flags.Parse(args); err != nil {
+		return options{}, err
+	}
+	parsedLevel, err := parseMutationLevel(*level)
+	if err != nil {
 		return options{}, err
 	}
 	return options{
@@ -89,7 +99,17 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 		workers:       *workers,
 		timeout:       *timeout,
 		mutantTimeout: *mutantTimeout,
+		level:         parsedLevel,
 	}, nil
+}
+
+func parseMutationLevel(value string) (acceptancemutation.ScenarioManifestMode, error) {
+	switch acceptancemutation.ScenarioManifestMode(value) {
+	case acceptancemutation.ScenarioManifestHard, acceptancemutation.ScenarioManifestSoft, acceptancemutation.ScenarioManifestFull:
+		return acceptancemutation.ScenarioManifestMode(value), nil
+	default:
+		return "", fmt.Errorf("invalid mutation level %q: want hard, soft, or full", value)
+	}
 }
 
 func runFeatureMutations(options options, implementationHash string, progress io.Writer) (acceptancemutation.MutationSummary, []acceptancemutation.MutationResult, acceptancemutation.ScenarioSkipPlan, acceptancemutation.ScenarioManifest, gherkin.Feature, error) {
@@ -105,7 +125,7 @@ func runFeatureMutations(options options, implementationHash string, progress io
 	if err != nil {
 		return acceptancemutation.MutationSummary{}, nil, acceptancemutation.ScenarioSkipPlan{}, acceptancemutation.ScenarioManifest{}, gherkin.Feature{}, err
 	}
-	skipPlan := acceptancemutation.ScenarioSkipPlanFor(feature, options.featurePath, manifest, implementationHash)
+	skipPlan := acceptancemutation.ScenarioSkipPlanForMode(feature, options.featurePath, manifest, implementationHash, options.level)
 	ctx, cancel := mutationContext(options.timeout)
 	defer cancel()
 	results, err := acceptancemutation.RunMutationsWithOptions(feature, options.workDir, acceptancemutation.RunMutationOptions{
