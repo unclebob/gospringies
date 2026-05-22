@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"springs/internal/app"
 	"springs/internal/sim"
 )
 
@@ -87,7 +86,7 @@ func createCurrentWorldWithState(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	game := app.NewGame()
+	game := newApplicationDriverGame()
 	game.ReplaceWorld(world)
 	game.RunCommand("save")
 	w.appGame = game

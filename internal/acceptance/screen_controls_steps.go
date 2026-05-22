@@ -1,12 +1,6 @@
 package acceptance
 
-import (
-	"fmt"
-
-	"springs/internal/app"
-)
-
-type editorScreen = app.EditorScreen
+import "fmt"
 
 var applicationStateChanges = map[string]func(appGame){
 	"paused":          func(game appGame) { game.SetPaused(true) },
@@ -185,7 +179,7 @@ func currentEditorScreen(w *world) (editorScreen, error) {
 
 func ensureApplicationGame(w *world) (appGame, error) {
 	if w.appGame == nil {
-		w.appGame = app.NewGame()
+		startApplicationDriver(w)
 	}
 	return applicationGame(w)
 }
