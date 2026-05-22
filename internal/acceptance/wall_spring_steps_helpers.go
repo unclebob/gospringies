@@ -927,9 +927,9 @@ func createSelectedSpringsWithWalls(w *world, example map[string]string) error {
 }
 
 func changeSpringWallControl(w *world, example map[string]string) error {
-	game, ok := w.appGame.(*app.Game)
-	if !ok {
-		return fmt.Errorf("application game is not concrete")
+	game, err := concreteApplicationDriverWithMessage(w, "application game is not concrete")
+	if err != nil {
+		return err
 	}
 	if !game.ClickVisibleControl("Wall") {
 		return fmt.Errorf("Wall control click was not handled")
@@ -942,9 +942,9 @@ func assertSelectedSpringsMatchRequestedWall(w *world, example map[string]string
 	if err != nil {
 		return err
 	}
-	game, ok := w.appGame.(*app.Game)
-	if !ok {
-		return fmt.Errorf("application game is not concrete")
+	game, err := concreteApplicationDriverWithMessage(w, "application game is not concrete")
+	if err != nil {
+		return err
 	}
 	for _, spring := range game.World().Springs {
 		if spring.Wall != requestedWall {
@@ -959,12 +959,9 @@ func assertSpringWallValue(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	var world *sim.Simulation
-	if w.appGame != nil {
-		game, _ := w.appGame.(*app.Game)
-		world = game.World()
-	} else {
-		world = ensureDomainWorld(w)
+	world, err := wallSpringAssertionWorld(w)
+	if err != nil {
+		return err
 	}
 	spring, ok := world.SpringByID(springID)
 	if !ok {
@@ -976,14 +973,25 @@ func assertSpringWallValue(w *world, example map[string]string) error {
 	return nil
 }
 
+func wallSpringAssertionWorld(w *world) (*sim.Simulation, error) {
+	if w.appGame == nil {
+		return ensureDomainWorld(w), nil
+	}
+	game, err := concreteApplicationDriverWithMessage(w, "application game is not concrete")
+	if err != nil {
+		return nil, err
+	}
+	return game.World(), nil
+}
+
 func assertSelectedSpringsWallValues(w *world, example map[string]string) error {
 	springIDs, expectedWalls, err := springIDsAndWalls(example, "new_walls")
 	if err != nil {
 		return err
 	}
-	game, ok := w.appGame.(*app.Game)
-	if !ok {
-		return fmt.Errorf("application game is not concrete")
+	game, err := concreteApplicationDriverWithMessage(w, "application game is not concrete")
+	if err != nil {
+		return err
 	}
 	for i, springID := range springIDs {
 		if err := assertAppSpringWallValue(game, springID, expectedWalls[i]); err != nil {
@@ -1070,8 +1078,8 @@ type temperatureDialogRange struct {
 }
 
 func springTemperatureDialogRange(w *world) (temperatureDialogRange, error) {
-	game, ok := w.appGame.(*app.Game)
-	if !ok {
+	game, err := concreteApplicationDriverWithMessage(w, "application game is not concrete")
+	if err != nil {
 		return temperatureDialogRange{}, fmt.Errorf("application game is not concrete")
 	}
 	minimum, maximum, open := game.SpringTemperatureDialogRange()
@@ -1094,9 +1102,9 @@ func expectedSpringTemperatureDialogRange(example map[string]string) (temperatur
 }
 
 func changeSpringTemperatureDialogValue(w *world, example map[string]string) error {
-	game, ok := w.appGame.(*app.Game)
-	if !ok {
-		return fmt.Errorf("application game is not concrete")
+	game, err := concreteApplicationDriverWithMessage(w, "application game is not concrete")
+	if err != nil {
+		return err
 	}
 	value, err := stringValue(example, "new_temperature")
 	if err != nil {
@@ -1117,9 +1125,9 @@ func assertSpringTemperatureValue(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	game, ok := w.appGame.(*app.Game)
-	if !ok {
-		return fmt.Errorf("application game is not concrete")
+	game, err := concreteApplicationDriverWithMessage(w, "application game is not concrete")
+	if err != nil {
+		return err
 	}
 	spring, ok := game.World().SpringByID(springID)
 	if !ok {
@@ -1137,9 +1145,9 @@ func selectSpringMenuItem(w *world, example map[string]string, item string) erro
 	if err != nil {
 		return err
 	}
-	game, ok := w.appGame.(*app.Game)
-	if !ok {
-		return fmt.Errorf("application game is not concrete")
+	game, err := concreteApplicationDriverWithMessage(w, "application game is not concrete")
+	if err != nil {
+		return err
 	}
 	if !game.SelectSpringContextMenuItem(springID, item) {
 		return fmt.Errorf("%s spring menu item was not handled", item)
@@ -1179,7 +1187,7 @@ func newAppGameWithSpring(springID int, wall bool) (*app.Game, error) {
 }
 
 func newAppGameWithSprings(springIDs []int, walls []bool) (*app.Game, error) {
-	game := app.NewGame()
+	game := newApplicationDriverGame()
 	world := sim.NewWorld()
 	ensureWallSpringMass(world, 1, sim.Vec2{})
 	ensureWallSpringMass(world, 2, sim.Vec2{X: 20})
@@ -1200,9 +1208,9 @@ func selectAppSpringIfRequested(game *app.Game, springID int, selectSpring bool)
 }
 
 func renderWallSpring(w *world, _ map[string]string) error {
-	game, ok := w.appGame.(*app.Game)
-	if !ok {
-		game = app.NewGame()
+	game, err := concreteApplicationDriverWithMessage(w, "application game is not concrete")
+	if err != nil {
+		game = newApplicationDriverGame()
 		game.ReplaceWorld(ensureDomainWorld(w))
 		w.appGame = game
 	}
@@ -1295,9 +1303,9 @@ func ensureMovingWallSpringMass(world *sim.Simulation, id int, position sim.Vec2
 }
 
 func springContextMenuLabels(w *world, springID int) ([]string, error) {
-	game, ok := w.appGame.(*app.Game)
-	if !ok {
-		return nil, fmt.Errorf("application game is not concrete")
+	game, err := concreteApplicationDriverWithMessage(w, "application game is not concrete")
+	if err != nil {
+		return nil, err
 	}
 	return game.SpringContextMenuLabelsForSpring(springID), nil
 }

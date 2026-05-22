@@ -124,7 +124,7 @@ func startupDemoWorld(path string) (*sim.Simulation, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load startup demo %s: %w", path, err)
 	}
-	world.Bounds = newApplicationDriverGame().World().Bounds
+	world.Bounds = newApplicationDriverWorld().Bounds
 	return world, nil
 }
 
