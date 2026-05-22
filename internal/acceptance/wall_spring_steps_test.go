@@ -91,7 +91,23 @@ func TestWallSpringBarrierLengthConstraintSteps(t *testing.T) {
 }
 
 func TestWallSpringBarrierCollisionSteps(t *testing.T) {
-	example := map[string]string{
+	assertWallSpringBarrierMovingMassSteps(t, map[string]string{
+		"mass_x":  "-5",
+		"mass_vx": "10",
+	}, createBarrierMovingMass, advanceThroughWallSpringCollision)
+}
+
+func TestWallSpringBarrierFastCollisionSteps(t *testing.T) {
+	assertWallSpringBarrierMovingMassSteps(t, map[string]string{
+		"mass_x":   "-50",
+		"mass_vx":  "1000",
+		"duration": "1 step",
+	}, createFastBarrierMovingMass, advanceThroughWallSpringCollisionByDuration)
+}
+
+func assertWallSpringBarrierMovingMassSteps(t *testing.T, overrides map[string]string, createMass, advance stepHandler) {
+	t.Helper()
+	example := mergeWallSpringExample(map[string]string{
 		"spring_id": "1",
 		"wall_x1":   "0",
 		"wall_y1":   "0",
@@ -102,35 +118,24 @@ func TestWallSpringBarrierCollisionSteps(t *testing.T) {
 		"mass_y":    "50",
 		"mass_vx":   "10",
 		"mass_vy":   "0",
-	}
+	}, overrides)
 	w := &world{}
 	mustWallSpringStep(t, w, example, createWallSpringByCoordinates)
-	mustWallSpringStep(t, w, example, createBarrierMovingMass)
-	mustWallSpringStep(t, w, example, advanceThroughWallSpringCollision)
+	mustWallSpringStep(t, w, example, createMass)
+	mustWallSpringStep(t, w, example, advance)
 	mustWallSpringStep(t, w, example, assertMassOnStartingWallSpringSide)
 	mustWallSpringStep(t, w, example, assertMassVelocityResolvedAwayFromWallSpring)
 }
 
-func TestWallSpringBarrierFastCollisionSteps(t *testing.T) {
-	example := map[string]string{
-		"spring_id": "1",
-		"wall_x1":   "0",
-		"wall_y1":   "0",
-		"wall_x2":   "0",
-		"wall_y2":   "100",
-		"mass_id":   "3",
-		"mass_x":    "-50",
-		"mass_y":    "50",
-		"mass_vx":   "1000",
-		"mass_vy":   "0",
-		"duration":  "1 step",
+func mergeWallSpringExample(base map[string]string, overrides map[string]string) map[string]string {
+	merged := map[string]string{}
+	for key, value := range base {
+		merged[key] = value
 	}
-	w := &world{}
-	mustWallSpringStep(t, w, example, createWallSpringByCoordinates)
-	mustWallSpringStep(t, w, example, createFastBarrierMovingMass)
-	mustWallSpringStep(t, w, example, advanceThroughWallSpringCollisionByDuration)
-	mustWallSpringStep(t, w, example, assertMassOnStartingWallSpringSide)
-	mustWallSpringStep(t, w, example, assertMassVelocityResolvedAwayFromWallSpring)
+	for key, value := range overrides {
+		merged[key] = value
+	}
+	return merged
 }
 
 func TestWallSpringBarrierMovingWallCollisionSteps(t *testing.T) {
