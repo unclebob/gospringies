@@ -23,12 +23,12 @@ func TestAppUnitPointerPressBranches(t *testing.T) {
 		t.Fatalf("empty canvas press masses=%#v selected=%#v", game.World().Masses, game.editing().SelectedMasses)
 	}
 
-	game.controlDown = true
+	game.keyboard.controlDown = true
 	game.beginPointerPress(sim.Vec2{X: 580, Y: 320}, 580, 320)
 	if game.pointer.pendingSpringID == 0 || !game.pointer.springChainActive {
 		t.Fatalf("control placement pending=%d active=%t", game.pointer.pendingSpringID, game.pointer.springChainActive)
 	}
-	game.controlDown = false
+	game.keyboard.controlDown = false
 	game.beginPointerPress(sim.Vec2{X: 620, Y: 320}, 620, 320)
 	if len(game.World().Springs) != 1 || game.pointer.pendingSpringID != 0 || game.pointer.springChainActive {
 		t.Fatalf("chain finish springs=%#v pending=%d active=%t", game.World().Springs, game.pointer.pendingSpringID, game.pointer.springChainActive)
@@ -86,14 +86,14 @@ func TestAppUnitFinishWorldPointerCompletesGestures(t *testing.T) {
 	game.pointer.draggingMassID = 1
 	game.pointer.draggingStart = sim.Vec2{X: 500, Y: 300}
 	game.pointer.dragMoved = true
-	game.throwDown = true
+	game.keyboard.throwDown = true
 	game.finishWorldPointer(sim.Vec2{X: 530, Y: 320})
 	mass, _ := game.World().MassByID(1)
 	if mass.Velocity != (sim.Vec2{X: 30, Y: 20}) {
 		t.Fatalf("throw velocity = %#v", mass.Velocity)
 	}
 
-	game.throwDown = false
+	game.keyboard.throwDown = false
 	game.pointer.draggingMassID = 0
 	game.pointer.pendingSpringID = 1
 	game.finishWorldPointer(sim.Vec2{X: 540, Y: 300})
