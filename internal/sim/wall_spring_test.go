@@ -96,16 +96,29 @@ func TestWallSpringContactFractionRejectsNonCrossings(t *testing.T) {
 		previousSide float64
 		currentSide  float64
 	}{
-		{name: "previous on wall", previousSide: 0, currentSide: -1},
 		{name: "current on wall", previousSide: 1, currentSide: 0},
 		{name: "same positive side", previousSide: 1, currentSide: 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			_, ok := wallSpringContactFraction(Vec2{X: tc.previousSide, Y: 5}, Vec2{X: tc.currentSide, Y: 5}, segment, 100, tc.previousSide, tc.currentSide)
+			_, ok := wallSpringContactFraction(Vec2{X: tc.previousSide, Y: 5}, Vec2{X: tc.currentSide, Y: 5}, segment, 100, tc.previousSide, tc.currentSide, false)
 			if ok {
 				t.Fatal("contact fraction accepted non-crossing")
 			}
 		})
+	}
+}
+
+func TestWallSpringContactFractionAcceptsAllowedBoundaryStartCrossing(t *testing.T) {
+	got, ok := wallSpringContactFraction(Vec2{Y: 5}, Vec2{X: 1, Y: 5}, Vec2{Y: 10}, 100, 0, 1, true)
+	if !ok || got != 0.5 {
+		t.Fatalf("contact fraction = %f, %t, expected midpoint boundary contact", got, ok)
+	}
+}
+
+func TestWallSpringContactFractionUsesIntersectionAlongPath(t *testing.T) {
+	got, ok := wallSpringContactFraction(Vec2{X: -2, Y: 2}, Vec2{X: 1, Y: 8}, Vec2{Y: 10}, 100, -2, 1, false)
+	if !ok || !closeWallSpringLength(got, 0.6) {
+		t.Fatalf("contact fraction = %f, %t, expected crossing projection 0.6", got, ok)
 	}
 }
 
@@ -121,7 +134,7 @@ func TestWallSpringContactFractionAcceptsEndpointContacts(t *testing.T) {
 		{name: "end endpoint", previous: Vec2{X: -1, Y: 10}, current: Vec2{X: 1, Y: 10}, want: 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got, ok := wallSpringContactFraction(tc.previous, tc.current, segment, 100, tc.previous.X, tc.current.X)
+			got, ok := wallSpringContactFraction(tc.previous, tc.current, segment, 100, tc.previous.X, tc.current.X, false)
 			if !ok || !closeWallSpringLength(got, tc.want) {
 				t.Fatalf("contact fraction = %f, %t, expected %f", got, ok, tc.want)
 			}
@@ -140,7 +153,7 @@ func TestWallSpringContactFractionRejectsOutsideSegment(t *testing.T) {
 		{name: "after end", previous: Vec2{X: -1, Y: 10.1}, current: Vec2{X: 1, Y: 10.1}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			_, ok := wallSpringContactFraction(tc.previous, tc.current, segment, 100, tc.previous.X, tc.current.X)
+			_, ok := wallSpringContactFraction(tc.previous, tc.current, segment, 100, tc.previous.X, tc.current.X, false)
 			if ok {
 				t.Fatal("contact fraction accepted outside segment")
 			}
@@ -335,6 +348,124 @@ func TestWallSpringLengthCorrectionDoesNotMoveEndpointThroughOtherWallSpring(t *
 	endpointA, _ := world.MassByID(3)
 	if endpointA.Position.X > 0 {
 		t.Fatalf("wall spring endpoint crossed barrier after length correction: %#v", endpointA)
+	}
+}
+
+func TestWallSpringLengthCorrectionTreatsBoundaryStartAsCollision(t *testing.T) {
+	world := NewWorld()
+	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: 600, Y: 400}, Mass: 1, Fixed: true})
+	_ = world.AddMass(Mass{ID: 2, Position: Vec2{X: 690, Y: 400}, Mass: 1, Fixed: true})
+	_ = world.AddMass(Mass{ID: 3, Position: Vec2{X: 687, Y: 400}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 4, Position: Vec2{X: 687, Y: 350}, Mass: 1, Fixed: true})
+	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, Wall: true})
+	_ = world.AddSpring(Spring{ID: 2, MassA: 3, MassB: 4, RestLength: 40, Wall: true})
+
+	world.Step(1)
+
+	endpoint, _ := world.MassByID(3)
+	if endpoint.Position.Y < 400 {
+		t.Fatalf("boundary-start length correction leaked below wall spring: %#v", endpoint)
+	}
+}
+
+func TestWallSpringLengthCorrectionCannotLeakAroundCorner(t *testing.T) {
+	world := NewWorld()
+	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: 600, Y: 400}, Mass: 1, Fixed: true})
+	_ = world.AddMass(Mass{ID: 2, Position: Vec2{X: 690, Y: 400}, Mass: 1, Fixed: true})
+	_ = world.AddMass(Mass{ID: 3, Position: Vec2{X: 690, Y: 520}, Mass: 1, Fixed: true})
+	_ = world.AddMass(Mass{ID: 4, Position: Vec2{X: 687, Y: 400}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 5, Position: Vec2{X: 707, Y: 360}, Mass: 1, Fixed: true})
+	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, Wall: true})
+	_ = world.AddSpring(Spring{ID: 2, MassA: 2, MassB: 3, Wall: true})
+	_ = world.AddSpring(Spring{ID: 3, MassA: 4, MassB: 5, RestLength: 20, Wall: true})
+
+	world.Step(1)
+
+	endpoint, _ := world.MassByID(4)
+	if endpoint.Position.Y < 400 || endpoint.Position.X > 690 {
+		t.Fatalf("length correction leaked around wall-spring corner: %#v", endpoint)
+	}
+}
+
+func TestWallSpringLengthConstraintCollisionSkipsFixedAndUnchangedEndpoints(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		mass  Mass
+		prior Vec2
+	}{
+		{name: "fixed moved endpoint", mass: Mass{ID: 3, Position: Vec2{X: 5, Y: 5}, Mass: 1, Fixed: true}, prior: Vec2{X: -5, Y: 5}},
+		{name: "unchanged movable endpoint", mass: Mass{ID: 3, Position: Vec2{X: 5, Y: 5}, Mass: 1}, prior: Vec2{X: 5, Y: 5}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			world := NewWorld()
+			_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: 0, Y: 0}, Mass: 1, Fixed: true})
+			_ = world.AddMass(Mass{ID: 2, Position: Vec2{X: 0, Y: 10}, Mass: 1, Fixed: true})
+			_ = world.AddMass(tc.mass)
+			_ = world.AddMass(Mass{ID: 4, Position: Vec2{X: -20, Y: 5}, Mass: 1})
+			_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, Wall: true})
+			_ = world.AddSpring(Spring{ID: 2, MassA: 3, MassB: 4, Wall: true})
+
+			world.applyWallSpringEndpointConstraintCollisions(1, 2, []Vec2{{}, {Y: 10}, tc.prior, {X: -20, Y: 5}})
+
+			got, _ := world.MassByID(3)
+			if got.Position != tc.mass.Position {
+				t.Fatalf("endpoint position = %#v, expected %#v", got.Position, tc.mass.Position)
+			}
+		})
+	}
+}
+
+func TestWallSpringLengthConstraintCollisionSkipsMassThatIsTargetEndpoint(t *testing.T) {
+	world := NewWorld()
+	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: 0, Y: 0}, Mass: 1, Fixed: true})
+	_ = world.AddMass(Mass{ID: 2, Position: Vec2{X: 0, Y: 10}, Mass: 1, Fixed: true})
+	_ = world.AddMass(Mass{ID: 3, Position: Vec2{X: 5, Y: 5}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 4, Position: Vec2{X: -20, Y: 5}, Mass: 1})
+	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 3, Wall: true})
+	_ = world.AddSpring(Spring{ID: 2, MassA: 3, MassB: 4, Wall: true})
+
+	world.applyWallSpringEndpointConstraintCollisions(1, 2, []Vec2{{}, {Y: 10}, {X: -5, Y: 5}, {X: -20, Y: 5}})
+
+	got, _ := world.MassByID(3)
+	if got.Position != (Vec2{X: 5, Y: 5}) {
+		t.Fatalf("target endpoint position = %#v, expected no self collision", got.Position)
+	}
+}
+
+func TestWallSpringLengthConstraintCollisionSkipsNonWallSprings(t *testing.T) {
+	world := NewWorld()
+	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: 0, Y: 0}, Mass: 1, Fixed: true})
+	_ = world.AddMass(Mass{ID: 2, Position: Vec2{X: 0, Y: 10}, Mass: 1, Fixed: true})
+	_ = world.AddMass(Mass{ID: 3, Position: Vec2{X: 5, Y: 5}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 4, Position: Vec2{X: -20, Y: 5}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 5, Position: Vec2{X: 20, Y: 5}, Mass: 1})
+	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2})
+	_ = world.AddSpring(Spring{ID: 2, MassA: 3, MassB: 4, Wall: true})
+	_ = world.AddSpring(Spring{ID: 3, MassA: 3, MassB: 5, Wall: true})
+
+	world.applyWallSpringEndpointConstraintCollisions(1, 2, []Vec2{{}, {Y: 10}, {X: -5, Y: 5}, {X: -20, Y: 5}, {X: 20, Y: 5}})
+
+	got, _ := world.MassByID(3)
+	if got.Position != (Vec2{X: 5, Y: 5}) {
+		t.Fatalf("non-wall target changed endpoint position: %#v", got.Position)
+	}
+}
+
+func TestSideSignTreatsZeroAsPositiveSide(t *testing.T) {
+	if got := sideSign(-1); got != -1 {
+		t.Fatalf("negative side sign = %f, expected -1", got)
+	}
+	if got := sideSign(0); got != 1 {
+		t.Fatalf("zero side sign = %f, expected 1", got)
+	}
+}
+
+func TestCollisionStartSideUsesCurrentSideWhenStartingOnBoundary(t *testing.T) {
+	if got := collisionStartSide(0, -2); got != 1 {
+		t.Fatalf("start side for negative current = %f, expected 1", got)
+	}
+	if got := collisionStartSide(0, 2); got != -1 {
+		t.Fatalf("start side for positive current = %f, expected -1", got)
 	}
 }
 
