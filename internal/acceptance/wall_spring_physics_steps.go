@@ -50,6 +50,15 @@ func init() {
 		stepHandlers[step] = handler
 	}
 	for step, handler := range map[string]stepHandler{
+		"fixed mass <fixed_mass> at <fixed_x>, <fixed_y> is an endpoint of wall spring <fixed_spring>":                                              createFixedWallEndpointMass,
+		"moving wall spring <moving_spring> spans from <moving_x1>, <moving_y1> to <moving_x2>, <moving_y2> with velocity <moving_vx>, <moving_vy>": createMovingWallSpringTowardFixedEndpoint,
+		"the simulation advances through fixed endpoint collision":                                                                                  advanceThroughFixedEndpointCollision,
+		"moving wall spring <moving_spring> should remain on the starting side of fixed endpoint mass <fixed_mass>":                                 assertMovingWallSpringOnFixedEndpointStartingSide,
+		"moving wall spring <moving_spring> contact point velocity should be resolved away from fixed endpoint mass <fixed_mass>":                   assertMovingWallSpringVelocityAwayFromFixedEndpoint,
+	} {
+		stepHandlers[step] = handler
+	}
+	for step, handler := range map[string]stepHandler{
 		"a stationary floating wall with endpoint masses <endpoint_a_mass> and <endpoint_b_mass>":                                                createUnequalMassFloatingWall,
 		"moving mass <mass_id> with mass <moving_mass> is aimed at the floating wall from <mass_x>, <mass_y> with velocity <mass_vx>, <mass_vy>": createMassAimedAtFloatingWall,
 		"the simulation advances until the mass collides with the floating wall":                                                                 advanceUntilFloatingWallCollision,

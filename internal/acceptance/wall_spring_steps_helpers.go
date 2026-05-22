@@ -534,6 +534,166 @@ func wallSpringVelocity(world *sim.Simulation, springID int) (sim.Vec2, error) {
 	return a.Velocity.Add(b.Velocity).Scale(0.5), nil
 }
 
+func createFixedWallEndpointMass(w *world, example map[string]string) error {
+	springID, massID, err := intPair(example, "fixed_spring", "fixed_mass")
+	if err != nil {
+		return err
+	}
+	x, err := floatValue(example, "fixed_x")
+	if err != nil {
+		return err
+	}
+	y, err := floatValue(example, "fixed_y")
+	if err != nil {
+		return err
+	}
+	world := ensureDomainWorld(w)
+	_ = world.AddMass(sim.Mass{ID: massID, Position: sim.Vec2{X: x, Y: y}, Mass: 1, Fixed: true})
+	otherID := massID + 1
+	if otherID == massID {
+		otherID++
+	}
+	_ = world.AddMass(sim.Mass{ID: otherID, Position: sim.Vec2{X: x, Y: y + 100}, Mass: 1, Fixed: true})
+	return world.AddSpring(sim.Spring{ID: springID, MassA: massID, MassB: otherID, Wall: true})
+}
+
+func createMovingWallSpringTowardFixedEndpoint(w *world, example map[string]string) error {
+	springID, err := intValue(example, "moving_spring")
+	if err != nil {
+		return err
+	}
+	values, err := floatValues(example, "moving_x1", "moving_y1", "moving_x2", "moving_y2", "moving_vx", "moving_vy")
+	if err != nil {
+		return err
+	}
+	x1, y1, x2, y2, vx, vy := values[0], values[1], values[2], values[3], values[4], values[5]
+	world := ensureDomainWorld(w)
+	endpointA := 30
+	endpointB := 31
+	if err := world.AddMass(sim.Mass{ID: endpointA, Position: sim.Vec2{X: x1, Y: y1}, Velocity: sim.Vec2{X: vx, Y: vy}, Mass: 1}); err != nil {
+		return err
+	}
+	if err := world.AddMass(sim.Mass{ID: endpointB, Position: sim.Vec2{X: x2, Y: y2}, Velocity: sim.Vec2{X: vx, Y: vy}, Mass: 1}); err != nil {
+		return err
+	}
+	if err := world.AddSpring(sim.Spring{ID: springID, MassA: endpointA, MassB: endpointB, RestLength: distanceAcceptance(sim.Vec2{X: x2 - x1, Y: y2 - y1}), Wall: true}); err != nil {
+		return err
+	}
+	return rememberMovingWallSpringFixedEndpointSide(w, example)
+}
+
+func advanceThroughFixedEndpointCollision(w *world, _ map[string]string) error {
+	return advanceWallSpringWorld(w)
+}
+
+func assertMovingWallSpringOnFixedEndpointStartingSide(w *world, example map[string]string) error {
+	state, err := fixedEndpointWallSpringStateFor(w, example)
+	if err != nil {
+		return err
+	}
+	contact := closestAcceptancePointOnSegment(state.fixed.Position, state.endpointA.Position, state.endpointB.Position.Sub(state.endpointA.Position))
+	offset := contact.Sub(state.fixed.Position)
+	if dotAcceptance(offset, state.normal) < -0.000001 {
+		return fmt.Errorf("moving wall spring %d crossed fixed endpoint mass %d: contact=%#v normal=%#v", state.springID, state.fixed.ID, contact, state.normal)
+	}
+	return nil
+}
+
+func assertMovingWallSpringVelocityAwayFromFixedEndpoint(w *world, example map[string]string) error {
+	state, err := fixedEndpointWallSpringStateFor(w, example)
+	if err != nil {
+		return err
+	}
+	fraction := closestAcceptanceFractionOnSegment(state.fixed.Position, state.endpointA.Position, state.endpointB.Position.Sub(state.endpointA.Position))
+	velocity := state.endpointA.Velocity.Scale(1 - fraction).Add(state.endpointB.Velocity.Scale(fraction))
+	if dotAcceptance(velocity, state.normal) < -0.000001 {
+		return fmt.Errorf("moving wall spring %d contact velocity penetrates fixed endpoint mass %d: %#v", state.springID, state.fixed.ID, velocity)
+	}
+	return nil
+}
+
+type fixedEndpointWallSpringState struct {
+	springID  int
+	fixed     sim.Mass
+	endpointA sim.Mass
+	endpointB sim.Mass
+	normal    sim.Vec2
+}
+
+func fixedEndpointWallSpringStateFor(w *world, example map[string]string) (fixedEndpointWallSpringState, error) {
+	springID, fixedID, err := intPair(example, "moving_spring", "fixed_mass")
+	if err != nil {
+		return fixedEndpointWallSpringState{}, err
+	}
+	world := ensureDomainWorld(w)
+	fixed, ok := world.MassByID(fixedID)
+	if !ok {
+		return fixedEndpointWallSpringState{}, fmt.Errorf("fixed mass %d not found", fixedID)
+	}
+	spring, ok := world.SpringByID(springID)
+	if !ok {
+		return fixedEndpointWallSpringState{}, fmt.Errorf("spring %d not found", springID)
+	}
+	endpointA, okA := world.MassByID(spring.MassA)
+	endpointB, okB := world.MassByID(spring.MassB)
+	if !okA || !okB {
+		return fixedEndpointWallSpringState{}, fmt.Errorf("spring %d endpoints not found", springID)
+	}
+	normal, ok := w.fixedEndpointSides[fixedID]
+	if !ok {
+		return fixedEndpointWallSpringState{}, fmt.Errorf("starting side for fixed mass %d was not recorded", fixedID)
+	}
+	return fixedEndpointWallSpringState{springID: springID, fixed: fixed, endpointA: endpointA, endpointB: endpointB, normal: normal}, nil
+}
+
+func rememberMovingWallSpringFixedEndpointSide(w *world, example map[string]string) error {
+	springID, fixedID, err := intPair(example, "moving_spring", "fixed_mass")
+	if err != nil {
+		return err
+	}
+	world := ensureDomainWorld(w)
+	fixed, ok := world.MassByID(fixedID)
+	if !ok {
+		return fmt.Errorf("fixed mass %d not found", fixedID)
+	}
+	spring, ok := world.SpringByID(springID)
+	if !ok {
+		return fmt.Errorf("spring %d not found", springID)
+	}
+	endpointA, okA := world.MassByID(spring.MassA)
+	endpointB, okB := world.MassByID(spring.MassB)
+	if !okA || !okB {
+		return fmt.Errorf("spring %d endpoints not found", springID)
+	}
+	contact := closestAcceptancePointOnSegment(fixed.Position, endpointA.Position, endpointB.Position.Sub(endpointA.Position))
+	normal := contact.Sub(fixed.Position).Normalize()
+	if normal == (sim.Vec2{}) {
+		return fmt.Errorf("moving wall spring %d starts on fixed endpoint mass %d", springID, fixedID)
+	}
+	if w.fixedEndpointSides == nil {
+		w.fixedEndpointSides = map[int]sim.Vec2{}
+	}
+	w.fixedEndpointSides[fixedID] = normal
+	return nil
+}
+
+func closestAcceptancePointOnSegment(point, start, segment sim.Vec2) sim.Vec2 {
+	return start.Add(segment.Scale(closestAcceptanceFractionOnSegment(point, start, segment)))
+}
+
+func closestAcceptanceFractionOnSegment(point, start, segment sim.Vec2) float64 {
+	lengthSquared := dotAcceptance(segment, segment)
+	if lengthSquared == 0 {
+		return 0
+	}
+	projection := dotAcceptance(point.Sub(start), segment) / lengthSquared
+	return math.Min(1, math.Max(0, projection))
+}
+
+func distanceAcceptance(vector sim.Vec2) float64 {
+	return math.Sqrt(dotAcceptance(vector, vector))
+}
+
 func createWallSpringByEndpointIDs(w *world, example map[string]string) error {
 	if err := requireWallSpringExampleValues(example, map[string]string{"spring_id": "1", "endpoint_a": "1", "endpoint_b": "2"}); err != nil {
 		return err
