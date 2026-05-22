@@ -793,6 +793,91 @@ func parseExpectedImpulseShare(value string) (float64, error) {
 	return share, nil
 }
 
+func createUnequalMassFloatingWall(w *world, example map[string]string) error {
+	endpointAMass, err := floatValue(example, "endpoint_a_mass")
+	if err != nil {
+		return err
+	}
+	endpointBMass, err := floatValue(example, "endpoint_b_mass")
+	if err != nil {
+		return err
+	}
+	world := ensureDomainWorld(w)
+	if err := world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{}, Mass: endpointAMass}); err != nil {
+		return err
+	}
+	if err := world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{Y: 100}, Mass: endpointBMass}); err != nil {
+		return err
+	}
+	return world.AddSpring(sim.Spring{ID: 1, MassA: 1, MassB: 2, Wall: true})
+}
+
+func createMassAimedAtFloatingWall(w *world, example map[string]string) error {
+	massID, err := intValue(example, "mass_id")
+	if err != nil {
+		return err
+	}
+	massValue, err := floatValue(example, "moving_mass")
+	if err != nil {
+		return err
+	}
+	x, err := floatValue(example, "mass_x")
+	if err != nil {
+		return err
+	}
+	y, err := floatValue(example, "mass_y")
+	if err != nil {
+		return err
+	}
+	vx, err := floatValue(example, "mass_vx")
+	if err != nil {
+		return err
+	}
+	vy, err := floatValue(example, "mass_vy")
+	if err != nil {
+		return err
+	}
+	world := ensureDomainWorld(w)
+	if err := world.AddMass(sim.Mass{ID: massID, Position: sim.Vec2{X: x, Y: y}, Velocity: sim.Vec2{X: vx, Y: vy}, Mass: massValue}); err != nil {
+		return err
+	}
+	w.wallSpringMomentum = totalMassMomentum(world, 1, 2, massID)
+	w.wallSpringMomentumID = massID
+	return nil
+}
+
+func advanceUntilFloatingWallCollision(w *world, _ map[string]string) error {
+	ensureDomainWorld(w).Step(1)
+	return nil
+}
+
+func assertFloatingWallMomentumUnchanged(w *world, _ map[string]string) error {
+	return assertMomentum("floating wall collision momentum", totalMassMomentum(ensureDomainWorld(w), 1, 2, w.wallSpringMomentumID), w.wallSpringMomentum)
+}
+
+func totalMassMomentum(world *sim.Simulation, ids ...int) sim.Vec2 {
+	total := sim.Vec2{}
+	for _, id := range ids {
+		mass, ok := world.MassByID(id)
+		if !ok {
+			continue
+		}
+		massValue := mass.Mass
+		if massValue == 0 {
+			massValue = 1
+		}
+		total = total.Add(mass.Velocity.Scale(massValue))
+	}
+	return total
+}
+
+func assertMomentum(label string, got, want sim.Vec2) error {
+	if math.Abs(got.X-want.X) > 0.000001 || math.Abs(got.Y-want.Y) > 0.000001 {
+		return fmt.Errorf("%s = (%f, %f), expected (%f, %f)", label, got.X, got.Y, want.X, want.Y)
+	}
+	return nil
+}
+
 var expectedImpulseShares = map[string]float64{
 	"0.75":     0.75,
 	"0.50":     0.50,
