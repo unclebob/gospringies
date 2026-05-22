@@ -3,14 +3,14 @@ package app
 import "springs/internal/sim"
 
 func (g *Game) canvasWorldBounds() (float64, float64, float64, float64) {
-	return g.canvasWorldBoundsForHeight(g.simulation.Bounds.Height)
+	return g.canvasWorldBoundsForHeight(g.world.simulation.Bounds.Height)
 }
 
 func (g *Game) canvasWorldBoundsForHeight(height float64) (float64, float64, float64, float64) {
 	canvas := visibleRegionRects()["canvas"]
 	minX := float64(canvas.Min.X)
 	maxX := float64(canvas.Max.X)
-	if !g.canvasYUp {
+	if !g.run.canvasYUp {
 		return minX, maxX, float64(canvas.Min.Y), float64(canvas.Max.Y)
 	}
 	return minX, maxX, height - float64(canvas.Max.Y), height - float64(canvas.Min.Y)

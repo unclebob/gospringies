@@ -7,7 +7,7 @@ func Run() error {
 }
 
 func (g *Game) Update() error {
-	g.inputActive = true
+	g.runtime.inputActive = true
 	g.tickNumericTextField()
 	g.advanceSimulationFrame()
 	return nil

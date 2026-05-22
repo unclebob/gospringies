@@ -113,7 +113,7 @@ func (g *Game) activateInspectorControl(name string) bool {
 		return false
 	}
 	action(g)
-	g.dirty = true
+	g.editState.dirty = true
 	return true
 }
 
@@ -136,7 +136,7 @@ var inspectorControlActions = map[string]func(*Game){
 		g.toggleForce("wall repulsion", map[string]string{"magnitude": "10000", "exponent": "1"})
 	},
 	"mass collision force":     func(g *Game) { g.toggleForce("mass collision", map[string]string{}) },
-	"set center command":       func(g *Game) { g.simulation.SetForceCenter(g.selectedMassIDs()) },
+	"set center command":       func(g *Game) { g.world.simulation.SetForceCenter(g.selectedMassIDs()) },
 	"top wall toggle":          func(g *Game) { g.toggleWall("top") },
 	"bottom wall toggle":       func(g *Game) { g.toggleWall("bottom") },
 	"left wall toggle":         func(g *Game) { g.toggleWall("left") },
@@ -204,7 +204,7 @@ var editorControlParameters = map[string]string{
 
 func (g *Game) toggleFixedMass() {
 	value := strconv.FormatBool(!g.parameterEnabled("fixed mass"))
-	g.simulation.Parameters.Set("fixed mass", value)
+	g.world.simulation.Parameters.Set("fixed mass", value)
 	_ = g.editing().ChangeControl("fixed", value)
 }
 
@@ -214,17 +214,17 @@ func (g *Game) toggleSelectedSpringWall() {
 }
 
 func (g *Game) toggleForce(name string, defaults map[string]string) {
-	force, _ := g.simulation.Parameters.Force(name)
+	force, _ := g.world.simulation.Parameters.Force(name)
 	if force.Enabled == "true" {
 		force.Enabled = "false"
 		if force.Values == nil {
 			force.Values = map[string]string{}
 		}
-		g.simulation.Parameters.Forces[name] = force
-		g.simulation.Parameters.SelectForce(name)
+		g.world.simulation.Parameters.Forces[name] = force
+		g.world.simulation.Parameters.SelectForce(name)
 		return
 	}
-	g.simulation.Parameters.EnableForce(name, defaults)
+	g.world.simulation.Parameters.EnableForce(name, defaults)
 }
 
 func (g *Game) stepForceValue(forceName string, valueName string, delta float64) {
@@ -240,12 +240,12 @@ func (g *Game) setForceValue(forceName string, valueName string, value float64) 
 		force.Enabled = "true"
 	}
 	force.Values[valueName] = formatControlFloat(value)
-	g.simulation.Parameters.Forces[forceName] = force
-	g.simulation.Parameters.SelectForce(forceName)
+	g.world.simulation.Parameters.Forces[forceName] = force
+	g.world.simulation.Parameters.SelectForce(forceName)
 }
 
 func (g *Game) forceConfig(forceName string) sim.ForceConfig {
-	force, _ := g.simulation.Parameters.Force(forceName)
+	force, _ := g.world.simulation.Parameters.Force(forceName)
 	if force.Values == nil {
 		force.Values = map[string]string{}
 	}
@@ -258,23 +258,23 @@ func forceValueFloat(force sim.ForceConfig, name string) float64 {
 }
 
 func (g *Game) toggleWall(name string) {
-	g.simulation.Parameters.Walls[name] = !g.simulation.Parameters.Walls[name]
+	g.world.simulation.Parameters.Walls[name] = !g.world.simulation.Parameters.Walls[name]
 }
 
 func (g *Game) toggleGridSnap() {
 	if g.gridSnapEnabled() {
-		g.simulation.Parameters.Set("grid snap", "0")
+		g.world.simulation.Parameters.Set("grid snap", "0")
 		return
 	}
-	g.simulation.Parameters.Set("grid snap", "10")
+	g.world.simulation.Parameters.Set("grid snap", "10")
 }
 
 func (g *Game) toggleParameter(name string) {
-	g.simulation.Parameters.Set(name, strconv.FormatBool(!g.parameterEnabled(name)))
+	g.world.simulation.Parameters.Set(name, strconv.FormatBool(!g.parameterEnabled(name)))
 }
 
 func (g *Game) stepParameter(name string, delta float64) {
-	g.simulation.Parameters.Set(name, formatControlFloat(g.parameterFloat(name)+delta))
+	g.world.simulation.Parameters.Set(name, formatControlFloat(g.parameterFloat(name)+delta))
 }
 
 func (g *Game) selectedMassIDs() []int {
@@ -288,7 +288,7 @@ func (g *Game) selectedMassIDs() []int {
 }
 
 func (g *Game) parameterFloat(name string) float64 {
-	value, _ := strconv.ParseFloat(g.simulation.Parameters.Value(name), 64)
+	value, _ := strconv.ParseFloat(g.world.simulation.Parameters.Value(name), 64)
 	return value
 }
 
@@ -365,10 +365,10 @@ func (g *Game) dragSelectedMasses(position sim.Vec2) bool {
 }
 
 func (g *Game) dragSingleMass(id int, position sim.Vec2) bool {
-	for i := range g.simulation.Masses {
-		if g.simulation.Masses[i].ID == id {
-			g.simulation.Masses[i].Position = g.snapToCanvas(position)
-			g.simulation.Masses[i].Velocity = sim.Vec2{}
+	for i := range g.world.simulation.Masses {
+		if g.world.simulation.Masses[i].ID == id {
+			g.world.simulation.Masses[i].Position = g.snapToCanvas(position)
+			g.world.simulation.Masses[i].Velocity = sim.Vec2{}
 			g.finishMassDragStep(position)
 			return true
 		}
@@ -381,24 +381,24 @@ func (g *Game) finishMassDragStep(position sim.Vec2) {
 	if !selectionClick(g.pointer.draggingStart, position) {
 		g.pointer.dragMoved = true
 	}
-	g.dirty = true
+	g.editState.dirty = true
 }
 
 func (g *Game) moveSelectedMasses(delta sim.Vec2) {
-	for i := range g.simulation.Masses {
-		if g.editing().MassSelected(g.simulation.Masses[i].ID) {
-			g.simulation.Masses[i].Position = g.snapToCanvas(g.simulation.Masses[i].Position.Add(delta))
-			g.simulation.Masses[i].Velocity = sim.Vec2{}
+	for i := range g.world.simulation.Masses {
+		if g.editing().MassSelected(g.world.simulation.Masses[i].ID) {
+			g.world.simulation.Masses[i].Position = g.snapToCanvas(g.world.simulation.Masses[i].Position.Add(delta))
+			g.world.simulation.Masses[i].Velocity = sim.Vec2{}
 		}
 	}
 }
 
 func (g *Game) applyDraggingOffsets(cursor sim.Vec2) {
-	for i := range g.simulation.Masses {
-		offset, ok := g.pointer.draggingOffsets[g.simulation.Masses[i].ID]
+	for i := range g.world.simulation.Masses {
+		offset, ok := g.pointer.draggingOffsets[g.world.simulation.Masses[i].ID]
 		if ok {
-			g.simulation.Masses[i].Position = g.snapToCanvas(cursor.Add(offset))
-			g.simulation.Masses[i].Velocity = sim.Vec2{}
+			g.world.simulation.Masses[i].Position = g.snapToCanvas(cursor.Add(offset))
+			g.world.simulation.Masses[i].Velocity = sim.Vec2{}
 		}
 	}
 }
@@ -415,5 +415,5 @@ func (g *Game) snapToGrid(position sim.Vec2) sim.Vec2 {
 }
 
 // mutate4go-manifest-begin
-// {"version":1,"tested_at":"2026-05-22T08:11:49-05:00","module_hash":"cc0502a2d71504dfaf2a3ec026a854ba6b02120d86ae34f597c26865a591d01d","functions":[{"id":"func/Game.ClickAt","name":"Game.ClickAt","line":30,"end_line":39,"hash":"abd8c850c09ded9a7bbbef67650b9dd812456e2232d07c865c4cfb530daefaf2"},{"id":"func/Game.clickVisibleControl","name":"Game.clickVisibleControl","line":41,"end_line":58,"hash":"23fccde47def1951406b74e466dd4b772ac7bfe667c203c23d5f59ad6dfad7d7"},{"id":"func/Game.clickAwayFromVisibleControls","name":"Game.clickAwayFromVisibleControls","line":60,"end_line":67,"hash":"c1a348181832e9f0ac292e8331c17347a39e134d9786559006fac9084a7646f5"},{"id":"func/Game.ClickVisibleControl","name":"Game.ClickVisibleControl","line":69,"end_line":75,"hash":"62c99a99facde1559b3bb3d3d4e7689177529881a2c1525986f8f4858af3f1bf"},{"id":"func/Game.VisibleControlBounds","name":"Game.VisibleControlBounds","line":77,"end_line":83,"hash":"c31a71819009fcde81e5dc37f01757124583e6d4d8143a37da74a8cb668768cf"},{"id":"func/Game.activateVisibleControl","name":"Game.activateVisibleControl","line":85,"end_line":99,"hash":"5134e0f80211e06a5f1f23e39f67c35f06bd6e25e54495357b4ba0237e5685fd"},{"id":"func/Game.editMenuControlAt","name":"Game.editMenuControlAt","line":101,"end_line":108,"hash":"5d644c398ced9c63cca3dbc0689576ce08c17f1c301c10f0f5746faa73e8b60d"},{"id":"func/Game.activateInspectorControl","name":"Game.activateInspectorControl","line":110,"end_line":118,"hash":"af198a5b9677d55494e8f3c3958befbdde6f9f25cc9fcfcadcf956e6c0fe8bc5"},{"id":"func/Game.setSliderAt","name":"Game.setSliderAt","line":153,"end_line":159,"hash":"47889db5165c085b486cab5c237e6f1f4c52fab5a7059db51badb7a196813d93"},{"id":"func/Game.continueNumericStepHold","name":"Game.continueNumericStepHold","line":161,"end_line":175,"hash":"544fe0e0cc1b014dd15a08a22c3f86e244d567a3adb2333f52cabff7a039dcab"},{"id":"func/sliderFractionAt","name":"sliderFractionAt","line":177,"end_line":183,"hash":"8df037c485beccdda8a0cbe074c1cfcf010b61cecc12bd50c1dbfebb22762b8e"},{"id":"func/Game.stepEditorControl","name":"Game.stepEditorControl","line":185,"end_line":188,"hash":"908abc50cefb5bef5cba1cd1aa89359d53aba81e8de8c7a6ba1e04ff966d6f9e"},{"id":"func/Game.parameterForEditorControl","name":"Game.parameterForEditorControl","line":190,"end_line":196,"hash":"f0cb615eff406cfcaad996ceed2b2043a543338a8d9cd7603c4c35ccd54bb061"},{"id":"func/Game.toggleFixedMass","name":"Game.toggleFixedMass","line":205,"end_line":209,"hash":"7375fb7830a8240deb32bc922fdae697c28b685ea7a17ec3df61f0ab8e4bf580"},{"id":"func/Game.toggleSelectedSpringWall","name":"Game.toggleSelectedSpringWall","line":211,"end_line":214,"hash":"2d0dab9591647348c65edfdb7e93475c41d737726ea497ce623062177785615e"},{"id":"func/Game.toggleForce","name":"Game.toggleForce","line":216,"end_line":228,"hash":"e4885d2a6af0304cdd3a404b54d7a9e84acb84d7ed62326b2d8c7e9040080acd"},{"id":"func/Game.stepForceValue","name":"Game.stepForceValue","line":230,"end_line":232,"hash":"0e88dce860c544e1d7ae4a45d509db1b277425eb54c51ea88858648c9152c154"},{"id":"func/Game.setForceValue","name":"Game.setForceValue","line":234,"end_line":245,"hash":"9dc52a916bd907b92a2466a83057b1992e5c4d3c430365a4715b170bb4ea299b"},{"id":"func/Game.forceConfig","name":"Game.forceConfig","line":247,"end_line":253,"hash":"268a1f3034abaf9e5b29178f8b515eb9f92dbe1c754f478b58cf8cd498fdb590"},{"id":"func/forceValueFloat","name":"forceValueFloat","line":255,"end_line":258,"hash":"49ace1f2c99bcee1c74beb91d9c41aa20c5d3fcdfe64218b52a24987d28e2ddb"},{"id":"func/Game.toggleWall","name":"Game.toggleWall","line":260,"end_line":262,"hash":"dc9babca921d07624cfb1c5a31cc22bc56f19c433370b48247fc2f81798eb032"},{"id":"func/Game.toggleGridSnap","name":"Game.toggleGridSnap","line":264,"end_line":270,"hash":"2817114e27d8051a7538662f0883e3b7ac917693ae26b29bfb8b6172301800aa"},{"id":"func/Game.toggleParameter","name":"Game.toggleParameter","line":272,"end_line":274,"hash":"e244dff943c38b54b303f95fd4443bd14cbfeb7a19d2528a60c8e894e0a34598"},{"id":"func/Game.stepParameter","name":"Game.stepParameter","line":276,"end_line":278,"hash":"49ccea30a073fdc685a71d778da794146bcd1ed22a6e310db5e8fe61d828601a"},{"id":"func/Game.selectedMassIDs","name":"Game.selectedMassIDs","line":280,"end_line":288,"hash":"c22bc0b7c51e606264c25a2b1f13d5770a815f27bbf9edb542a1a7a95215ccd2"},{"id":"func/Game.parameterFloat","name":"Game.parameterFloat","line":290,"end_line":293,"hash":"763e76f48f23a676153bc74047d3a5b5931a900bdf4930b5d5756604ab102da0"},{"id":"func/Game.gridSnapSize","name":"Game.gridSnapSize","line":295,"end_line":297,"hash":"2f848d29a5ed78e7601534d822f5588903cc01e5006b92b46e55fcfbf479b594"},{"id":"func/formatControlFloat","name":"formatControlFloat","line":299,"end_line":301,"hash":"b19b7aacb786da1791f10cb92f30c3b9902c9804613d34efcd6f7da207db4a9d"},{"id":"func/roundControlFloat","name":"roundControlFloat","line":303,"end_line":305,"hash":"5c3c02047df5405fa39aa22ef6c906165e410f44d101726a323894fcf3c84a75"},{"id":"func/clampFloat","name":"clampFloat","line":307,"end_line":309,"hash":"ab5544e501ecda24c07fea5d3a7db0d688bd2961d0e4deaae4b8a8e6eb5f6c52"},{"id":"func/visibleControlAt","name":"visibleControlAt","line":311,"end_line":318,"hash":"f049ae667df6f18d325f52daa1c49dea3a0f91b5bdd6e131fc4453478fe3f119"},{"id":"func/visibleControlWithLabel","name":"visibleControlWithLabel","line":320,"end_line":322,"hash":"12466197c75f303e2046e9040707712b50105ab0775ae48effa98c255c8b6473"},{"id":"func/visibleControlWithName","name":"visibleControlWithName","line":324,"end_line":326,"hash":"bf1da831cc99be8af7c973d3ae709681d724a3f1190917a8039604bebd1e6bba"},{"id":"func/visibleControlWithField","name":"visibleControlWithField","line":328,"end_line":335,"hash":"a86699b1155622f62d2bedac4f62b1ab2b47837fd617eaa135881750273cef08"},{"id":"func/Game.PathEntryCommand","name":"Game.PathEntryCommand","line":337,"end_line":339,"hash":"90b70f23deb7f8da1cece97e4fa6d3bdd382724bcd575e352633d8ce5122ab91"},{"id":"func/Game.DemoPickerOpen","name":"Game.DemoPickerOpen","line":341,"end_line":343,"hash":"5c9273633ac604733fe616cfa7f57e3e41dfaf021cdb9f7207f6fae944b7de68"},{"id":"func/Game.VisibleControlActive","name":"Game.VisibleControlActive","line":345,"end_line":348,"hash":"62378e0437078c58522cd0fb73fdf959154000d20d4a06ce524d11d50ac3bbeb"},{"id":"func/Game.DragMass","name":"Game.DragMass","line":350,"end_line":355,"hash":"54e365a24dad0e7d7d748b16f5c3583af78add366f83ad03f81db661f1c9355f"},{"id":"func/Game.dragSelectedMasses","name":"Game.dragSelectedMasses","line":357,"end_line":365,"hash":"24b4d06566a81bd5006ae43ea6808d1170f96df1c322fb777a5ef18e7da6df32"},{"id":"func/Game.dragSingleMass","name":"Game.dragSingleMass","line":367,"end_line":377,"hash":"0535634cd4a66f20ee188edad84e632b598c3a13807db600954650169bb64f18"},{"id":"func/Game.finishMassDragStep","name":"Game.finishMassDragStep","line":379,"end_line":385,"hash":"a7954983890cf003679bc5fe76584b50be113169f481bb2774775dab7c1d145f"},{"id":"func/Game.moveSelectedMasses","name":"Game.moveSelectedMasses","line":387,"end_line":394,"hash":"36e44ff1e6837878f5fe7e3cbc286a00250c07e42550de26e549974da402f291"},{"id":"func/Game.applyDraggingOffsets","name":"Game.applyDraggingOffsets","line":396,"end_line":404,"hash":"78cc5ffc8788be91ab55d2200afbb7998aff6470633931df764879e573b6dc30"},{"id":"func/Game.snapToGrid","name":"Game.snapToGrid","line":406,"end_line":415,"hash":"e7b93e39ef986bc33f6bedbab4eb997d9433a2e7267e430186f91dffd802870a"}]}
+// {"version":1,"tested_at":"2026-05-22T08:41:56-05:00","module_hash":"f05b809b4954932753e5ea37c207847f681d9192cbb53395119b87dc9324329a","functions":[{"id":"func/Game.ClickAt","name":"Game.ClickAt","line":30,"end_line":39,"hash":"abd8c850c09ded9a7bbbef67650b9dd812456e2232d07c865c4cfb530daefaf2"},{"id":"func/Game.clickVisibleControl","name":"Game.clickVisibleControl","line":41,"end_line":58,"hash":"23fccde47def1951406b74e466dd4b772ac7bfe667c203c23d5f59ad6dfad7d7"},{"id":"func/Game.clickAwayFromVisibleControls","name":"Game.clickAwayFromVisibleControls","line":60,"end_line":67,"hash":"c1a348181832e9f0ac292e8331c17347a39e134d9786559006fac9084a7646f5"},{"id":"func/Game.ClickVisibleControl","name":"Game.ClickVisibleControl","line":69,"end_line":75,"hash":"62c99a99facde1559b3bb3d3d4e7689177529881a2c1525986f8f4858af3f1bf"},{"id":"func/Game.VisibleControlBounds","name":"Game.VisibleControlBounds","line":77,"end_line":83,"hash":"c31a71819009fcde81e5dc37f01757124583e6d4d8143a37da74a8cb668768cf"},{"id":"func/Game.activateVisibleControl","name":"Game.activateVisibleControl","line":85,"end_line":99,"hash":"5134e0f80211e06a5f1f23e39f67c35f06bd6e25e54495357b4ba0237e5685fd"},{"id":"func/Game.editMenuControlAt","name":"Game.editMenuControlAt","line":101,"end_line":108,"hash":"5d644c398ced9c63cca3dbc0689576ce08c17f1c301c10f0f5746faa73e8b60d"},{"id":"func/Game.activateInspectorControl","name":"Game.activateInspectorControl","line":110,"end_line":118,"hash":"d3741505eb7fc80eba0acb99ec519d4f70f44d2814c7ef240e7e2bfd5e7a6391"},{"id":"func/Game.setSliderAt","name":"Game.setSliderAt","line":153,"end_line":159,"hash":"47889db5165c085b486cab5c237e6f1f4c52fab5a7059db51badb7a196813d93"},{"id":"func/Game.continueNumericStepHold","name":"Game.continueNumericStepHold","line":161,"end_line":175,"hash":"544fe0e0cc1b014dd15a08a22c3f86e244d567a3adb2333f52cabff7a039dcab"},{"id":"func/sliderFractionAt","name":"sliderFractionAt","line":177,"end_line":183,"hash":"8df037c485beccdda8a0cbe074c1cfcf010b61cecc12bd50c1dbfebb22762b8e"},{"id":"func/Game.stepEditorControl","name":"Game.stepEditorControl","line":185,"end_line":188,"hash":"908abc50cefb5bef5cba1cd1aa89359d53aba81e8de8c7a6ba1e04ff966d6f9e"},{"id":"func/Game.parameterForEditorControl","name":"Game.parameterForEditorControl","line":190,"end_line":196,"hash":"f0cb615eff406cfcaad996ceed2b2043a543338a8d9cd7603c4c35ccd54bb061"},{"id":"func/Game.toggleFixedMass","name":"Game.toggleFixedMass","line":205,"end_line":209,"hash":"47cf18b8b950b843a02574b7b1cd37ff7ac98afc50a65b49f9dbeff3db0cdbfc"},{"id":"func/Game.toggleSelectedSpringWall","name":"Game.toggleSelectedSpringWall","line":211,"end_line":214,"hash":"2d0dab9591647348c65edfdb7e93475c41d737726ea497ce623062177785615e"},{"id":"func/Game.toggleForce","name":"Game.toggleForce","line":216,"end_line":228,"hash":"eda87ab2868dc0ee663e6c6029734a6e00fab05e4fd6e3f0589206157ccf43d1"},{"id":"func/Game.stepForceValue","name":"Game.stepForceValue","line":230,"end_line":232,"hash":"0e88dce860c544e1d7ae4a45d509db1b277425eb54c51ea88858648c9152c154"},{"id":"func/Game.setForceValue","name":"Game.setForceValue","line":234,"end_line":245,"hash":"4482bc35eff5af506339e545f703769e2daf23568f36dbeb0cf6f3df89ec364f"},{"id":"func/Game.forceConfig","name":"Game.forceConfig","line":247,"end_line":253,"hash":"fb37883ba36bc7c43288e0d3b30b6fe318191b972349707536e5f09b6474e408"},{"id":"func/forceValueFloat","name":"forceValueFloat","line":255,"end_line":258,"hash":"49ace1f2c99bcee1c74beb91d9c41aa20c5d3fcdfe64218b52a24987d28e2ddb"},{"id":"func/Game.toggleWall","name":"Game.toggleWall","line":260,"end_line":262,"hash":"d9aafe71be296e264e0fa2cd7bbaf0c789e1e113910bd3d1fc995a7169185ee9"},{"id":"func/Game.toggleGridSnap","name":"Game.toggleGridSnap","line":264,"end_line":270,"hash":"87a649884f58f1ba2e40a24c475b82357c91cbcd8c782bddc4d02fd3ed9ddab5"},{"id":"func/Game.toggleParameter","name":"Game.toggleParameter","line":272,"end_line":274,"hash":"2dc62c76aa4c67e5fd8772727bb04fa956d3affdf0e00c7fc7098ae7345abd49"},{"id":"func/Game.stepParameter","name":"Game.stepParameter","line":276,"end_line":278,"hash":"307945d810c511e42519b1be4fa4388065546f9b76d9ac0a3fe63d513b522856"},{"id":"func/Game.selectedMassIDs","name":"Game.selectedMassIDs","line":280,"end_line":288,"hash":"c22bc0b7c51e606264c25a2b1f13d5770a815f27bbf9edb542a1a7a95215ccd2"},{"id":"func/Game.parameterFloat","name":"Game.parameterFloat","line":290,"end_line":293,"hash":"b1b75434b4e1913a8f95165a651d741172c5d48351ae4add5ccd7a12d7bfc664"},{"id":"func/Game.gridSnapSize","name":"Game.gridSnapSize","line":295,"end_line":297,"hash":"2f848d29a5ed78e7601534d822f5588903cc01e5006b92b46e55fcfbf479b594"},{"id":"func/formatControlFloat","name":"formatControlFloat","line":299,"end_line":301,"hash":"b19b7aacb786da1791f10cb92f30c3b9902c9804613d34efcd6f7da207db4a9d"},{"id":"func/roundControlFloat","name":"roundControlFloat","line":303,"end_line":305,"hash":"5c3c02047df5405fa39aa22ef6c906165e410f44d101726a323894fcf3c84a75"},{"id":"func/clampFloat","name":"clampFloat","line":307,"end_line":309,"hash":"ab5544e501ecda24c07fea5d3a7db0d688bd2961d0e4deaae4b8a8e6eb5f6c52"},{"id":"func/visibleControlAt","name":"visibleControlAt","line":311,"end_line":318,"hash":"f049ae667df6f18d325f52daa1c49dea3a0f91b5bdd6e131fc4453478fe3f119"},{"id":"func/visibleControlWithLabel","name":"visibleControlWithLabel","line":320,"end_line":322,"hash":"12466197c75f303e2046e9040707712b50105ab0775ae48effa98c255c8b6473"},{"id":"func/visibleControlWithName","name":"visibleControlWithName","line":324,"end_line":326,"hash":"bf1da831cc99be8af7c973d3ae709681d724a3f1190917a8039604bebd1e6bba"},{"id":"func/visibleControlWithField","name":"visibleControlWithField","line":328,"end_line":335,"hash":"a86699b1155622f62d2bedac4f62b1ab2b47837fd617eaa135881750273cef08"},{"id":"func/Game.PathEntryCommand","name":"Game.PathEntryCommand","line":337,"end_line":339,"hash":"90b70f23deb7f8da1cece97e4fa6d3bdd382724bcd575e352633d8ce5122ab91"},{"id":"func/Game.DemoPickerOpen","name":"Game.DemoPickerOpen","line":341,"end_line":343,"hash":"5c9273633ac604733fe616cfa7f57e3e41dfaf021cdb9f7207f6fae944b7de68"},{"id":"func/Game.VisibleControlActive","name":"Game.VisibleControlActive","line":345,"end_line":348,"hash":"62378e0437078c58522cd0fb73fdf959154000d20d4a06ce524d11d50ac3bbeb"},{"id":"func/Game.DragMass","name":"Game.DragMass","line":350,"end_line":355,"hash":"54e365a24dad0e7d7d748b16f5c3583af78add366f83ad03f81db661f1c9355f"},{"id":"func/Game.dragSelectedMasses","name":"Game.dragSelectedMasses","line":357,"end_line":365,"hash":"24b4d06566a81bd5006ae43ea6808d1170f96df1c322fb777a5ef18e7da6df32"},{"id":"func/Game.dragSingleMass","name":"Game.dragSingleMass","line":367,"end_line":377,"hash":"b2c68d8d37dfaac3417d2500bc988b5aed989998d397c1e167efc2074fefff35"},{"id":"func/Game.finishMassDragStep","name":"Game.finishMassDragStep","line":379,"end_line":385,"hash":"a7fed366dcd0037e7c8182040311f7ad5e1b914c637b75b88ad0700c58a6fcca"},{"id":"func/Game.moveSelectedMasses","name":"Game.moveSelectedMasses","line":387,"end_line":394,"hash":"f6ba940b1ed1114b687b0b84b3482bffa82119ef0a1dcc0418ac14bc9ba60d77"},{"id":"func/Game.applyDraggingOffsets","name":"Game.applyDraggingOffsets","line":396,"end_line":404,"hash":"0e6bb5212ea85b8de36949f8c249d170bb269d917f0bedeb497713ab275edece"},{"id":"func/Game.snapToGrid","name":"Game.snapToGrid","line":406,"end_line":415,"hash":"e7b93e39ef986bc33f6bedbab4eb997d9433a2e7267e430186f91dffd802870a"}]}
 // mutate4go-manifest-end
