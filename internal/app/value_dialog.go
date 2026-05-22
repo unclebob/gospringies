@@ -135,15 +135,15 @@ func (g *Game) clickValueDialog(x int, y int) {
 		return
 	}
 	if point.In(g.valueDialogDecrementRect()) {
-		g.activeValueStep = -numericStepAmount
-		g.valueStepTicks = 0
-		g.stepValueDialog(g.activeValueStep)
+		g.controls.activeValueStep = -numericStepAmount
+		g.controls.valueStepTicks = 0
+		g.stepValueDialog(g.controls.activeValueStep)
 		return
 	}
 	if point.In(g.valueDialogIncrementRect()) {
-		g.activeValueStep = numericStepAmount
-		g.valueStepTicks = 0
-		g.stepValueDialog(g.activeValueStep)
+		g.controls.activeValueStep = numericStepAmount
+		g.controls.valueStepTicks = 0
+		g.stepValueDialog(g.controls.activeValueStep)
 		return
 	}
 	if point.In(g.valueDialogSliderTrack()) {
@@ -198,17 +198,17 @@ func (g *Game) stepValueDialog(delta float64) {
 }
 
 func (g *Game) continueValueDialogStepHold() {
-	if !g.valueDialog.Open || g.activeValueStep == 0 {
-		g.activeValueStep = 0
-		g.valueStepTicks = 0
+	if !g.valueDialog.Open || g.controls.activeValueStep == 0 {
+		g.controls.activeValueStep = 0
+		g.controls.valueStepTicks = 0
 		return
 	}
-	g.valueStepTicks++
-	if g.valueStepTicks < numericStepHoldDelayTicks {
+	g.controls.valueStepTicks++
+	if g.controls.valueStepTicks < numericStepHoldDelayTicks {
 		return
 	}
-	if (g.valueStepTicks-numericStepHoldDelayTicks)%numericStepRepeatTicks == 0 {
-		g.stepValueDialog(g.activeValueStep)
+	if (g.controls.valueStepTicks-numericStepHoldDelayTicks)%numericStepRepeatTicks == 0 {
+		g.stepValueDialog(g.controls.activeValueStep)
 	}
 }
 
@@ -338,5 +338,5 @@ func distanceToSegment(p sim.Vec2, a sim.Vec2, b sim.Vec2) float64 {
 }
 
 // mutate4go-manifest-begin
-// {"version":1,"tested_at":"2026-05-19T12:19:36-05:00","module_hash":"b27b87cc8011e5deb1c12b2666f2405d71a3c9db6ec540d3545f8bfe4da8b354","functions":[{"id":"func/Game.openMassValueDialog","name":"Game.openMassValueDialog","line":30,"end_line":46,"hash":"1cd83d04cc55bc04268a3bb1815db6792e431b081c2900c5a10e15a91eda0274"},{"id":"func/Game.openSpringConstantDialogAt","name":"Game.openSpringConstantDialogAt","line":48,"end_line":66,"hash":"5cddcb8c08f260cefe065bf3c7ddea6bbc71368c455a9c845a78c80646b3d7fc"},{"id":"func/Game.tickValueDialog","name":"Game.tickValueDialog","line":68,"end_line":73,"hash":"17cc428cae8a89641a9f7536359e37295c0bb73863f13a15e6472e099e3b2f4a"},{"id":"func/Game.valueDialogCursorVisible","name":"Game.valueDialogCursorVisible","line":75,"end_line":80,"hash":"9f3e225681082c9b1aaa4187cad32987e01dcda3e715c69901f71fcf788db199"},{"id":"func/Game.clickValueDialog","name":"Game.clickValueDialog","line":82,"end_line":96,"hash":"6a6cd0a10816a4ba5065fc57ef741befd9b36354be61b4f32ae8405ac6aca21e"},{"id":"func/Game.appendValueDialogInput","name":"Game.appendValueDialogInput","line":98,"end_line":104,"hash":"b512d053f88630b3f6adfd233fe96aacb82434b63db28506066a835c7870a168"},{"id":"func/Game.deleteValueDialogCharacter","name":"Game.deleteValueDialogCharacter","line":106,"end_line":110,"hash":"04fb2cf2958a9514bb103ef0aab66806183db7efd1812814a39b3fa5b43e214e"},{"id":"func/Game.applyValueDialog","name":"Game.applyValueDialog","line":112,"end_line":121,"hash":"1470ec33108d4ac9d21fb764b9e3a13d6519278089a9e4ccbba9a10ec13578b7"},{"id":"func/Game.setValueDialogFromSlider","name":"Game.setValueDialogFromSlider","line":123,"end_line":128,"hash":"b9591c2222d131b9368978ef5c9111eaea81c982ed3c873ed91589ee867319ef"},{"id":"func/Game.valueDialogFraction","name":"Game.valueDialogFraction","line":130,"end_line":136,"hash":"51f872d0716b555a22a16e3c10711e74902cdd676748a6613a2e5168ceaf0532"},{"id":"func/valueDialogRect","name":"valueDialogRect","line":138,"end_line":142,"hash":"302a55a957839dc502a50df300d3113e769d517c064813924e4c6149bd06d101"},{"id":"func/Game.valueDialogTextRect","name":"Game.valueDialogTextRect","line":144,"end_line":147,"hash":"3570f909e9c7d78dbf0c83c67822c84c818235f6f9d6e131a93cde97f85bfde3"},{"id":"func/Game.valueDialogSliderTrack","name":"Game.valueDialogSliderTrack","line":149,"end_line":152,"hash":"c00d5aa5016af8c21fafce55e78dcdf3fe313322ea8db7438907225381cb81ed"},{"id":"func/Game.valueDialogOKRect","name":"Game.valueDialogOKRect","line":154,"end_line":157,"hash":"4b5942653e3e664fcae0e3e57be322af27e842d3a886b16c7bb7581d45c005f6"},{"id":"func/Game.setSpringConstant","name":"Game.setSpringConstant","line":159,"end_line":168,"hash":"c07640a6e6c0889d505c9ee749a6311fcb4c352ec19b920dbaecc6a20a3c5fc5"},{"id":"func/Game.springAt","name":"Game.springAt","line":170,"end_line":176,"hash":"004f335189f88e1e03b4d55dd33b7c3f196ff07ab7e577c918c3d4758991b10f"},{"id":"func/Game.springAtPosition","name":"Game.springAtPosition","line":178,"end_line":187,"hash":"786bdda02f6d6aecfecfdd9370cb3be2f2c0f02ef22af39cda0ba6f344c2cbef"},{"id":"func/distanceToSegment","name":"distanceToSegment","line":189,"end_line":199,"hash":"780d9bda4d7679a39d2aca892c903e2b8e4232701a027c90768e710967e61f14"}]}
+// {"version":1,"tested_at":"2026-05-22T07:57:50-05:00","module_hash":"65894449205532296ebe4f6d55214c46621cdc4fe01178352c3a7f7ddfaf51ae","functions":[{"id":"func/Game.openMassValueDialog","name":"Game.openMassValueDialog","line":39,"end_line":55,"hash":"1cd83d04cc55bc04268a3bb1815db6792e431b081c2900c5a10e15a91eda0274"},{"id":"func/Game.openSpringConstantDialogAt","name":"Game.openSpringConstantDialogAt","line":57,"end_line":64,"hash":"a2529f506ecb0526db639013d768e776db8ba2c07d094c49155c27c933376036"},{"id":"func/Game.openSpringValueDialog","name":"Game.openSpringValueDialog","line":66,"end_line":81,"hash":"c07734e8f8fb2499a7087e2efb6fee206d7cc7d319e86f2f2f409c739f1dbe58"},{"id":"func/Game.springValueDialogSpec","name":"Game.springValueDialogSpec","line":83,"end_line":102,"hash":"1566a87d2734c74f6eac4ed3f9d0e7e98f609aae72c1bb9b165e5634434eaf17"},{"id":"func/Game.tickValueDialog","name":"Game.tickValueDialog","line":104,"end_line":109,"hash":"17cc428cae8a89641a9f7536359e37295c0bb73863f13a15e6472e099e3b2f4a"},{"id":"func/Game.valueDialogCursorVisible","name":"Game.valueDialogCursorVisible","line":111,"end_line":116,"hash":"9f3e225681082c9b1aaa4187cad32987e01dcda3e715c69901f71fcf788db199"},{"id":"func/Game.SpringTemperatureDialogRange","name":"Game.SpringTemperatureDialogRange","line":118,"end_line":120,"hash":"2201493dd6b2e7f32a3a5b5bc7781f074d399eaab9f4ca14beabfe9d3dde36ac"},{"id":"func/Game.ApplyValueDialogText","name":"Game.ApplyValueDialogText","line":122,"end_line":129,"hash":"27a174ee1f0decc254080f579ddebc96f4d2c6c80caf293b7fb185e5c9aa638f"},{"id":"func/Game.clickValueDialog","name":"Game.clickValueDialog","line":131,"end_line":157,"hash":"2523a14ca2f4eb2985dac5dd28079ce55d525f16ecc4f0cc3eb473a6a7f3f44d"},{"id":"func/Game.appendValueDialogInput","name":"Game.appendValueDialogInput","line":159,"end_line":165,"hash":"b512d053f88630b3f6adfd233fe96aacb82434b63db28506066a835c7870a168"},{"id":"func/Game.deleteValueDialogCharacter","name":"Game.deleteValueDialogCharacter","line":167,"end_line":171,"hash":"04fb2cf2958a9514bb103ef0aab66806183db7efd1812814a39b3fa5b43e214e"},{"id":"func/Game.applyValueDialog","name":"Game.applyValueDialog","line":173,"end_line":182,"hash":"1470ec33108d4ac9d21fb764b9e3a13d6519278089a9e4ccbba9a10ec13578b7"},{"id":"func/Game.setValueDialogFromSlider","name":"Game.setValueDialogFromSlider","line":184,"end_line":189,"hash":"b9591c2222d131b9368978ef5c9111eaea81c982ed3c873ed91589ee867319ef"},{"id":"func/Game.stepValueDialog","name":"Game.stepValueDialog","line":191,"end_line":198,"hash":"9c34da8abb101c3bf460d7f7d206c06ccb7e1b2e1ab58d3ee09849d714e551f3"},{"id":"func/Game.continueValueDialogStepHold","name":"Game.continueValueDialogStepHold","line":200,"end_line":213,"hash":"0e75e2932666415834841d1df5fbf6fa9784587fe68ffbbb33d623fdfddb680d"},{"id":"func/Game.valueDialogFraction","name":"Game.valueDialogFraction","line":215,"end_line":221,"hash":"51f872d0716b555a22a16e3c10711e74902cdd676748a6613a2e5168ceaf0532"},{"id":"func/valueDialogRect","name":"valueDialogRect","line":223,"end_line":227,"hash":"302a55a957839dc502a50df300d3113e769d517c064813924e4c6149bd06d101"},{"id":"func/Game.valueDialogTextRect","name":"Game.valueDialogTextRect","line":229,"end_line":232,"hash":"3570f909e9c7d78dbf0c83c67822c84c818235f6f9d6e131a93cde97f85bfde3"},{"id":"func/Game.valueDialogSliderTrack","name":"Game.valueDialogSliderTrack","line":234,"end_line":237,"hash":"85ff1a4ab0451139dcc102cd3eed6b93f4fe5c99f26cc6b9fd09b2b83ad3c6df"},{"id":"func/Game.valueDialogDecrementRect","name":"Game.valueDialogDecrementRect","line":239,"end_line":242,"hash":"6684c6b564605bebfe396f610eebcd9babe25bc51a5a783a23e103e31ac843ab"},{"id":"func/Game.valueDialogIncrementRect","name":"Game.valueDialogIncrementRect","line":244,"end_line":247,"hash":"7aa7ef75d21c9d75c624d0f32dc4a03daa630771708d6d51b1721b108e0d813e"},{"id":"func/Game.valueDialogOKRect","name":"Game.valueDialogOKRect","line":249,"end_line":252,"hash":"4b5942653e3e664fcae0e3e57be322af27e842d3a886b16c7bb7581d45c005f6"},{"id":"func/Game.setSpringConstant","name":"Game.setSpringConstant","line":254,"end_line":256,"hash":"57518721b0699d29dc79d46dbf8d4af3c02a23777998c4222df6b3f12f981f14"},{"id":"func/Game.setSpringDamping","name":"Game.setSpringDamping","line":258,"end_line":260,"hash":"17a15671c2f21ed06d4300167c286b764d4a447403e071d7594de99023cdf820"},{"id":"func/Game.setSpringRestLength","name":"Game.setSpringRestLength","line":262,"end_line":264,"hash":"1a9e647e66676753d4b2a14024047e79cb96d01f904b7b49a21d17a01e350cfe"},{"id":"func/Game.setSpringTemperature","name":"Game.setSpringTemperature","line":266,"end_line":268,"hash":"7f3d0e1edae2e20ca223549d99831465fa90242564d2407bb3f55e9f9bb3f81d"},{"id":"func/Game.setSpringFloat","name":"Game.setSpringFloat","line":279,"end_line":283,"hash":"eb3b0fea93313eab3bd3cb66caffa0dd68fe54d1078b273b593ae1eb88276373"},{"id":"func/applySpringFloat","name":"applySpringFloat","line":285,"end_line":297,"hash":"8657afeeec76fa27b9fca45c7712781545b34f88639bebae7869185fde86bba4"},{"id":"func/Game.updateSpring","name":"Game.updateSpring","line":299,"end_line":307,"hash":"01a227f05c91c8b666040ae79d5a34082f3d73165e48e03076bc894fc51127b1"},{"id":"func/Game.springAt","name":"Game.springAt","line":309,"end_line":315,"hash":"004f335189f88e1e03b4d55dd33b7c3f196ff07ab7e577c918c3d4758991b10f"},{"id":"func/Game.springAtPosition","name":"Game.springAtPosition","line":317,"end_line":326,"hash":"786bdda02f6d6aecfecfdd9370cb3be2f2c0f02ef22af39cda0ba6f344c2cbef"},{"id":"func/distanceToSegment","name":"distanceToSegment","line":328,"end_line":338,"hash":"780d9bda4d7679a39d2aca892c903e2b8e4232701a027c90768e710967e61f14"}]}
 // mutate4go-manifest-end
