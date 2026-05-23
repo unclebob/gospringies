@@ -3,9 +3,6 @@
 package app
 
 import (
-	"image"
-	"image/color"
-
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -30,19 +27,4 @@ func demoPickerPanelAntiAlias() bool {
 
 func demoPickerRowAntiAlias() bool {
 	return false
-}
-
-func demoPickerTitlePoint(rect image.Rectangle) image.Point {
-	return image.Pt(rect.Min.X+12, rect.Min.Y+10)
-}
-
-func demoPickerRowTextPoint(row image.Rectangle) image.Point {
-	return image.Pt(row.Min.X+8, row.Min.Y+4)
-}
-
-func demoPickerRowFill(index int) color.RGBA {
-	if index%2 == 1 {
-		return sectionColor
-	}
-	return controlColor
 }
