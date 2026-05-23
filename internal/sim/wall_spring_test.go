@@ -641,6 +641,27 @@ func TestWallSpringContactFractionRejectsOutsideSegment(t *testing.T) {
 	}
 }
 
+func TestWallSpringCollisionContactRejectsCurrentCenterOnWall(t *testing.T) {
+	fraction, side, ok := wallSpringCollisionContact(Vec2{X: 5, Y: 2}, Vec2{Y: 8}, Vec2{Y: 10}, 100, 5, 0, 3, false)
+	if ok || fraction != 0 || side != 0 {
+		t.Fatalf("contact = %f, %f, %t, expected rejected zero contact", fraction, side, ok)
+	}
+}
+
+func TestWallSpringCollisionContactUsesPositiveBoundaryRadius(t *testing.T) {
+	fraction, side, ok := wallSpringCollisionContact(Vec2{X: 5, Y: 2}, Vec2{X: 2, Y: 8}, Vec2{Y: 10}, 100, 5, 2, 3, false)
+	if !ok || side != 1 || !closeWallSpringLength(fraction, 0.6) {
+		t.Fatalf("contact = %f, %f, %t, expected positive radius crossing at 0.6", fraction, side, ok)
+	}
+}
+
+func TestWallSpringCollisionContactUsesNegativeBoundaryRadius(t *testing.T) {
+	fraction, side, ok := wallSpringCollisionContact(Vec2{X: -5, Y: 2}, Vec2{X: -2, Y: 8}, Vec2{Y: 10}, 100, -5, -2, 3, false)
+	if !ok || side != -1 || !closeWallSpringLength(fraction, 0.6) {
+		t.Fatalf("contact = %f, %f, %t, expected negative radius crossing at 0.6", fraction, side, ok)
+	}
+}
+
 func TestSameSignRequiresStrictNonZeroMatchingSigns(t *testing.T) {
 	for _, tc := range []struct {
 		a    float64
