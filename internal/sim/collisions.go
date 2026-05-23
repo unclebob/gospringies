@@ -500,8 +500,15 @@ func resolveWallSpringVelocity(mass *Mass, wallVelocity Vec2, normal Vec2, start
 	if wallSpringVelocitySeparating(normalVelocity, startingSide) {
 		return
 	}
-	elasticity := 1 + math.Max(1, mass.Elasticity)
+	elasticity := 1 + wallSpringCollisionElasticity(*mass)
 	mass.Velocity = wallVelocity.Add(relativeVelocity.Sub(normal.Scale(elasticity * normalVelocity)))
+}
+
+func wallSpringCollisionElasticity(mass Mass) float64 {
+	if mass.Elasticity > 0 {
+		return mass.Elasticity
+	}
+	return 1
 }
 
 func wallSpringVelocitySeparating(normalVelocity float64, startingSide float64) bool {

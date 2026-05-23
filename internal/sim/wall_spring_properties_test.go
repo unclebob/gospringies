@@ -94,12 +94,16 @@ func TestPropertyResolveWallSpringVelocitySeparatesOrKeepsSeparating(t *testing.
 	checkProperty(t, 21, 300, resolveWallSpringVelocitySeparatesOrKeepsSeparating)
 }
 
+func TestPropertyResolveWallSpringVelocityUsesPositiveElasticity(t *testing.T) {
+	checkProperty(t, 22, 300, resolveWallSpringVelocityUsesPositiveElasticity)
+}
+
 func TestPropertyResetClearsWorldAndInsertFromAppendsObjects(t *testing.T) {
-	checkProperty(t, 22, 300, resetClearsWorldAndInsertFromAppendsObjects)
+	checkProperty(t, 23, 300, resetClearsWorldAndInsertFromAppendsObjects)
 }
 
 func TestPropertyAddMassAtAndAddSpringBetweenGenerateConsistentIDs(t *testing.T) {
-	checkProperty(t, 23, 300, addMassAtAndAddSpringBetweenGenerateConsistentIDs)
+	checkProperty(t, 24, 300, addMassAtAndAddSpringBetweenGenerateConsistentIDs)
 }
 
 func TestPropertyAdaptiveStepHelpersStayPositiveAndBounded(t *testing.T) {
@@ -614,6 +618,18 @@ func resolveWallSpringVelocitySeparatesOrKeepsSeparating(vxInput, vyInput, wallV
 	if !wallSpringVelocitySeparating(normalVelocity, startingSide) {
 		panic(fmt.Sprintf("wall spring velocity still penetrating: normalVelocity=%f startingSide=%f mass=%#v wall=%#v", normalVelocity, startingSide, mass, wallVelocity))
 	}
+	return true
+}
+
+func resolveWallSpringVelocityUsesPositiveElasticity(speedInput, elasticityInput, sideInput float64) bool {
+	normal := Vec2{X: 1}
+	startingSide := sideSign(propertySignedFloat(sideInput, 10))
+	speed := propertyFloat(speedInput, 0.1, 100)
+	elasticity := propertyFloat(elasticityInput, 0.1, 2)
+	mass := Mass{Velocity: normal.Scale(-startingSide * speed), Elasticity: elasticity}
+	resolveWallSpringVelocity(&mass, Vec2{}, normal, startingSide)
+	normalVelocity := dot(mass.Velocity, normal)
+	assertClose("configured elasticity rebound", normalVelocity, startingSide*speed*elasticity, 1e-9)
 	return true
 }
 
