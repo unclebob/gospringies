@@ -107,47 +107,47 @@ func TestPropertyAddMassAtAndAddSpringBetweenGenerateConsistentIDs(t *testing.T)
 }
 
 func TestPropertyAdaptiveStepHelpersStayPositiveAndBounded(t *testing.T) {
-	checkProperty(t, 24, 300, adaptiveStepHelpersStayPositiveAndBounded)
+	checkProperty(t, 25, 300, adaptiveStepHelpersStayPositiveAndBounded)
 }
 
 func TestPropertyCenterAndWallForcesPointTowardTheirTargets(t *testing.T) {
-	checkProperty(t, 25, 300, centerAndWallForcesPointTowardTheirTargets)
+	checkProperty(t, 26, 300, centerAndWallForcesPointTowardTheirTargets)
 }
 
 func TestPropertyEnabledForceMatchesParameterState(t *testing.T) {
-	checkProperty(t, 26, 300, enabledForceMatchesParameterState)
+	checkProperty(t, 27, 300, enabledForceMatchesParameterState)
 }
 
 func TestPropertyStuckMassStaysOnWallUntilReleaseForceWins(t *testing.T) {
-	checkProperty(t, 27, 300, stuckMassStaysOnWallUntilReleaseForceWins)
+	checkProperty(t, 28, 300, stuckMassStaysOnWallUntilReleaseForceWins)
 }
 
 func TestPropertyStepDurationFollowsConfiguredTimestep(t *testing.T) {
-	checkProperty(t, 28, 300, stepDurationFollowsConfiguredTimestep)
+	checkProperty(t, 29, 300, stepDurationFollowsConfiguredTimestep)
 }
 
 func TestPropertyMassCollisionConservesMovableMomentum(t *testing.T) {
-	checkProperty(t, 29, 300, massCollisionConservesMovableMomentum)
+	checkProperty(t, 30, 300, massCollisionConservesMovableMomentum)
 }
 
 func TestPropertyFiniteStepOutputsRemainFinite(t *testing.T) {
-	checkProperty(t, 30, 300, finiteStepOutputsRemainFinite)
+	checkProperty(t, 31, 300, finiteStepOutputsRemainFinite)
 }
 
 func TestPropertyForceEvaluationSkipsInvalidSpringsAndScalesAcceleration(t *testing.T) {
-	checkProperty(t, 31, 300, forceEvaluationSkipsInvalidSpringsAndScalesAcceleration)
+	checkProperty(t, 32, 300, forceEvaluationSkipsInvalidSpringsAndScalesAcceleration)
 }
 
 func TestPropertyWallSpringLengthConstraintCollisionKeepsEndpointOnBarrierSide(t *testing.T) {
-	checkProperty(t, 32, 300, wallSpringLengthConstraintCollisionKeepsEndpointOnBarrierSide)
+	checkProperty(t, 33, 300, wallSpringLengthConstraintCollisionKeepsEndpointOnBarrierSide)
 }
 
 func TestPropertyMovingWallSpringFixedEndpointCollisionSeparatesContact(t *testing.T) {
-	checkProperty(t, 33, 300, movingWallSpringFixedEndpointCollisionSeparatesContact)
+	checkProperty(t, 34, 300, movingWallSpringFixedEndpointCollisionSeparatesContact)
 }
 
 func TestPropertyWallSpringCollisionConservesMomentumWithVaryingMasses(t *testing.T) {
-	checkProperty(t, 34, 300, wallSpringCollisionConservesMomentumWithVaryingMasses)
+	checkProperty(t, 35, 300, wallSpringCollisionConservesMomentumWithVaryingMasses)
 }
 
 func checkProperty(t *testing.T, seed int64, maxCount int, property any) {
