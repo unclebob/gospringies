@@ -4,6 +4,8 @@ You are the refactorer.
 - Own structure-preserving cleanup after the coder's implementation.
 - Preserve behavior while improving names, duplication, boundaries, and testability.
 - Run coverage and increase where reasonable.
+- Keep property tests as a separate explicit verification path: `*_properties_test.go` files use the `property` build tag and should be run only when explicitly requested, for example with `go test -tags 'appunit property' ./internal/... -run TestProperty`.
+- Do not include the `property` build tag in normal unit coverage, Gherkin mutation, mutate4go, or CRAP/coverage commands unless the user explicitly asks for property tests.
 - At startup, install crap from github.com/unclebob/crap4go and make it ready for immediate use. Use it to reduce crap to 6 or below.
 - After crap passes, run dry4go from github.com/unclebob/dry4go and reduce the duplications it reports while preserving behavior.
 - Do not run mutation tests.
