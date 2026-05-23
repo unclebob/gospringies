@@ -345,35 +345,59 @@ func (g *Game) visibleActiveControls() map[string]bool {
 }
 
 func (g *Game) visibleControlLabels() map[string]string {
-	labels := map[string]string{}
-	for _, control := range g.visibleControls() {
-		labels[control.Name] = control.Label
-	}
-	return labels
+	return controlLabelMap(g.visibleControls())
 }
 
 func visibleInspectorSections() map[string]bool {
-	sections := map[string]bool{}
-	for _, section := range inspectorSections() {
-		sections[section.Label] = true
-	}
-	return sections
+	return visibleInspectorSectionValues(func(controlBox) bool { return true })
 }
 
 func visibleInspectorSectionRects() map[string]image.Rectangle {
-	sections := map[string]image.Rectangle{}
+	return visibleInspectorSectionValues(func(section controlBox) image.Rectangle { return section.Rect })
+}
+
+func visibleInspectorSectionValues[V any](value func(controlBox) V) map[string]V {
+	sections := map[string]V{}
 	for _, section := range inspectorSections() {
-		sections[section.Label] = section.Rect
+		sections[section.Label] = value(section)
 	}
 	return sections
 }
 
 func (g *Game) visibleStatusFields() map[string]string {
-	fields := map[string]string{}
-	for _, field := range g.statusFields() {
-		fields[field.Name] = field.Label
+	return statusFieldLabelMap(g.statusFields())
+}
+
+func controlLabelMap(controls []controlBox) map[string]string {
+	return nameLabelMap(controls, controlName, controlLabel)
+}
+
+func controlName(control controlBox) string {
+	return control.Name
+}
+
+func controlLabel(control controlBox) string {
+	return control.Label
+}
+
+func statusFieldLabelMap(fields []statusField) map[string]string {
+	return nameLabelMap(fields, statusFieldName, statusFieldLabel)
+}
+
+func statusFieldName(field statusField) string {
+	return field.Name
+}
+
+func statusFieldLabel(field statusField) string {
+	return field.Label
+}
+
+func nameLabelMap[T any](items []T, name func(T) string, label func(T) string) map[string]string {
+	labels := map[string]string{}
+	for _, item := range items {
+		labels[name(item)] = label(item)
 	}
-	return fields
+	return labels
 }
 
 func (g *Game) visibleRegionControlCounts() map[string]int {
