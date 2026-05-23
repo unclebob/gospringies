@@ -164,6 +164,34 @@ Examples:
   | 12        | 1               | 1               | -3351.821     | 1287.498      | -322.615      | 129.493       | 32      | 1           | 0.8        | 0.03946          | -7.286  | 9.837   | not increased   |
   | 12        | 1               | 1               | 1000.008      | 103.366       | -87.331       | 64.323        | 24      | 1           | 0.8        | 0.05630          | -427.039 | -155.519 | not increased   |
 
+Scenario Outline: floating wall contact keeps masses inside fixed walls
+  Given fixed wall <fixed_wall> is enabled at boundary <wall_boundary>
+  And moving floating wall spring <spring_id> has endpoint masses <endpoint_a_mass> and <endpoint_b_mass>
+  And moving floating wall spring <spring_id> endpoint velocities are <endpoint_a_vx>, <endpoint_a_vy> and <endpoint_b_vx>, <endpoint_b_vy>
+  And moving mass <mass_id> starts between floating wall spring <spring_id> and fixed wall <fixed_wall> at <mass_x>, <mass_y> with velocity <mass_vx>, <mass_vy>
+  When the coder resolves simultaneous floating wall and fixed wall contact
+  Then mass <mass_id> should remain inside fixed wall <fixed_wall>
+  And mass <mass_id> should remain outside floating wall spring <spring_id>
+  And the total kinetic energy of mass <mass_id> and floating wall spring <spring_id> should be <energy_behavior>
+
+Examples:
+  | fixed_wall | wall_boundary | spring_id | endpoint_a_mass | endpoint_b_mass | endpoint_a_vx | endpoint_a_vy | endpoint_b_vx | endpoint_b_vy | mass_id | mass_x | mass_y | mass_vx | mass_vy | energy_behavior |
+  | bottom     | 400           | 12        | 1               | 1               | 0             | -85           | 0             | -85           | 26      | 620    | 403    | 0       | 0       | not increased   |
+
+Scenario Outline: persistent floating wall penetration is resolved without restitution
+  Given moving floating wall spring <spring_id> has endpoint masses <endpoint_a_mass> and <endpoint_b_mass>
+  And moving floating wall spring <spring_id> endpoint velocities are <endpoint_a_vx>, <endpoint_a_vy> and <endpoint_b_vx>, <endpoint_b_vy>
+  And moving mass <mass_id> starts <penetration> inside floating wall spring <spring_id> at contact fraction <contact_fraction> with relative normal velocity <relative_normal_velocity>
+  When the coder resolves persistent floating wall spring contact
+  Then mass <mass_id> should remain outside floating wall spring <spring_id>
+  And mass <mass_id> relative normal velocity should be <normal_velocity_behavior>
+  And the total kinetic energy of mass <mass_id> and floating wall spring <spring_id> should be <energy_behavior>
+
+Examples:
+  | spring_id | endpoint_a_mass | endpoint_b_mass | endpoint_a_vx | endpoint_a_vy | endpoint_b_vx | endpoint_b_vy | mass_id | penetration | contact_fraction | relative_normal_velocity | normal_velocity_behavior | energy_behavior |
+  | 12        | 1               | 1               | 0             | -85           | 0             | -85           | 27      | 1.5         | 0.99             | -2                       | non-penetrating          | not increased   |
+  | 12        | 1               | 1               | 0             | -85           | 0             | -85           | 32      | 2.0         | 0.12             | 0                        | unchanged                | not increased   |
+
 Scenario Outline: wall spring temperature kicks colliding masses
   Given wall spring <spring_id> has Temperature <temperature>
   And temperature random seed is <seed>
