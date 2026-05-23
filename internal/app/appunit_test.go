@@ -457,6 +457,9 @@ func TestAppUnitVisibleControlLayoutAndReport(t *testing.T) {
 	if game.activeRunControl("missing") || game.activeForceControl("missing") || game.activeParameterControl("missing") || game.activeWallControl("missing") {
 		t.Fatal("missing active helper should return false")
 	}
+	if !game.activeRunControl("run pause toggle command") {
+		t.Fatal("run pause control should always report active")
+	}
 	if !game.forceEnabled("gravity") || game.forceEnabled("missing") || !game.parameterEnabled("fixed mass") || game.parameterEnabled("missing") || !game.wallEnabled("top") || game.wallEnabled("missing") {
 		t.Fatal("enabled helper state mismatch")
 	}
@@ -486,7 +489,7 @@ func TestAppUnitVisibleControlLayoutAndReport(t *testing.T) {
 	}
 
 	active := game.visibleActiveControls()
-	if !active["gravity force"] || active["Gravity"] || active["gravity slider"] {
+	if !active["gravity force"] || !active[""] || active["Gravity"] || active["gravity slider"] {
 		t.Fatalf("visible active controls = %#v", active)
 	}
 	sectionsMap := visibleInspectorSections()
@@ -511,6 +514,9 @@ func TestAppUnitVisibleControlLayoutAndReport(t *testing.T) {
 		if status[i].Rect != want {
 			t.Fatalf("status rect %d = %#v, want %#v", i, status[i].Rect, want)
 		}
+	}
+	if got := game.currentFileStatusLabel(); got != "File: (untitled)" {
+		t.Fatalf("untitled file status = %q", got)
 	}
 
 	regions := visibleRegionRects()
