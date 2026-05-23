@@ -690,7 +690,7 @@ func renderGeometryHelpersAreDeterministic(xInput, yInput, endXInput, endYInput,
 	if !ok || line.x1 != start.X || line.y1 != start.Y || line.x2 != end.X || line.y2 != end.Y {
 		panic(fmt.Sprintf("pendingSpringLine = %#v %v", line, ok))
 	}
-	if springDrawColor(sim.Spring{Wall: true}) != wallSpringColor || springDrawColor(sim.Spring{}) != springColor {
+	if springDrawColor(sim.Spring{Wall: true}) != wallSpringColor || springDrawColor(sim.Spring{Wall: true, Temperature: 1}) != hotWallColor || springDrawColor(sim.Spring{}) != springColor {
 		panic("springDrawColor mismatch")
 	}
 	if massDrawColor(sim.Mass{Fixed: true}) != fixedMassColor || massDrawColor(sim.Mass{}) != massColor {

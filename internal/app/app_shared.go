@@ -23,6 +23,7 @@ var (
 	backgroundColor = color.RGBA{R: 18, G: 20, B: 24, A: 255}
 	springColor     = color.RGBA{R: 116, G: 190, B: 222, A: 255}
 	wallSpringColor = color.RGBA{R: 235, G: 176, B: 78, A: 255}
+	hotWallColor    = color.RGBA{R: 238, G: 116, B: 96, A: 255}
 	massColor       = color.RGBA{R: 238, G: 212, B: 96, A: 255}
 	fixedMassColor  = color.RGBA{R: 238, G: 116, B: 96, A: 255}
 	wallColor       = color.RGBA{R: 180, G: 186, B: 196, A: 255}

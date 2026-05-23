@@ -10,9 +10,15 @@ func (g *Game) handleWindowClose(closing bool) {
 
 func (g *Game) handleRightPointer(pressed bool, x int, y int) {
 	if pressed && !g.pointer.rightMousePressed {
+		g.cancelPlacementGestures()
 		g.openContextAt(x, y)
 	}
 	g.pointer.rightMousePressed = pressed
+}
+
+func (g *Game) cancelPlacementGestures() {
+	g.pointer.selectionDrag = false
+	g.clearPendingSpring()
 }
 
 func (g *Game) handlePointer(pressed bool, x int, y int) {

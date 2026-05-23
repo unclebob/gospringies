@@ -155,6 +155,17 @@ func TestAppUnitSmallPointerHelpers(t *testing.T) {
 		t.Fatal("right pointer release stayed pressed")
 	}
 
+	rightClick := NewGame()
+	rightClick.ReplaceWorld(sim.NewWorld())
+	rightClick.pointer.selectionDrag = true
+	rightClick.pointer.selectionStart = sim.Vec2{X: 300, Y: 300}
+	rightClick.pointer.selectionEnd = sim.Vec2{X: 300, Y: 300}
+	rightClick.handleRightPointer(true, 300, 300)
+	rightClick.releasePointer(sim.Vec2{X: 300, Y: 300})
+	if len(rightClick.World().Masses) != 0 || rightClick.pointer.selectionDrag {
+		t.Fatalf("right click placed mass or left selection active: masses=%#v selectionDrag=%t", rightClick.World().Masses, rightClick.pointer.selectionDrag)
+	}
+
 	game.pointer.pendingSpringID = 0
 	game.beginSpringAt(sim.Vec2{X: 110, Y: 110})
 	if game.pointer.pendingSpringID != 1 || game.pointer.pendingSpringEnd != (sim.Vec2{X: 110, Y: 110}) {

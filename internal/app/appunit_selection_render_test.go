@@ -29,6 +29,13 @@ func TestAppUnitSelectionAndRenderHelpers(t *testing.T) {
 		t.Fatalf("spring representations = %#v", representations)
 	}
 
+	game.World().Springs[0].Temperature = 1
+	representations = map[string]string{}
+	game.springRepresentation(representations)
+	if representations["wall spring"] != "heavy red line" {
+		t.Fatalf("heated wall spring representations = %#v", representations)
+	}
+
 	game.World().Parameters.Set("show springs", "false")
 	representations = map[string]string{}
 	game.springRepresentation(representations)

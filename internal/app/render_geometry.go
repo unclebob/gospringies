@@ -65,6 +65,9 @@ func firstGridCoordinateAtOrAfter(min float64, size float64) float64 {
 }
 
 func springDrawColor(spring sim.Spring) color.RGBA {
+	if spring.Wall && spring.Temperature > 0 {
+		return hotWallColor
+	}
 	return drawColorFor(spring.Wall, wallSpringColor, springColor)
 }
 
