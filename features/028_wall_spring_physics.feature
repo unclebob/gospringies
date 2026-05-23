@@ -151,6 +151,19 @@ Examples:
   | endpoint_a_mass | endpoint_b_mass | mass_id | moving_mass | mass_x | mass_y | mass_vx | mass_vy |
   | 2               | 5               | 3       | 1           | -5     | 50     | 10      | 0       |
 
+Scenario Outline: floating wall collisions do not add kinetic energy beyond elasticity
+  Given moving floating wall spring <spring_id> has endpoint masses <endpoint_a_mass> and <endpoint_b_mass>
+  And moving floating wall spring <spring_id> endpoint velocities are <endpoint_a_vx>, <endpoint_a_vy> and <endpoint_b_vx>, <endpoint_b_vy>
+  And moving mass <mass_id> with mass <moving_mass> and elasticity <elasticity> collides with floating wall spring <spring_id> at contact fraction <contact_fraction> with velocity <mass_vx>, <mass_vy>
+  When the coder resolves the finite-mass floating wall spring collision
+  Then the total kinetic energy of mass <mass_id> and floating wall spring <spring_id> should be <energy_behavior>
+  And the total momentum of mass <mass_id> and floating wall spring <spring_id> should be unchanged
+
+Examples:
+  | spring_id | endpoint_a_mass | endpoint_b_mass | endpoint_a_vx | endpoint_a_vy | endpoint_b_vx | endpoint_b_vy | mass_id | moving_mass | elasticity | contact_fraction | mass_vx | mass_vy | energy_behavior |
+  | 12        | 1               | 1               | -3351.821     | 1287.498      | -322.615      | 129.493       | 32      | 1           | 0.8        | 0.03946          | -7.286  | 9.837   | not increased   |
+  | 12        | 1               | 1               | 1000.008      | 103.366       | -87.331       | 64.323        | 24      | 1           | 0.8        | 0.05630          | -427.039 | -155.519 | not increased   |
+
 Scenario Outline: wall spring temperature kicks colliding masses
   Given wall spring <spring_id> has Temperature <temperature>
   And temperature random seed is <seed>
