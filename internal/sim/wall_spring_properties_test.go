@@ -150,6 +150,10 @@ func TestPropertyWallSpringCollisionConservesMomentumWithVaryingMasses(t *testin
 	checkProperty(t, 35, 300, wallSpringCollisionConservesMomentumWithVaryingMasses)
 }
 
+func TestPropertyPersistentWallSpringReconciliationSeparatesWithoutEnergyGain(t *testing.T) {
+	checkProperty(t, 36, 300, persistentWallSpringReconciliationSeparatesWithoutEnergyGain)
+}
+
 func checkProperty(t *testing.T, seed int64, maxCount int, property any) {
 	t.Helper()
 	config := &quick.Config{
@@ -1014,6 +1018,56 @@ func wallSpringCollisionConservesMomentumWithVaryingMasses(fractionInput, endpoi
 	return true
 }
 
+func persistentWallSpringReconciliationSeparatesWithoutEnergyGain(fractionInput, penetrationInput, speedInput, tangentInput, endpointAInput, endpointBInput, massInput float64) bool {
+	fraction := propertyFloat(fractionInput, 0.05, 0.95)
+	massValue := propertyFloat(massInput, 0.1, 100)
+	massRadius := MassRadius(Mass{Mass: massValue})
+	penetration := propertyFloat(penetrationInput, 0.001, massRadius*0.95)
+	closingSpeed := propertyFloat(speedInput, 0, 100)
+	tangentSpeed := propertySignedFloat(tangentInput, 100)
+	world := NewWorld()
+	_ = world.AddMass(Mass{ID: 1, Position: Vec2{}, Mass: propertyFloat(endpointAInput, 0.1, 100)})
+	_ = world.AddMass(Mass{ID: 2, Position: Vec2{Y: 100}, Mass: propertyFloat(endpointBInput, 0.1, 100)})
+	_ = world.AddMass(Mass{
+		ID:       3,
+		Position: Vec2{X: -massRadius + penetration, Y: fraction * 100},
+		Velocity: Vec2{X: closingSpeed, Y: tangentSpeed},
+		Mass:     massValue,
+	})
+	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, Wall: true})
+	beforeEnergy := propertyKineticEnergy(world, 1, 2, 3)
+
+	world.reconcilePersistentWallSpringContacts()
+
+	mass, _ := world.MassByID(3)
+	side, err := propertyWallSpringSide(world, 1, mass.Position)
+	if err != nil {
+		panic(err)
+	}
+	if math.Abs(side) < MassRadius(mass)-1e-9 {
+		panic(fmt.Sprintf("persistent contact remains penetrating: side=%f radius=%f mass=%#v", side, MassRadius(mass), mass))
+	}
+	endpointA, _ := world.MassByID(1)
+	endpointB, _ := world.MassByID(2)
+	segment := endpointB.Position.Sub(endpointA.Position)
+	lengthSquared := dot(segment, segment)
+	if lengthSquared == 0 {
+		panic("wall spring collapsed during reconciliation")
+	}
+	normal := Vec2{X: -segment.Y, Y: segment.X}.Normalize().Scale(sideSign(side))
+	contactFraction := math.Min(1, math.Max(0, dot(mass.Position.Sub(endpointA.Position), segment)/lengthSquared))
+	wallVelocity := wallSpringContactVelocity(&endpointA, &endpointB, contactFraction)
+	normalVelocity := dot(mass.Velocity.Sub(wallVelocity), normal)
+	if normalVelocity < -1e-5 {
+		panic(fmt.Sprintf("persistent contact still closing: normalVelocity=%f mass=%#v wallVelocity=%#v", normalVelocity, mass, wallVelocity))
+	}
+	afterEnergy := propertyKineticEnergy(world, 1, 2, 3)
+	if afterEnergy > beforeEnergy+1e-8 {
+		panic(fmt.Sprintf("persistent reconciliation increased energy: before=%f after=%f", beforeEnergy, afterEnergy))
+	}
+	return true
+}
+
 func movableMomentum(mass Mass) Vec2 {
 	if mass.Fixed {
 		return Vec2{}
@@ -1029,6 +1083,18 @@ func propertyMomentum(world *Simulation, ids ...int) Vec2 {
 			continue
 		}
 		total = total.Add(movableMomentum(mass))
+	}
+	return total
+}
+
+func propertyKineticEnergy(world *Simulation, ids ...int) float64 {
+	total := 0.0
+	for _, id := range ids {
+		mass, ok := world.MassByID(id)
+		if !ok || mass.Fixed {
+			continue
+		}
+		total += 0.5 * effectiveCollisionMass(mass) * dot(mass.Velocity, mass.Velocity)
 	}
 	return total
 }

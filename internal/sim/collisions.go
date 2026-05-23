@@ -690,15 +690,18 @@ func wallSpringVelocitySeparating(normalVelocity float64, startingSide float64) 
 }
 
 func shareWallSpringImpulse(endpoint *Mass, impulse Vec2) {
-	if !endpoint.Fixed {
-		endpoint.Velocity = endpoint.Velocity.Add(impulse.Scale(1 / effectiveCollisionMass(*endpoint)))
-	}
+	endpoint.Velocity = endpoint.Velocity.Add(wallSpringSharedDelta(endpoint, impulse))
 }
 
 func shareWallSpringPositionCorrection(endpoint *Mass, correction Vec2) {
-	if !endpoint.Fixed {
-		endpoint.Position = endpoint.Position.Add(correction.Scale(1 / effectiveCollisionMass(*endpoint)))
+	endpoint.Position = endpoint.Position.Add(wallSpringSharedDelta(endpoint, correction))
+}
+
+func wallSpringSharedDelta(endpoint *Mass, delta Vec2) Vec2 {
+	if endpoint.Fixed {
+		return Vec2{}
 	}
+	return delta.Scale(1 / effectiveCollisionMass(*endpoint))
 }
 
 // mutate4go-manifest-begin
