@@ -101,6 +101,9 @@ func TestWallSpringBoundaryStartRequiresPenetratingVelocity(t *testing.T) {
 	if wallSpringBoundaryStartPenetrating(Mass{Position: Vec2{X: 50, Y: -1}, Velocity: Vec2{Y: -10}}, endpointA, endpointA, Vec2{X: 50}, endpointA.Position, endpointA.Position) {
 		t.Fatal("zero-length wall boundary motion was allowed")
 	}
+	if wallSpringBoundaryStartPenetrating(Mass{Position: Vec2{X: 50, Y: -1}, Velocity: Vec2{Y: -10}}, endpointA, endpointB, Vec2{X: 50}, endpointA.Position, endpointA.Position) {
+		t.Fatal("zero-length previous wall boundary motion was allowed")
+	}
 }
 
 func TestFloatingWallSpringCollisionConservesMomentumWithUnequalEndpointMasses(t *testing.T) {
@@ -133,6 +136,53 @@ func TestFloatingWallSpringCollisionDoesNotIncreaseEnergyWithElasticity(t *testi
 	}
 	if !closeWallSpringLength(afterMomentum.X, beforeMomentum.X) || !closeWallSpringLength(afterMomentum.Y, beforeMomentum.Y) {
 		t.Fatalf("momentum = %#v, expected %#v", afterMomentum, beforeMomentum)
+	}
+}
+
+func TestFiniteWallSpringCollisionSeparatingIncludesZeroAndSmallPositiveVelocity(t *testing.T) {
+	for _, normalVelocity := range []float64{0, 0.5} {
+		if !finiteWallSpringCollisionSeparating(normalVelocity) {
+			t.Fatalf("normal velocity %f should be separating", normalVelocity)
+		}
+	}
+	if finiteWallSpringCollisionSeparating(-0.5) {
+		t.Fatal("negative normal velocity should be approaching")
+	}
+}
+
+func TestFiniteWallSpringCollisionLeavesSeparatingVelocityUnchanged(t *testing.T) {
+	mass := Mass{Position: Vec2{X: -2, Y: 50}, Velocity: Vec2{X: -0.5}, Mass: 1}
+	endpointA := Mass{Position: Vec2{}, Mass: 1}
+	endpointB := Mass{Position: Vec2{Y: 100}, Mass: 1}
+
+	resolveFiniteWallSpringCollision(&mass, &endpointA, &endpointB, Vec2{X: -1}, 1, 0.5)
+
+	if mass.Velocity != (Vec2{X: -0.5}) || endpointA.Velocity != (Vec2{}) || endpointB.Velocity != (Vec2{}) {
+		t.Fatalf("separating collision changed velocities: mass=%#v a=%#v b=%#v", mass.Velocity, endpointA.Velocity, endpointB.Velocity)
+	}
+}
+
+func TestWallSpringCollisionSkipsDegenerateSegments(t *testing.T) {
+	for _, test := range []struct {
+		name              string
+		endpointB         Vec2
+		previousEndpointB Vec2
+	}{
+		{name: "current", endpointB: Vec2{}, previousEndpointB: Vec2{Y: 100}},
+		{name: "previous", endpointB: Vec2{Y: 100}, previousEndpointB: Vec2{}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			world := NewWorld()
+			mass := Mass{ID: 3, Position: Vec2{X: -2, Y: 50}, Velocity: Vec2{X: 10}, Mass: 1}
+			endpointA := Mass{ID: 1, Position: Vec2{}, Mass: 1}
+			endpointB := Mass{ID: 2, Position: test.endpointB, Mass: 1}
+
+			world.applyWallSpringCollision(Spring{Wall: true}, &mass, &endpointA, &endpointB, Vec2{X: -5, Y: 50}, Vec2{}, test.previousEndpointB, false)
+
+			if mass.Velocity != (Vec2{X: 10}) || endpointA.Velocity != (Vec2{}) || endpointB.Velocity != (Vec2{}) {
+				t.Fatalf("degenerate %s segment changed velocities: mass=%#v a=%#v b=%#v", test.name, mass.Velocity, endpointA.Velocity, endpointB.Velocity)
+			}
+		})
 	}
 }
 
