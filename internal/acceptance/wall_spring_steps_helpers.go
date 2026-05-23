@@ -889,28 +889,36 @@ func createElasticMassCollidingWithWallSpring(w *world, example map[string]strin
 }
 
 func assertMassNormalReboundSpeed(w *world, example map[string]string) error {
-	massID, springID, err := intPair(example, "mass_id", "spring_id")
-	if err != nil {
-		return err
-	}
 	expected, err := floatValue(example, "expected_rebound_speed")
 	if err != nil {
 		return err
 	}
+	speed, err := massNormalReboundSpeed(w, example)
+	if err != nil {
+		return err
+	}
+	return assertFloat("mass relative normal rebound speed", speed, expected)
+}
+
+func massNormalReboundSpeed(w *world, example map[string]string) (float64, error) {
+	massID, springID, err := intPair(example, "mass_id", "spring_id")
+	if err != nil {
+		return 0, err
+	}
 	world := ensureDomainWorld(w)
 	mass, ok := world.MassByID(massID)
 	if !ok {
-		return fmt.Errorf("mass %d not found", massID)
+		return 0, fmt.Errorf("mass %d not found", massID)
 	}
 	normal, err := wallSpringNormal(world, springID)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	wallVelocity, err := wallSpringVelocity(world, springID)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	return assertFloat("mass relative normal rebound speed", math.Abs(dotAcceptance(mass.Velocity.Sub(wallVelocity), normal)), expected)
+	return math.Abs(dotAcceptance(mass.Velocity.Sub(wallVelocity), normal)), nil
 }
 
 func assertWallSpringReceivesReboundImpulse(w *world, example map[string]string) error {

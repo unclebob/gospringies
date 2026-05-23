@@ -337,6 +337,48 @@ func TestWallSpringReboundElasticitySteps(t *testing.T) {
 	}
 }
 
+func TestFiniteMassFloatingWallSpringCollisionSteps(t *testing.T) {
+	example := map[string]string{
+		"spring_id":        "1",
+		"endpoint_a_mass":  "10",
+		"endpoint_b_mass":  "20",
+		"endpoint_a_vx":    "4",
+		"endpoint_a_vy":    "0",
+		"endpoint_b_vx":    "2",
+		"endpoint_b_vy":    "0",
+		"mass_id":          "3",
+		"moving_mass":      "5",
+		"elasticity":       "0.8",
+		"contact_fraction": "0.50",
+		"mass_vx":          "50",
+		"mass_vy":          "0",
+		"energy_behavior":  "not increased",
+	}
+	w := &world{}
+	mustWallSpringStep(t, w, example, createFiniteMassFloatingWallSpring)
+	mustWallSpringStep(t, w, example, setFiniteMassFloatingWallSpringVelocities)
+	mustWallSpringStep(t, w, example, createFiniteMassFloatingWallCollidingMass)
+	mustWallSpringStep(t, w, example, advanceFiniteMassFloatingWallSpringCollision)
+	mustWallSpringStep(t, w, example, assertFiniteMassFloatingWallSpringEnergy)
+	mustWallSpringStep(t, w, example, assertFiniteMassFloatingWallSpringMomentum)
+}
+
+func TestFiniteMassFloatingWallSpringEnergyRejectsUnsupportedBehavior(t *testing.T) {
+	example := map[string]string{"energy_behavior": "higher"}
+	expectWallSpringStepError(t, &world{}, example, assertFiniteMassFloatingWallSpringEnergy, "unsupported energy behavior should fail")
+}
+
+func TestTotalMassKineticEnergyUsesDefaultMassAndSkipsMissingIDs(t *testing.T) {
+	world := sim.NewWorld()
+	_ = world.AddMass(sim.Mass{ID: 1, Velocity: sim.Vec2{X: 2}})
+	_ = world.AddMass(sim.Mass{ID: 2, Mass: 4, Velocity: sim.Vec2{Y: 3}})
+
+	got := totalMassKineticEnergy(world, 1, 2, 9)
+	if got != 20 {
+		t.Fatalf("kinetic energy = %f, expected default and explicit mass contributions", got)
+	}
+}
+
 func TestFloatingWallMomentumUsesDefaultMassAndSkipsMissingIDs(t *testing.T) {
 	world := sim.NewWorld()
 	_ = world.AddMass(sim.Mass{ID: 1, Velocity: sim.Vec2{X: 3}})
