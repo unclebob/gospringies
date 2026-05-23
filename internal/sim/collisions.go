@@ -423,14 +423,9 @@ func (s *Simulation) applyWallSpringCollision(spring Spring, mass, endpointA, en
 	if !ok {
 		return
 	}
-	oldVelocity := mass.Velocity
-	wallVelocity := wallSpringContactVelocity(endpointA, endpointB, contactFraction)
 	contact := closestPointOnSegment(mass.Position, endpointA.Position, segment, lengthSquared)
 	mass.Position = contact.Add(normal.Scale(side * MassRadius(*mass)))
-	resolveWallSpringVelocity(mass, wallVelocity, normal, side)
-	impulse := oldVelocity.Sub(mass.Velocity).Scale(effectiveCollisionMass(*mass))
-	shareWallSpringImpulse(endpointA, impulse.Scale(1-contactFraction))
-	shareWallSpringImpulse(endpointB, impulse.Scale(contactFraction))
+	resolveFiniteWallSpringCollision(mass, endpointA, endpointB, normal, side, contactFraction)
 	s.applyWallSpringTemperatureKick(spring, mass)
 }
 
@@ -463,6 +458,25 @@ func wallSpringNormal(endpointA, endpointB Vec2) (Vec2, bool) {
 
 func wallSpringContactVelocity(endpointA, endpointB *Mass, contactFraction float64) Vec2 {
 	return endpointA.Velocity.Scale(1 - contactFraction).Add(endpointB.Velocity.Scale(contactFraction))
+}
+
+func resolveFiniteWallSpringCollision(mass, endpointA, endpointB *Mass, normal Vec2, startingSide float64, contactFraction float64) {
+	contactNormal := normal.Scale(startingSide)
+	relativeVelocity := mass.Velocity.Sub(wallSpringContactVelocity(endpointA, endpointB, contactFraction))
+	normalVelocity := dot(relativeVelocity, contactNormal)
+	if normalVelocity >= 0 {
+		return
+	}
+	shareA := 1 - contactFraction
+	shareB := contactFraction
+	inverseMass := contactShareInverseMass(*mass, 1) + contactShareInverseMass(*endpointA, shareA) + contactShareInverseMass(*endpointB, shareB)
+	if inverseMass == 0 {
+		return
+	}
+	impulse := contactNormal.Scale(-(1 + wallSpringCollisionElasticity(*mass)) * normalVelocity / inverseMass)
+	shareWallSpringImpulse(mass, impulse)
+	shareWallSpringImpulse(endpointA, impulse.Scale(-shareA))
+	shareWallSpringImpulse(endpointB, impulse.Scale(-shareB))
 }
 
 func (s *Simulation) applyWallSpringTemperatureKick(spring Spring, mass *Mass) {
