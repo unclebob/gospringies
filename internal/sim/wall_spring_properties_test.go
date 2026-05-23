@@ -983,7 +983,7 @@ func wallSpringCollisionConservesMomentumWithVaryingMasses(fractionInput, endpoi
 	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, Wall: true})
 	before := propertyMomentum(world, 1, 2, 3)
 
-	world.applyWallSpringCollision(world.Springs[0], &world.Masses[2], &world.Masses[0], &world.Masses[1], Vec2{X: -distance, Y: y}, world.Masses[0].Position, false)
+	world.applyWallSpringCollision(world.Springs[0], &world.Masses[2], &world.Masses[0], &world.Masses[1], Vec2{X: -distance, Y: y}, world.Masses[0].Position, world.Masses[1].Position, false)
 
 	after := propertyMomentum(world, 1, 2, 3)
 	assertVecClose("wall spring collision momentum", after, before, 1e-8)
