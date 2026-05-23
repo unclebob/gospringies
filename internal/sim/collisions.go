@@ -201,7 +201,7 @@ func (s *Simulation) applyWallSpringEndpointConstraintCollisions(sourceSpringInd
 		if !s.shouldApplyWallSpringCollision(massIndex, aIndex, bIndex) {
 			continue
 		}
-		s.applyWallSpringCollision(spring, &s.Masses[massIndex], &s.Masses[aIndex], &s.Masses[bIndex], beforeLengthConstraints[massIndex], beforeLengthConstraints[aIndex], true)
+		s.applyWallSpringCollision(spring, &s.Masses[massIndex], &s.Masses[aIndex], &s.Masses[bIndex], beforeLengthConstraints[massIndex], beforeLengthConstraints[aIndex], beforeLengthConstraints[bIndex], true)
 	}
 }
 
@@ -218,21 +218,26 @@ func (s *Simulation) applyWallSpringCollisions(dt float64, startPositions []Vec2
 			if s.shouldApplyWallSpringCollision(i, aIndex, bIndex) {
 				previousMass := wallSpringPreviousPosition(s.Masses[i], startPositions, i, dt)
 				previousEndpointA := wallSpringPreviousPosition(s.Masses[aIndex], startPositions, aIndex, dt)
-				allowBoundaryStart := wallSpringBoundaryStartPenetrating(s.Masses[i], s.Masses[aIndex], s.Masses[bIndex], previousMass, previousEndpointA)
-				s.applyWallSpringCollision(spring, &s.Masses[i], &s.Masses[aIndex], &s.Masses[bIndex], previousMass, previousEndpointA, allowBoundaryStart)
+				previousEndpointB := wallSpringPreviousPosition(s.Masses[bIndex], startPositions, bIndex, dt)
+				allowBoundaryStart := wallSpringBoundaryStartPenetrating(s.Masses[i], s.Masses[aIndex], s.Masses[bIndex], previousMass, previousEndpointA, previousEndpointB)
+				s.applyWallSpringCollision(spring, &s.Masses[i], &s.Masses[aIndex], &s.Masses[bIndex], previousMass, previousEndpointA, previousEndpointB, allowBoundaryStart)
 			}
 		}
 	}
 }
 
-func wallSpringBoundaryStartPenetrating(mass, endpointA, endpointB Mass, previousMass, previousEndpointA Vec2) bool {
+func wallSpringBoundaryStartPenetrating(mass, endpointA, endpointB Mass, previousMass, previousEndpointA, previousEndpointB Vec2) bool {
 	segment := endpointB.Position.Sub(endpointA.Position)
 	lengthSquared := dot(segment, segment)
 	if lengthSquared == 0 {
 		return false
 	}
 	normal := Vec2{X: -segment.Y, Y: segment.X}.Normalize()
-	previousSide := dot(previousMass.Sub(previousEndpointA), normal)
+	previousNormal, ok := wallSpringNormal(previousEndpointA, previousEndpointB)
+	if !ok {
+		return false
+	}
+	previousSide := dot(previousMass.Sub(previousEndpointA), previousNormal)
 	currentSide := dot(mass.Position.Sub(endpointA.Position), normal)
 	if previousSide != 0 || currentSide == 0 {
 		return false
@@ -401,20 +406,23 @@ func (s *Simulation) springEndpointIndexes(spring Spring) (int, int, bool) {
 	return spring.A, spring.B, s.validSpringMassIndexes(spring)
 }
 
-func (s *Simulation) applyWallSpringCollision(spring Spring, mass, endpointA, endpointB *Mass, previousMass, previousEndpointA Vec2, allowBoundaryStart bool) {
+func (s *Simulation) applyWallSpringCollision(spring Spring, mass, endpointA, endpointB *Mass, previousMass, previousEndpointA, previousEndpointB Vec2, allowBoundaryStart bool) {
 	segment := endpointB.Position.Sub(endpointA.Position)
 	lengthSquared := dot(segment, segment)
 	if lengthSquared == 0 {
 		return
 	}
 	normal := Vec2{X: -segment.Y, Y: segment.X}.Normalize()
-	previousSide := dot(previousMass.Sub(previousEndpointA), normal)
-	currentSide := dot(mass.Position.Sub(endpointA.Position), normal)
-	contactFraction, ok := wallSpringContactFraction(previousMass.Sub(previousEndpointA), mass.Position.Sub(endpointA.Position), segment, lengthSquared, previousSide, currentSide, allowBoundaryStart)
+	previousNormal, ok := wallSpringNormal(previousEndpointA, previousEndpointB)
 	if !ok {
 		return
 	}
-	side := collisionStartSide(previousSide, currentSide)
+	previousSide := dot(previousMass.Sub(previousEndpointA), previousNormal)
+	currentSide := dot(mass.Position.Sub(endpointA.Position), normal)
+	contactFraction, side, ok := wallSpringCollisionContact(previousMass.Sub(previousEndpointA), mass.Position.Sub(endpointA.Position), segment, lengthSquared, previousSide, currentSide, MassRadius(*mass), allowBoundaryStart)
+	if !ok {
+		return
+	}
 	oldVelocity := mass.Velocity
 	wallVelocity := wallSpringContactVelocity(endpointA, endpointB, contactFraction)
 	contact := closestPointOnSegment(mass.Position, endpointA.Position, segment, lengthSquared)
@@ -424,6 +432,29 @@ func (s *Simulation) applyWallSpringCollision(spring Spring, mass, endpointA, en
 	shareWallSpringImpulse(endpointA, impulse.Scale(1-contactFraction))
 	shareWallSpringImpulse(endpointB, impulse.Scale(contactFraction))
 	s.applyWallSpringTemperatureKick(spring, mass)
+}
+
+func wallSpringCollisionContact(previous, current, segment Vec2, lengthSquared float64, previousSide, currentSide, radius float64, allowBoundaryStart bool) (float64, float64, bool) {
+	contactFraction, ok := wallSpringContactFraction(previous, current, segment, lengthSquared, previousSide, currentSide, allowBoundaryStart)
+	if ok {
+		return contactFraction, collisionStartSide(previousSide, currentSide), true
+	}
+	if currentSide == 0 {
+		return 0, 0, false
+	}
+	side := collisionStartSide(previousSide, currentSide)
+	previousBoundarySide := previousSide - side*radius
+	currentBoundarySide := currentSide - side*radius
+	contactFraction, ok = wallSpringContactFraction(previous, current, segment, lengthSquared, previousBoundarySide, currentBoundarySide, allowBoundaryStart)
+	return contactFraction, side, ok
+}
+
+func wallSpringNormal(endpointA, endpointB Vec2) (Vec2, bool) {
+	segment := endpointB.Sub(endpointA)
+	if dot(segment, segment) == 0 {
+		return Vec2{}, false
+	}
+	return Vec2{X: -segment.Y, Y: segment.X}.Normalize(), true
 }
 
 func wallSpringContactVelocity(endpointA, endpointB *Mass, contactFraction float64) Vec2 {

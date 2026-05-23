@@ -300,8 +300,8 @@ func TestSweptFloatingWallSpringCollisionSteps(t *testing.T) {
 	} {
 		w := &world{}
 		mustWallSpringStep(t, w, example, createSweptFloatingWallSpring)
-		mustWallSpringStep(t, w, example, createSweptFloatingWallMass)
-		mustWallSpringStep(t, w, example, advanceThroughWallSpringCollision)
+		mustWallSpringStep(t, w, example, createSweptWallMovingMass)
+		mustWallSpringStep(t, w, example, advanceSweptFloatingWallSpringCollision)
 		mustWallSpringStep(t, w, example, assertMassOnStartingWallSpringSide)
 		mustWallSpringStep(t, w, example, assertMassVelocityResolvedAwayFromWallSpring)
 	}

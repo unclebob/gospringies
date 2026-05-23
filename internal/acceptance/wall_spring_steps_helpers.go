@@ -386,6 +386,73 @@ func createBarrierStationaryMass(w *world, example map[string]string) error {
 	return rememberWallSpringStartingSide(w, example, id)
 }
 
+func createSweptFloatingWallSpring(w *world, example map[string]string) error {
+	springID, err := intValue(example, "spring_id")
+	if err != nil {
+		return err
+	}
+	values, err := floatValues(example, "previous_wall_x1", "previous_wall_y1", "previous_wall_x2", "previous_wall_y2", "current_wall_x1", "current_wall_y1", "current_wall_x2", "current_wall_y2")
+	if err != nil {
+		return err
+	}
+	world := ensureDomainWorld(w)
+	endpointA := sim.Mass{ID: 1, Position: sim.Vec2{X: values[0], Y: values[1]}, Velocity: sim.Vec2{X: values[4] - values[0], Y: values[5] - values[1]}, Mass: 1}
+	endpointB := sim.Mass{ID: 2, Position: sim.Vec2{X: values[2], Y: values[3]}, Velocity: sim.Vec2{X: values[6] - values[2], Y: values[7] - values[3]}, Mass: 1}
+	if err := world.AddMass(endpointA); err != nil {
+		return err
+	}
+	if err := world.AddMass(endpointB); err != nil {
+		return err
+	}
+	return world.AddSpring(sim.Spring{ID: springID, MassA: endpointA.ID, MassB: endpointB.ID, Wall: true})
+}
+
+func createSweptWallMovingMass(w *world, example map[string]string) error {
+	massID, err := intValue(example, "mass_id")
+	if err != nil {
+		return err
+	}
+	values, err := floatValues(example, "previous_mass_x", "previous_mass_y", "current_mass_x", "current_mass_y", "mass_vx", "mass_vy")
+	if err != nil {
+		return err
+	}
+	dt := sweptWallStepDuration(values[0], values[1], values[2], values[3], values[4], values[5])
+	if dt <= 0 {
+		return fmt.Errorf("moving mass %d has no usable swept duration", massID)
+	}
+	world := ensureDomainWorld(w)
+	scaleSweptWallVelocities(world, dt)
+	if err := world.AddMass(sim.Mass{ID: massID, Position: sim.Vec2{X: values[0], Y: values[1]}, Velocity: sim.Vec2{X: values[4], Y: values[5]}, Mass: 1}); err != nil {
+		return err
+	}
+	w.wallSpringStep = dt
+	return rememberWallSpringStartingSide(w, example, massID)
+}
+
+func sweptWallStepDuration(previousX, previousY, currentX, currentY, vx, vy float64) float64 {
+	if vx != 0 {
+		return (currentX - previousX) / vx
+	}
+	if vy != 0 {
+		return (currentY - previousY) / vy
+	}
+	return 0
+}
+
+func scaleSweptWallVelocities(world *sim.Simulation, dt float64) {
+	for i := range world.Masses {
+		world.Masses[i].Velocity = world.Masses[i].Velocity.Scale(1 / dt)
+	}
+}
+
+func advanceSweptFloatingWallSpringCollision(w *world, _ map[string]string) error {
+	if w.wallSpringStep <= 0 {
+		return fmt.Errorf("swept wall spring step duration was not recorded")
+	}
+	ensureDomainWorld(w).Step(w.wallSpringStep)
+	return nil
+}
+
 func advanceThroughWallSpringCollision(w *world, _ map[string]string) error {
 	return advanceWallSpringWorld(w)
 }
@@ -1133,25 +1200,6 @@ func assertFloatingWallMomentumUnchanged(w *world, _ map[string]string) error {
 	return assertMomentum("floating wall collision momentum", totalMassMomentum(ensureDomainWorld(w), 1, 2, w.wallSpringMomentumID), w.wallSpringMomentum)
 }
 
-func createSweptFloatingWallSpring(w *world, example map[string]string) error {
-	springID, err := intValue(example, "spring_id")
-	if err != nil {
-		return err
-	}
-	previousA, previousB, currentA, currentB, err := sweptWallSpringPoints(example)
-	if err != nil {
-		return err
-	}
-	world := ensureDomainWorld(w)
-	ensureMovingWallSpringMass(world, 1, previousA, currentA.Sub(previousA))
-	ensureMovingWallSpringMass(world, 2, previousB, currentB.Sub(previousB))
-	return world.AddSpring(sim.Spring{ID: springID, MassA: 1, MassB: 2, RestLength: distanceAcceptance(currentB.Sub(currentA)), Wall: true})
-}
-
-func createSweptFloatingWallMass(w *world, example map[string]string) error {
-	return createMovingMassOnWallSpringStartingSide(w, example, "previous_mass_x", "previous_mass_y")
-}
-
 func createMovingMassOnWallSpringStartingSide(w *world, example map[string]string, xKey, yKey string) error {
 	id, err := intValue(example, "mass_id")
 	if err != nil {
@@ -1166,21 +1214,6 @@ func createMovingMassOnWallSpringStartingSide(w *world, example map[string]strin
 		return err
 	}
 	return rememberWallSpringStartingSide(w, example, id)
-}
-
-func sweptWallSpringPoints(example map[string]string) (sim.Vec2, sim.Vec2, sim.Vec2, sim.Vec2, error) {
-	values, err := floatValues(example,
-		"previous_wall_x1", "previous_wall_y1", "previous_wall_x2", "previous_wall_y2",
-		"current_wall_x1", "current_wall_y1", "current_wall_x2", "current_wall_y2",
-	)
-	if err != nil {
-		return sim.Vec2{}, sim.Vec2{}, sim.Vec2{}, sim.Vec2{}, err
-	}
-	return sim.Vec2{X: values[0], Y: values[1]},
-		sim.Vec2{X: values[2], Y: values[3]},
-		sim.Vec2{X: values[4], Y: values[5]},
-		sim.Vec2{X: values[6], Y: values[7]},
-		nil
 }
 
 func advanceDomainWorld(w *world, dt float64) error {
