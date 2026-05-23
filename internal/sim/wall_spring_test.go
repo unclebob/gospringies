@@ -203,6 +203,43 @@ func TestPersistentWallSpringPenetrationLeavesZeroNormalVelocityUnchanged(t *tes
 	}
 }
 
+func TestPostContactReconciliationRestoresWallSpringLengthAfterPersistentContact(t *testing.T) {
+	world := NewWorld()
+	_ = world.AddMass(Mass{ID: 1, Position: Vec2{}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 2, Position: Vec2{Y: 50}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 31, Position: Vec2{X: -1, Y: 20}, Velocity: Vec2{X: 1}, Mass: 1})
+	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, RestLength: 60, Wall: true})
+
+	world.applyPostContactReconciliation()
+
+	if got := wallSpringEndpointDistanceForTest(world, 1); !closeWallSpringLength(got, 60) {
+		t.Fatalf("wall spring length = %f, expected 60", got)
+	}
+	mass, _ := world.MassByID(31)
+	if wallSpringDistanceFromRadius(world, 1, mass) < -0.000001 {
+		t.Fatalf("mass remains inside floating wall spring: %#v", mass)
+	}
+}
+
+func TestHeatedPersistentWallSpringContactKicksMassAwayFromWall(t *testing.T) {
+	world := persistentWallSpringContactWorld(Mass{ID: 39, Position: Vec2{X: -0.8, Y: 50}, Velocity: Vec2{Y: -85}, Mass: 1})
+	world.Springs[0].Temperature = 5
+
+	world.reconcilePersistentWallSpringContacts()
+
+	mass, _ := world.MassByID(39)
+	if wallSpringDistanceFromRadius(world, 1, mass) < -0.000001 {
+		t.Fatalf("mass remains inside heated floating wall spring: %#v", mass)
+	}
+	if got := wallSpringRelativeNormalVelocity(world, 1, mass); got <= 0 {
+		t.Fatalf("normal velocity = %f, expected released away from heated wall", got)
+	}
+	wantKick := fullScreenGravityKick(world) * 0.5
+	if got := length(mass.Velocity.Sub(Vec2{Y: -85})); !closeWallSpringLength(got, wantKick) {
+		t.Fatalf("temperature kick magnitude = %f, expected %f", got, wantKick)
+	}
+}
+
 func TestFiniteWallSpringCollisionSeparatingIncludesZeroAndSmallPositiveVelocity(t *testing.T) {
 	for _, normalVelocity := range []float64{0, 0.5} {
 		if !finiteWallSpringCollisionSeparating(normalVelocity) {
@@ -1481,6 +1518,13 @@ func wallSpringDistanceFromRadius(world *Simulation, springID int, mass Mass) fl
 	normal := Vec2{X: -segment.Y, Y: segment.X}.Normalize()
 	distance := math.Abs(dot(mass.Position.Sub(endpointA.Position), normal))
 	return distance - MassRadius(mass)
+}
+
+func wallSpringEndpointDistanceForTest(world *Simulation, springID int) float64 {
+	spring, _ := world.SpringByID(springID)
+	endpointA, _ := world.MassByID(spring.MassA)
+	endpointB, _ := world.MassByID(spring.MassB)
+	return length(endpointB.Position.Sub(endpointA.Position))
 }
 
 func wallSpringRelativeNormalVelocity(world *Simulation, springID int, mass Mass) float64 {
