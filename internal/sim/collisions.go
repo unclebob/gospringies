@@ -40,6 +40,9 @@ func (s *Simulation) applyMassCollision(m1, m2 *Mass) {
 func (s *Simulation) applyPostContactReconciliation() {
 	s.reconcileEnabledWallContacts()
 	s.reconcilePersistentWallSpringContacts()
+	beforeLengthRestoration := massPositions(s.Masses)
+	s.applyWallSpringLengthConstraints()
+	s.applyWallSpringLengthConstraintCollisions(1, beforeLengthRestoration)
 	s.reconcileEnabledWallContacts()
 }
 
@@ -64,6 +67,7 @@ func (s *Simulation) reconcileEnabledWallContact(mass *Mass) {
 }
 
 func (s *Simulation) reconcilePersistentWallSpringContacts() {
+	heatedContacts := map[persistentWallSpringContactID]bool{}
 	for range 4 {
 		reconciled := false
 		for _, spring := range s.Springs {
@@ -73,7 +77,12 @@ func (s *Simulation) reconcilePersistentWallSpringContacts() {
 			}
 			for i := range s.Masses {
 				if s.shouldApplyWallSpringCollision(i, aIndex, bIndex) {
-					reconciled = s.reconcilePersistentWallSpringContact(&s.Masses[i], &s.Masses[aIndex], &s.Masses[bIndex]) || reconciled
+					contactID := persistentWallSpringContactID{spring: spring.ID, mass: s.Masses[i].ID}
+					applyTemperature := !heatedContacts[contactID]
+					reconciled = s.reconcilePersistentWallSpringContact(spring, &s.Masses[i], &s.Masses[aIndex], &s.Masses[bIndex], applyTemperature) || reconciled
+					if spring.Temperature > 0 {
+						heatedContacts[contactID] = true
+					}
 				}
 			}
 		}
@@ -83,12 +92,25 @@ func (s *Simulation) reconcilePersistentWallSpringContacts() {
 	}
 }
 
-func (s *Simulation) reconcilePersistentWallSpringContact(mass, endpointA, endpointB *Mass) bool {
+type persistentWallSpringContactID struct {
+	spring int
+	mass   int
+}
+
+func (s *Simulation) reconcilePersistentWallSpringContact(spring Spring, mass, endpointA, endpointB *Mass, applyTemperature bool) bool {
 	contact, ok := persistentWallSpringContactFor(*mass, *endpointA, *endpointB)
 	if !ok {
 		return false
 	}
 	correctedPosition := applyPersistentWallSpringPositionCorrection(mass, endpointA, endpointB, contact)
+	if spring.Temperature > 0 {
+		appliedTemperature := false
+		if applyTemperature {
+			s.applyPersistentWallSpringTemperatureKick(spring, mass, contact.normal)
+			appliedTemperature = true
+		}
+		return correctedPosition || appliedTemperature
+	}
 	resolvedVelocity := resolvePersistentWallSpringVelocity(mass, endpointA, endpointB, contact.normal, contact.fraction)
 	return correctedPosition || resolvedVelocity
 }
@@ -153,6 +175,15 @@ func resolvePersistentWallSpringVelocity(mass, endpointA, endpointB *Mass, norma
 	shareWallSpringImpulse(endpointA, impulse.Scale(-shareA))
 	shareWallSpringImpulse(endpointB, impulse.Scale(-shareB))
 	return true
+}
+
+func (s *Simulation) applyPersistentWallSpringTemperatureKick(spring Spring, mass *Mass, normal Vec2) {
+	if spring.Temperature <= 0 {
+		return
+	}
+	temperature := math.Min(10, spring.Temperature)
+	kick := fullScreenGravityKick(s) * temperature / 10
+	mass.Velocity = mass.Velocity.Add(normal.Scale(kick))
 }
 
 func wallSpringContactSharesAndInverseMass(mass, endpointA, endpointB Mass, contactFraction float64) (float64, float64, float64) {

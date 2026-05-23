@@ -154,6 +154,10 @@ func TestPropertyPersistentWallSpringReconciliationSeparatesWithoutEnergyGain(t 
 	checkProperty(t, 36, 300, persistentWallSpringReconciliationSeparatesWithoutEnergyGain)
 }
 
+func TestPropertyPostContactReconciliationRestoresWallSpringLength(t *testing.T) {
+	checkProperty(t, 37, 300, postContactReconciliationRestoresWallSpringLength)
+}
+
 func checkProperty(t *testing.T, seed int64, maxCount int, property any) {
 	t.Helper()
 	config := &quick.Config{
@@ -1065,6 +1069,32 @@ func persistentWallSpringReconciliationSeparatesWithoutEnergyGain(fractionInput,
 	if afterEnergy > beforeEnergy+1e-8 {
 		panic(fmt.Sprintf("persistent reconciliation increased energy: before=%f after=%f", beforeEnergy, afterEnergy))
 	}
+	return true
+}
+
+func postContactReconciliationRestoresWallSpringLength(fractionInput, penetrationInput, restInput, distortionInput, endpointAInput, endpointBInput, massInput float64) bool {
+	restLength := propertyFloat(restInput, 20, 160)
+	currentLength := restLength * propertyFloat(distortionInput, 0.25, 0.9)
+	fraction := propertyFloat(fractionInput, 0.05, 0.95)
+	massValue := propertyFloat(massInput, 0.1, 100)
+	massRadius := MassRadius(Mass{Mass: massValue})
+	penetration := propertyFloat(penetrationInput, 0.001, massRadius*0.95)
+	world := NewWorld()
+	_ = world.AddMass(Mass{ID: 1, Position: Vec2{}, Mass: propertyFloat(endpointAInput, 0.1, 100)})
+	_ = world.AddMass(Mass{ID: 2, Position: Vec2{Y: currentLength}, Mass: propertyFloat(endpointBInput, 0.1, 100)})
+	_ = world.AddMass(Mass{
+		ID:       3,
+		Position: Vec2{X: -massRadius + penetration, Y: fraction * currentLength},
+		Velocity: Vec2{X: 1},
+		Mass:     massValue,
+	})
+	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, RestLength: restLength, Wall: true})
+
+	world.applyPostContactReconciliation()
+
+	endpointA, _ := world.MassByID(1)
+	endpointB, _ := world.MassByID(2)
+	assertClose("post-contact wall spring length", length(endpointB.Position.Sub(endpointA.Position)), restLength, 1e-6)
 	return true
 }
 

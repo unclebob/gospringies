@@ -192,6 +192,50 @@ Examples:
   | 12        | 1               | 1               | 0             | -85           | 0             | -85           | 27      | 1.5         | 0.99             | -2                       | non-penetrating          | not increased   |
   | 12        | 1               | 1               | 0             | -85           | 0             | -85           | 32      | 2.0         | 0.12             | 0                        | unchanged                | not increased   |
 
+Scenario Outline: persistent contact reconciliation restores floating wall spring lengths
+  Given moving floating wall spring <spring_id> has endpoint masses <endpoint_a_mass> and <endpoint_b_mass>
+  And moving floating wall spring <spring_id> has RestLen <rest_len>
+  And moving floating wall spring <spring_id> endpoint distance is changed by contact to <distorted_length>
+  And moving mass <mass_id> starts <penetration> inside floating wall spring <spring_id> at contact fraction <contact_fraction> with relative normal velocity <relative_normal_velocity>
+  When the coder resolves persistent floating wall spring contact and restores wall spring lengths
+  Then wall spring <spring_id> endpoint distance should be <rest_len>
+  And mass <mass_id> should remain outside floating wall spring <spring_id>
+
+Examples:
+  | spring_id | endpoint_a_mass | endpoint_b_mass | rest_len | distorted_length | mass_id | penetration | contact_fraction | relative_normal_velocity |
+  | 12        | 1               | 1               | 520      | 500              | 31      | 2.0         | 0.40             | -1                       |
+  | 9         | 1               | 1               | 60       | 50               | 39      | 1.0         | 0.50             | 0                        |
+
+Scenario Outline: heated persistent wall contact kicks masses away from the wall
+  Given moving floating wall spring <spring_id> has endpoint masses <endpoint_a_mass> and <endpoint_b_mass>
+  And wall spring <spring_id> has Temperature <temperature>
+  And temperature random seed is <seed>
+  And moving mass <mass_id> starts <penetration> inside floating wall spring <spring_id> at contact fraction <contact_fraction> with relative normal velocity <relative_normal_velocity>
+  When the coder resolves persistent heated wall spring contact
+  Then mass <mass_id> should remain outside floating wall spring <spring_id>
+  And mass <mass_id> should receive temperature kick <kick_behavior>
+  And mass <mass_id> relative normal velocity should be <normal_velocity_behavior>
+
+Examples:
+  | spring_id | endpoint_a_mass | endpoint_b_mass | temperature | seed | mass_id | penetration | contact_fraction | relative_normal_velocity | kick_behavior                          | normal_velocity_behavior |
+  | 5         | 1               | 1               | 5           | 11   | 39      | 0.2         | 0.50             | 0                        | proportional to spring temperature     | released                |
+  | 5         | 1               | 1               | 10          | 11   | 21      | 0.1         | 0.25             | -1                       | full screen height against gravity 10 | released                |
+
+Scenario Outline: cold persistent wall contact remains non-energetic
+  Given moving floating wall spring <spring_id> has endpoint masses <endpoint_a_mass> and <endpoint_b_mass>
+  And wall spring <spring_id> has Temperature <temperature>
+  And moving floating wall spring <spring_id> endpoint velocities are <endpoint_a_vx>, <endpoint_a_vy> and <endpoint_b_vx>, <endpoint_b_vy>
+  And moving mass <mass_id> starts <penetration> inside floating wall spring <spring_id> at contact fraction <contact_fraction> with relative normal velocity <relative_normal_velocity>
+  When the coder resolves persistent floating wall spring contact
+  Then mass <mass_id> should remain outside floating wall spring <spring_id>
+  And mass <mass_id> relative normal velocity should be <normal_velocity_behavior>
+  And the total kinetic energy of mass <mass_id> and floating wall spring <spring_id> should be <energy_behavior>
+
+Examples:
+  | spring_id | endpoint_a_mass | endpoint_b_mass | temperature | endpoint_a_vx | endpoint_a_vy | endpoint_b_vx | endpoint_b_vy | mass_id | penetration | contact_fraction | relative_normal_velocity | normal_velocity_behavior | energy_behavior |
+  | 12        | 1               | 1               | 0           | 0             | -85           | 0             | -85           | 27      | 1.5         | 0.99             | -2                       | non-penetrating          | not increased   |
+  | 12        | 1               | 1               | 0           | 0             | -85           | 0             | -85           | 32      | 2.0         | 0.12             | 0                        | unchanged                | not increased   |
+
 Scenario Outline: wall spring temperature kicks colliding masses
   Given wall spring <spring_id> has Temperature <temperature>
   And temperature random seed is <seed>
