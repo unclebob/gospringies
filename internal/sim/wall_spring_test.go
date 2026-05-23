@@ -275,6 +275,42 @@ func TestPersistentWallSpringContactReportsWhetherItChangedState(t *testing.T) {
 	}
 }
 
+func TestPersistentWallSpringContactPassReportsReconciledContact(t *testing.T) {
+	empty := NewWorld()
+	if empty.reconcilePersistentWallSpringContactPass(map[persistentWallSpringContactID]bool{}) {
+		t.Fatal("empty world reported persistent wall spring reconciliation")
+	}
+
+	world := persistentWallSpringContactWorld(Mass{ID: 47, Position: Vec2{X: -0.5, Y: 50}, Velocity: Vec2{Y: -85}, Mass: 1})
+	if !world.reconcilePersistentWallSpringContactPass(map[persistentWallSpringContactID]bool{}) {
+		t.Fatal("persistent wall spring contact pass did not report reconciliation")
+	}
+}
+
+func TestRecordHeatedPersistentWallSpringContactRequiresHeatAndReconciliation(t *testing.T) {
+	id := persistentWallSpringContactID{spring: 1, mass: 2}
+	for _, test := range []struct {
+		name              string
+		spring            Spring
+		contactReconciled bool
+		wantRecorded      bool
+	}{
+		{name: "cold reconciled", spring: Spring{}, contactReconciled: true},
+		{name: "zero temperature", spring: Spring{Temperature: 0}, contactReconciled: true},
+		{name: "sub unit heated", spring: Spring{Temperature: 0.5}, contactReconciled: true, wantRecorded: true},
+		{name: "heated not reconciled", spring: Spring{Temperature: 5}, contactReconciled: false},
+		{name: "heated reconciled", spring: Spring{Temperature: 5}, contactReconciled: true, wantRecorded: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			heatedContacts := map[persistentWallSpringContactID]bool{}
+			recordHeatedPersistentWallSpringContact(heatedContacts, id, test.spring, test.contactReconciled)
+			if heatedContacts[id] != test.wantRecorded {
+				t.Fatalf("recorded = %t, expected %t", heatedContacts[id], test.wantRecorded)
+			}
+		})
+	}
+}
+
 func TestPersistentWallSpringVelocityResolutionReportsOnlyAppliedImpulses(t *testing.T) {
 	endpointA := Mass{Position: Vec2{}, Mass: 1}
 	endpointB := Mass{Position: Vec2{Y: 100}, Mass: 1}
@@ -327,6 +363,55 @@ func TestHeatedPersistentWallSpringContactKicksMassAwayFromWall(t *testing.T) {
 	wantKick := fullScreenGravityKick(world) * 0.5
 	if got := length(mass.Velocity.Sub(Vec2{Y: -85})); !closeWallSpringLength(got, wantKick) {
 		t.Fatalf("temperature kick magnitude = %f, expected %f", got, wantKick)
+	}
+}
+
+func TestPersistentWallSpringContactTreatsZeroTemperatureAsCold(t *testing.T) {
+	world := NewWorld()
+	mass := Mass{Position: Vec2{X: -0.5, Y: 50}, Velocity: Vec2{X: -1}, Mass: 1, Fixed: true}
+	endpointA := Mass{Position: Vec2{}, Mass: 1, Fixed: true}
+	endpointB := Mass{Position: Vec2{Y: 100}, Mass: 1, Fixed: true}
+	beforeVelocity := mass.Velocity
+
+	if world.reconcilePersistentWallSpringContact(Spring{Temperature: 0}, &mass, &endpointA, &endpointB, true) {
+		t.Fatal("zero-temperature separating contact reported reconciliation")
+	}
+	if mass.Velocity != beforeVelocity {
+		t.Fatalf("zero-temperature separating velocity changed from %#v to %#v", beforeVelocity, mass.Velocity)
+	}
+}
+
+func TestSubUnitHeatedPersistentWallSpringContactKicksOnce(t *testing.T) {
+	world := persistentWallSpringContactWorld(Mass{ID: 41, Position: Vec2{X: -0.8, Y: 50}, Velocity: Vec2{Y: -85}, Mass: 1})
+	world.Springs[0].Temperature = 0.5
+
+	world.reconcilePersistentWallSpringContacts()
+
+	mass, _ := world.MassByID(41)
+	wantKick := fullScreenGravityKick(world) * 0.05
+	if got := length(mass.Velocity.Sub(Vec2{Y: -85})); !closeWallSpringLength(got, wantKick) {
+		t.Fatalf("sub-unit temperature kick magnitude = %f, expected %f", got, wantKick)
+	}
+}
+
+func TestHeatedPersistentWallSpringContactWithoutTemperaturePermissionOnlyReportsPositionCorrection(t *testing.T) {
+	world := NewWorld()
+	mass := Mass{Position: Vec2{X: -0.5, Y: 50}, Velocity: Vec2{X: -1}, Mass: 1}
+	endpointA := Mass{Position: Vec2{}, Mass: 1}
+	endpointB := Mass{Position: Vec2{Y: 100}, Mass: 1}
+	if !world.reconcilePersistentWallSpringContact(Spring{Temperature: 5}, &mass, &endpointA, &endpointB, false) {
+		t.Fatal("heated contact without temperature permission did not report position correction")
+	}
+	wantVelocity := Vec2{X: -1}
+	if mass.Velocity != wantVelocity {
+		t.Fatalf("temperature kick applied without permission: velocity=%#v", mass.Velocity)
+	}
+
+	fixedMass := Mass{Position: Vec2{X: -0.5, Y: 50}, Mass: 1, Fixed: true}
+	fixedEndpointA := Mass{Position: Vec2{}, Mass: 1, Fixed: true}
+	fixedEndpointB := Mass{Position: Vec2{Y: 100}, Mass: 1, Fixed: true}
+	if world.reconcilePersistentWallSpringContact(Spring{Temperature: 5}, &fixedMass, &fixedEndpointA, &fixedEndpointB, false) {
+		t.Fatal("all-fixed heated contact without temperature permission reported reconciliation")
 	}
 }
 
