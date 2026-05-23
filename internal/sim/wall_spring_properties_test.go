@@ -94,56 +94,60 @@ func TestPropertyResolveWallSpringVelocitySeparatesOrKeepsSeparating(t *testing.
 	checkProperty(t, 21, 300, resolveWallSpringVelocitySeparatesOrKeepsSeparating)
 }
 
+func TestPropertyResolveWallSpringVelocityUsesPositiveElasticity(t *testing.T) {
+	checkProperty(t, 22, 300, resolveWallSpringVelocityUsesPositiveElasticity)
+}
+
 func TestPropertyResetClearsWorldAndInsertFromAppendsObjects(t *testing.T) {
-	checkProperty(t, 22, 300, resetClearsWorldAndInsertFromAppendsObjects)
+	checkProperty(t, 23, 300, resetClearsWorldAndInsertFromAppendsObjects)
 }
 
 func TestPropertyAddMassAtAndAddSpringBetweenGenerateConsistentIDs(t *testing.T) {
-	checkProperty(t, 23, 300, addMassAtAndAddSpringBetweenGenerateConsistentIDs)
+	checkProperty(t, 24, 300, addMassAtAndAddSpringBetweenGenerateConsistentIDs)
 }
 
 func TestPropertyAdaptiveStepHelpersStayPositiveAndBounded(t *testing.T) {
-	checkProperty(t, 24, 300, adaptiveStepHelpersStayPositiveAndBounded)
+	checkProperty(t, 25, 300, adaptiveStepHelpersStayPositiveAndBounded)
 }
 
 func TestPropertyCenterAndWallForcesPointTowardTheirTargets(t *testing.T) {
-	checkProperty(t, 25, 300, centerAndWallForcesPointTowardTheirTargets)
+	checkProperty(t, 26, 300, centerAndWallForcesPointTowardTheirTargets)
 }
 
 func TestPropertyEnabledForceMatchesParameterState(t *testing.T) {
-	checkProperty(t, 26, 300, enabledForceMatchesParameterState)
+	checkProperty(t, 27, 300, enabledForceMatchesParameterState)
 }
 
 func TestPropertyStuckMassStaysOnWallUntilReleaseForceWins(t *testing.T) {
-	checkProperty(t, 27, 300, stuckMassStaysOnWallUntilReleaseForceWins)
+	checkProperty(t, 28, 300, stuckMassStaysOnWallUntilReleaseForceWins)
 }
 
 func TestPropertyStepDurationFollowsConfiguredTimestep(t *testing.T) {
-	checkProperty(t, 28, 300, stepDurationFollowsConfiguredTimestep)
+	checkProperty(t, 29, 300, stepDurationFollowsConfiguredTimestep)
 }
 
 func TestPropertyMassCollisionConservesMovableMomentum(t *testing.T) {
-	checkProperty(t, 29, 300, massCollisionConservesMovableMomentum)
+	checkProperty(t, 30, 300, massCollisionConservesMovableMomentum)
 }
 
 func TestPropertyFiniteStepOutputsRemainFinite(t *testing.T) {
-	checkProperty(t, 30, 300, finiteStepOutputsRemainFinite)
+	checkProperty(t, 31, 300, finiteStepOutputsRemainFinite)
 }
 
 func TestPropertyForceEvaluationSkipsInvalidSpringsAndScalesAcceleration(t *testing.T) {
-	checkProperty(t, 31, 300, forceEvaluationSkipsInvalidSpringsAndScalesAcceleration)
+	checkProperty(t, 32, 300, forceEvaluationSkipsInvalidSpringsAndScalesAcceleration)
 }
 
 func TestPropertyWallSpringLengthConstraintCollisionKeepsEndpointOnBarrierSide(t *testing.T) {
-	checkProperty(t, 32, 300, wallSpringLengthConstraintCollisionKeepsEndpointOnBarrierSide)
+	checkProperty(t, 33, 300, wallSpringLengthConstraintCollisionKeepsEndpointOnBarrierSide)
 }
 
 func TestPropertyMovingWallSpringFixedEndpointCollisionSeparatesContact(t *testing.T) {
-	checkProperty(t, 33, 300, movingWallSpringFixedEndpointCollisionSeparatesContact)
+	checkProperty(t, 34, 300, movingWallSpringFixedEndpointCollisionSeparatesContact)
 }
 
 func TestPropertyWallSpringCollisionConservesMomentumWithVaryingMasses(t *testing.T) {
-	checkProperty(t, 34, 300, wallSpringCollisionConservesMomentumWithVaryingMasses)
+	checkProperty(t, 35, 300, wallSpringCollisionConservesMomentumWithVaryingMasses)
 }
 
 func checkProperty(t *testing.T, seed int64, maxCount int, property any) {
@@ -614,6 +618,18 @@ func resolveWallSpringVelocitySeparatesOrKeepsSeparating(vxInput, vyInput, wallV
 	if !wallSpringVelocitySeparating(normalVelocity, startingSide) {
 		panic(fmt.Sprintf("wall spring velocity still penetrating: normalVelocity=%f startingSide=%f mass=%#v wall=%#v", normalVelocity, startingSide, mass, wallVelocity))
 	}
+	return true
+}
+
+func resolveWallSpringVelocityUsesPositiveElasticity(speedInput, elasticityInput, sideInput float64) bool {
+	normal := Vec2{X: 1}
+	startingSide := sideSign(propertySignedFloat(sideInput, 10))
+	speed := propertyFloat(speedInput, 0.1, 100)
+	elasticity := propertyFloat(elasticityInput, 0.1, 2)
+	mass := Mass{Velocity: normal.Scale(-startingSide * speed), Elasticity: elasticity}
+	resolveWallSpringVelocity(&mass, Vec2{}, normal, startingSide)
+	normalVelocity := dot(mass.Velocity, normal)
+	assertClose("configured elasticity rebound", normalVelocity, startingSide*speed*elasticity, 1e-9)
 	return true
 }
 
