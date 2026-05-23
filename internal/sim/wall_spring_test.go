@@ -670,6 +670,16 @@ func TestResolveWallSpringVelocityReflectsUnitPenetratingVelocity(t *testing.T) 
 	}
 }
 
+func TestResolveWallSpringVelocityUsesSubUnitPositiveElasticity(t *testing.T) {
+	mass := Mass{Velocity: Vec2{X: 10}, Elasticity: 0.8}
+
+	resolveWallSpringVelocity(&mass, Vec2{}, Vec2{X: 1}, -1)
+
+	if !closeWallSpringLength(mass.Velocity.X, -8) {
+		t.Fatalf("sub-unit elasticity velocity = %#v, want -8", mass.Velocity)
+	}
+}
+
 func TestWallSpringSharesResponseByContactFraction(t *testing.T) {
 	world := wallSpringCollisionWorld(false, false, 25)
 

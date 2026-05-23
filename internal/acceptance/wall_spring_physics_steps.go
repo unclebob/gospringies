@@ -40,6 +40,9 @@ func init() {
 		"the coder resolves the wall spring collision":                                                                              resolveWallSpringCollision,
 		"wall spring endpoint <endpoint_a> should receive impulse share <impulse_share_a>":                                          assertWallSpringEndpointImpulseShare,
 		"wall spring endpoint <endpoint_b> should receive impulse share <impulse_share_b>":                                          assertWallSpringEndpointBImpulseShare,
+		"moving mass <mass_id> with elasticity <elasticity> collides with wall spring <spring_id> at normal speed <normal_speed>":   createElasticMassCollidingWithWallSpring,
+		"mass <mass_id> normal rebound speed should be <expected_rebound_speed>":                                                    assertMassNormalReboundSpeed,
+		"wall spring <spring_id> should receive collision impulse for rebound speed <expected_rebound_speed>":                       assertWallSpringReceivesReboundImpulse,
 		"wall spring <spring_id> has Temperature <temperature>":                                                                     createWallSpringWithTemperature,
 		"temperature random seed is <seed>":                                                                                         setTemperatureRandomSeed,
 		"mass <mass_id> should receive temperature kick <kick_behavior>":                                                            assertMassTemperatureKick,
@@ -59,10 +62,15 @@ func init() {
 		stepHandlers[step] = handler
 	}
 	for step, handler := range map[string]stepHandler{
-		"a stationary floating wall with endpoint masses <endpoint_a_mass> and <endpoint_b_mass>":                                                createUnequalMassFloatingWall,
-		"moving mass <mass_id> with mass <moving_mass> is aimed at the floating wall from <mass_x>, <mass_y> with velocity <mass_vx>, <mass_vy>": createMassAimedAtFloatingWall,
-		"the simulation advances until the mass collides with the floating wall":                                                                 advanceUntilFloatingWallCollision,
-		"the total momentum of the moving mass and floating wall endpoints is unchanged":                                                         assertFloatingWallMomentumUnchanged,
+		"a stationary floating wall with endpoint masses <endpoint_a_mass> and <endpoint_b_mass>":                                                                                                                        createUnequalMassFloatingWall,
+		"moving mass <mass_id> with mass <moving_mass> is aimed at the floating wall from <mass_x>, <mass_y> with velocity <mass_vx>, <mass_vy>":                                                                         createMassAimedAtFloatingWall,
+		"the simulation advances until the mass collides with the floating wall":                                                                                                                                         advanceUntilFloatingWallCollision,
+		"the total momentum of the moving mass and floating wall endpoints is unchanged":                                                                                                                                 assertFloatingWallMomentumUnchanged,
+		"floating wall spring <spring_id> moves from <previous_wall_x1>, <previous_wall_y1> and <previous_wall_x2>, <previous_wall_y2> to <current_wall_x1>, <current_wall_y1> and <current_wall_x2>, <current_wall_y2>": createSweptFloatingWallSpring,
+		"moving mass <mass_id> moves from <previous_mass_x>, <previous_mass_y> to <current_mass_x>, <current_mass_y> with velocity <mass_vx>, <mass_vy>":                                                                 createSweptFloatingWallMass,
+		"the coder resolves swept floating wall spring collision":                                                                                                                                                        advanceThroughWallSpringCollision,
+		"mass <mass_id> should remain on the previous side of floating wall spring <spring_id>":                                                                                                                          assertMassOnStartingWallSpringSide,
+		"mass <mass_id> velocity should be resolved away from floating wall spring <spring_id>":                                                                                                                          assertMassVelocityResolvedAwayFromWallSpring,
 	} {
 		stepHandlers[step] = handler
 	}

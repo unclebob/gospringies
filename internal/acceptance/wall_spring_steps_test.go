@@ -277,6 +277,66 @@ func TestFloatingWallMomentumSteps(t *testing.T) {
 	)
 }
 
+func TestSweptFloatingWallSpringCollisionSteps(t *testing.T) {
+	for _, example := range []map[string]string{
+		{
+			"spring_id":        "12",
+			"previous_wall_x1": "503.734",
+			"previous_wall_y1": "569.167",
+			"previous_wall_x2": "673.282",
+			"previous_wall_y2": "531.518",
+			"current_wall_x1":  "503.744",
+			"current_wall_y1":  "570.380",
+			"current_wall_x2":  "672.926",
+			"current_wall_y2":  "528.675",
+			"mass_id":          "23",
+			"previous_mass_x":  "620",
+			"previous_mass_y":  "540",
+			"current_mass_x":   "620",
+			"current_mass_y":   "539.719",
+			"mass_vx":          "0",
+			"mass_vy":          "-10",
+		},
+	} {
+		w := &world{}
+		mustWallSpringStep(t, w, example, createSweptFloatingWallSpring)
+		mustWallSpringStep(t, w, example, createSweptFloatingWallMass)
+		mustWallSpringStep(t, w, example, advanceThroughWallSpringCollision)
+		mustWallSpringStep(t, w, example, assertMassOnStartingWallSpringSide)
+		mustWallSpringStep(t, w, example, assertMassVelocityResolvedAwayFromWallSpring)
+	}
+}
+
+func TestWallSpringReboundElasticitySteps(t *testing.T) {
+	for _, example := range []map[string]string{
+		{
+			"spring_id":              "1",
+			"endpoint_a":             "1",
+			"endpoint_b":             "2",
+			"mass_id":                "3",
+			"elasticity":             "0.8",
+			"normal_speed":           "10",
+			"expected_rebound_speed": "8",
+		},
+		{
+			"spring_id":              "1",
+			"endpoint_a":             "1",
+			"endpoint_b":             "2",
+			"mass_id":                "3",
+			"elasticity":             "1.0",
+			"normal_speed":           "10",
+			"expected_rebound_speed": "10",
+		},
+	} {
+		w := &world{}
+		mustWallSpringStep(t, w, example, createWallSpringByEndpointIDs)
+		mustWallSpringStep(t, w, example, createElasticMassCollidingWithWallSpring)
+		mustWallSpringStep(t, w, example, resolveWallSpringCollision)
+		mustWallSpringStep(t, w, example, assertMassNormalReboundSpeed)
+		mustWallSpringStep(t, w, example, assertWallSpringReceivesReboundImpulse)
+	}
+}
+
 func TestFloatingWallMomentumUsesDefaultMassAndSkipsMissingIDs(t *testing.T) {
 	world := sim.NewWorld()
 	_ = world.AddMass(sim.Mass{ID: 1, Velocity: sim.Vec2{X: 3}})
