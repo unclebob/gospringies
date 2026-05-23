@@ -10,6 +10,6 @@
 - Avoid running `go test ./...` concurrently with acceptance generation.
 - For headless verification that touches app or acceptance packages, run `./scripts/headless-check.sh` instead of plain `go test ./...`; the plain full-suite command can hang in the default Ebitengine/macOS GUI path.
 - Run the relevant local verification command before handoff whenever the project has one.
-- Mutation testing and acceptance mutation manifests are not your concern; do not modify them unless specifically directed.
+- Do not edit mutation testing or acceptance mutation manifests by hand; allow approved mutation tools to update those manifests as part of their normal runs.
 - Do not commit unrelated local changes or generated artifacts unless required for the task.
 - Before relying on an unfamiliar command, inspect local help or project documentation.
