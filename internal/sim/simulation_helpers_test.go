@@ -252,7 +252,7 @@ func TestLengthAndSqrtHelpers(t *testing.T) {
 	if got := sqrt(2); math.Abs(got-math.Sqrt2) > 0.000001 {
 		t.Fatalf("sqrt two = %f", got)
 	}
-	if got := sqrt(2); got != 1.4142135623730949 {
-		t.Fatalf("sqrt two exact iteration result = %.17g", got)
+	if got := sqrt(4_000_000); got != 2000 {
+		t.Fatalf("sqrt large perfect square = %.17g", got)
 	}
 }
