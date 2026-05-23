@@ -258,20 +258,56 @@ func TestPersistentWallSpringContactReportsWhetherItChangedState(t *testing.T) {
 	mass := Mass{Position: Vec2{X: -3, Y: 50}, Velocity: Vec2{X: 10}, Mass: 1}
 	endpointA := Mass{Position: Vec2{}, Mass: 1}
 	endpointB := Mass{Position: Vec2{Y: 100}, Mass: 1}
-	if reconcilePersistentWallSpringContact := NewWorld().reconcilePersistentWallSpringContact(&mass, &endpointA, &endpointB); reconcilePersistentWallSpringContact {
+	if reconcilePersistentWallSpringContact := NewWorld().reconcilePersistentWallSpringContact(Spring{}, &mass, &endpointA, &endpointB, true); reconcilePersistentWallSpringContact {
 		t.Fatal("non-contact reported a reconciliation")
 	}
 
 	fixedMass := Mass{Position: Vec2{X: -0.5, Y: 50}, Velocity: Vec2{X: 10}, Mass: 1, Fixed: true}
 	fixedEndpointA := Mass{Position: Vec2{}, Mass: 1, Fixed: true}
 	fixedEndpointB := Mass{Position: Vec2{Y: 100}, Mass: 1, Fixed: true}
-	if NewWorld().reconcilePersistentWallSpringContact(&fixedMass, &fixedEndpointA, &fixedEndpointB) {
+	if NewWorld().reconcilePersistentWallSpringContact(Spring{}, &fixedMass, &fixedEndpointA, &fixedEndpointB, true) {
 		t.Fatal("all-fixed contact reported a reconciliation")
 	}
 
 	movingMass := Mass{Position: Vec2{X: -0.5, Y: 50}, Velocity: Vec2{X: 10}, Mass: 1}
-	if !NewWorld().reconcilePersistentWallSpringContact(&movingMass, &endpointA, &endpointB) {
+	if !NewWorld().reconcilePersistentWallSpringContact(Spring{}, &movingMass, &endpointA, &endpointB, true) {
 		t.Fatal("penetrating moving contact did not report a reconciliation")
+	}
+}
+
+func TestPersistentWallSpringContactPassReportsReconciledContact(t *testing.T) {
+	empty := NewWorld()
+	if empty.reconcilePersistentWallSpringContactPass(map[persistentWallSpringContactID]bool{}) {
+		t.Fatal("empty world reported persistent wall spring reconciliation")
+	}
+
+	world := persistentWallSpringContactWorld(Mass{ID: 47, Position: Vec2{X: -0.5, Y: 50}, Velocity: Vec2{Y: -85}, Mass: 1})
+	if !world.reconcilePersistentWallSpringContactPass(map[persistentWallSpringContactID]bool{}) {
+		t.Fatal("persistent wall spring contact pass did not report reconciliation")
+	}
+}
+
+func TestRecordHeatedPersistentWallSpringContactRequiresHeatAndReconciliation(t *testing.T) {
+	id := persistentWallSpringContactID{spring: 1, mass: 2}
+	for _, test := range []struct {
+		name              string
+		spring            Spring
+		contactReconciled bool
+		wantRecorded      bool
+	}{
+		{name: "cold reconciled", spring: Spring{}, contactReconciled: true},
+		{name: "zero temperature", spring: Spring{Temperature: 0}, contactReconciled: true},
+		{name: "sub unit heated", spring: Spring{Temperature: 0.5}, contactReconciled: true, wantRecorded: true},
+		{name: "heated not reconciled", spring: Spring{Temperature: 5}, contactReconciled: false},
+		{name: "heated reconciled", spring: Spring{Temperature: 5}, contactReconciled: true, wantRecorded: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			heatedContacts := map[persistentWallSpringContactID]bool{}
+			recordHeatedPersistentWallSpringContact(heatedContacts, id, test.spring, test.contactReconciled)
+			if heatedContacts[id] != test.wantRecorded {
+				t.Fatalf("recorded = %t, expected %t", heatedContacts[id], test.wantRecorded)
+			}
+		})
 	}
 }
 
@@ -290,6 +326,92 @@ func TestPersistentWallSpringVelocityResolutionReportsOnlyAppliedImpulses(t *tes
 	}
 	if got := dot(approachingMass.Velocity.Sub(wallSpringContactVelocity(&endpointA, &endpointB, 0.5)), Vec2{X: -1}); got < -0.000001 {
 		t.Fatalf("normal velocity = %f, expected non-penetrating", got)
+	}
+}
+
+func TestPostContactReconciliationRestoresWallSpringLengthAfterPersistentContact(t *testing.T) {
+	world := NewWorld()
+	_ = world.AddMass(Mass{ID: 1, Position: Vec2{}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 2, Position: Vec2{Y: 50}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 31, Position: Vec2{X: -1, Y: 20}, Velocity: Vec2{X: 1}, Mass: 1})
+	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, RestLength: 60, Wall: true})
+
+	world.applyPostContactReconciliation()
+
+	if got := wallSpringEndpointDistanceForTest(world, 1); !closeWallSpringLength(got, 60) {
+		t.Fatalf("wall spring length = %f, expected 60", got)
+	}
+	mass, _ := world.MassByID(31)
+	if wallSpringDistanceFromRadius(world, 1, mass) < -0.000001 {
+		t.Fatalf("mass remains inside floating wall spring: %#v", mass)
+	}
+}
+
+func TestHeatedPersistentWallSpringContactKicksMassAwayFromWall(t *testing.T) {
+	world := persistentWallSpringContactWorld(Mass{ID: 39, Position: Vec2{X: -0.8, Y: 50}, Velocity: Vec2{Y: -85}, Mass: 1})
+	world.Springs[0].Temperature = 5
+
+	world.reconcilePersistentWallSpringContacts()
+
+	mass, _ := world.MassByID(39)
+	if wallSpringDistanceFromRadius(world, 1, mass) < -0.000001 {
+		t.Fatalf("mass remains inside heated floating wall spring: %#v", mass)
+	}
+	if got := wallSpringRelativeNormalVelocity(world, 1, mass); got <= 0 {
+		t.Fatalf("normal velocity = %f, expected released away from heated wall", got)
+	}
+	wantKick := fullScreenGravityKick(world) * 0.5
+	if got := length(mass.Velocity.Sub(Vec2{Y: -85})); !closeWallSpringLength(got, wantKick) {
+		t.Fatalf("temperature kick magnitude = %f, expected %f", got, wantKick)
+	}
+}
+
+func TestPersistentWallSpringContactTreatsZeroTemperatureAsCold(t *testing.T) {
+	world := NewWorld()
+	mass := Mass{Position: Vec2{X: -0.5, Y: 50}, Velocity: Vec2{X: -1}, Mass: 1, Fixed: true}
+	endpointA := Mass{Position: Vec2{}, Mass: 1, Fixed: true}
+	endpointB := Mass{Position: Vec2{Y: 100}, Mass: 1, Fixed: true}
+	beforeVelocity := mass.Velocity
+
+	if world.reconcilePersistentWallSpringContact(Spring{Temperature: 0}, &mass, &endpointA, &endpointB, true) {
+		t.Fatal("zero-temperature separating contact reported reconciliation")
+	}
+	if mass.Velocity != beforeVelocity {
+		t.Fatalf("zero-temperature separating velocity changed from %#v to %#v", beforeVelocity, mass.Velocity)
+	}
+}
+
+func TestSubUnitHeatedPersistentWallSpringContactKicksOnce(t *testing.T) {
+	world := persistentWallSpringContactWorld(Mass{ID: 41, Position: Vec2{X: -0.8, Y: 50}, Velocity: Vec2{Y: -85}, Mass: 1})
+	world.Springs[0].Temperature = 0.5
+
+	world.reconcilePersistentWallSpringContacts()
+
+	mass, _ := world.MassByID(41)
+	wantKick := fullScreenGravityKick(world) * 0.05
+	if got := length(mass.Velocity.Sub(Vec2{Y: -85})); !closeWallSpringLength(got, wantKick) {
+		t.Fatalf("sub-unit temperature kick magnitude = %f, expected %f", got, wantKick)
+	}
+}
+
+func TestHeatedPersistentWallSpringContactWithoutTemperaturePermissionOnlyReportsPositionCorrection(t *testing.T) {
+	world := NewWorld()
+	mass := Mass{Position: Vec2{X: -0.5, Y: 50}, Velocity: Vec2{X: -1}, Mass: 1}
+	endpointA := Mass{Position: Vec2{}, Mass: 1}
+	endpointB := Mass{Position: Vec2{Y: 100}, Mass: 1}
+	if !world.reconcilePersistentWallSpringContact(Spring{Temperature: 5}, &mass, &endpointA, &endpointB, false) {
+		t.Fatal("heated contact without temperature permission did not report position correction")
+	}
+	wantVelocity := Vec2{X: -1}
+	if mass.Velocity != wantVelocity {
+		t.Fatalf("temperature kick applied without permission: velocity=%#v", mass.Velocity)
+	}
+
+	fixedMass := Mass{Position: Vec2{X: -0.5, Y: 50}, Mass: 1, Fixed: true}
+	fixedEndpointA := Mass{Position: Vec2{}, Mass: 1, Fixed: true}
+	fixedEndpointB := Mass{Position: Vec2{Y: 100}, Mass: 1, Fixed: true}
+	if world.reconcilePersistentWallSpringContact(Spring{Temperature: 5}, &fixedMass, &fixedEndpointA, &fixedEndpointB, false) {
+		t.Fatal("all-fixed heated contact without temperature permission reported reconciliation")
 	}
 }
 
@@ -1571,6 +1693,13 @@ func wallSpringDistanceFromRadius(world *Simulation, springID int, mass Mass) fl
 	normal := Vec2{X: -segment.Y, Y: segment.X}.Normalize()
 	distance := math.Abs(dot(mass.Position.Sub(endpointA.Position), normal))
 	return distance - MassRadius(mass)
+}
+
+func wallSpringEndpointDistanceForTest(world *Simulation, springID int) float64 {
+	spring, _ := world.SpringByID(springID)
+	endpointA, _ := world.MassByID(spring.MassA)
+	endpointB, _ := world.MassByID(spring.MassB)
+	return length(endpointB.Position.Sub(endpointA.Position))
 }
 
 func wallSpringRelativeNormalVelocity(world *Simulation, springID int, mass Mass) float64 {

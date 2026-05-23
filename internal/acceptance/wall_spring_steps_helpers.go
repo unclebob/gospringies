@@ -181,6 +181,10 @@ func assertWallSpringEndpointDistance(w *world, example map[string]string) error
 	return nil
 }
 
+func assertWallSpringEndpointRestLength(w *world, example map[string]string) error {
+	return assertWallSpringEndpointDistance(w, withExampleValue(example, "expected_length", example["rest_len"]))
+}
+
 func closeWallSpringEndpointDistance(got, expected float64) bool {
 	return math.Abs(got-expected) <= 0.00001
 }
@@ -1004,6 +1008,13 @@ func normalVelocityDelta(w *world, massID int, normal sim.Vec2) (float64, error)
 }
 
 func createWallSpringWithTemperature(w *world, example map[string]string) error {
+	springID, err := intValue(example, "spring_id")
+	if err != nil {
+		return err
+	}
+	if _, ok := ensureDomainWorld(w).SpringByID(springID); ok {
+		return setSpringTemperature(w, example)
+	}
 	if err := createWallSpringByEndpointIDs(w, map[string]string{"spring_id": example["spring_id"], "endpoint_a": "1", "endpoint_b": "2"}); err != nil {
 		return err
 	}
@@ -1040,7 +1051,7 @@ func requireSupportedTemperatureExample(example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	if temperature == "0" || temperature == "10" {
+	if temperature == "0" || temperature == "5" || temperature == "10" {
 		return nil
 	}
 	return fmt.Errorf("unsupported temperature example %q", temperature)
@@ -1082,14 +1093,25 @@ func temperatureKickAssertion(w *world, example map[string]string) (temperatureK
 	}
 	return temperatureKickExpectation{
 		behavior: behavior,
-		kick:     mass.Velocity.Sub(expectedWallSpringCollisionVelocity(example)),
+		kick:     mass.Velocity.Sub(expectedTemperatureKickBaseline(w, example, massID)),
 	}, nil
+}
+
+func expectedTemperatureKickBaseline(w *world, example map[string]string, massID int) sim.Vec2 {
+	if _, ok := example["relative_normal_velocity"]; ok {
+		if before, ok := w.wallSpringImpulses[massID]; ok {
+			return before
+		}
+	}
+	return expectedWallSpringCollisionVelocity(example)
 }
 
 func assertTemperatureKickBehavior(behavior string, kick sim.Vec2, worldHeight float64) error {
 	switch behavior {
 	case "none":
 		return assertVec("temperature kick", kick, 0, 0)
+	case "proportional to spring temperature":
+		return assertFloat("temperature kick magnitude", math.Sqrt(kick.X*kick.X+kick.Y*kick.Y), math.Sqrt(2*10*worldHeight)*0.5)
 	case "full screen height against gravity 10":
 		return assertFloat("temperature kick magnitude", math.Sqrt(kick.X*kick.X+kick.Y*kick.Y), math.Sqrt(2*10*worldHeight))
 	default:
@@ -1241,6 +1263,27 @@ func setFiniteMassFloatingWallSpringVelocities(w *world, example map[string]stri
 	world := ensureDomainWorld(w)
 	setMassPositionAndVelocityForCurrentStep(world, 1, sim.Vec2{}, sim.Vec2{X: values[0], Y: values[1]})
 	setMassPositionAndVelocityForCurrentStep(world, 2, sim.Vec2{Y: 100}, sim.Vec2{X: values[2], Y: values[3]})
+	return nil
+}
+
+func setFiniteMassFloatingWallSpringRestLength(w *world, example map[string]string) error {
+	restLength, err := floatValue(example, "rest_len")
+	if err != nil {
+		return err
+	}
+	return updateBarrierSpring(w, example, func(spring *sim.Spring) {
+		spring.RestLength = restLength
+	})
+}
+
+func distortFiniteMassFloatingWallSpringLength(w *world, example map[string]string) error {
+	length, err := floatValue(example, "distorted_length")
+	if err != nil {
+		return err
+	}
+	world := ensureDomainWorld(w)
+	setMassPositionAndVelocityForCurrentStep(world, 1, sim.Vec2{}, sim.Vec2{})
+	setMassPositionAndVelocityForCurrentStep(world, 2, sim.Vec2{Y: length}, sim.Vec2{})
 	return nil
 }
 
@@ -1468,13 +1511,18 @@ func createPersistentFloatingWallSpringPenetratingMass(w *world, example map[str
 	if err != nil {
 		return err
 	}
-	contact := start.Add(sim.Vec2{Y: 100 * values[1]})
+	endpointA, endpointB, _, err := wallSpringEndpointsAndNormal(world, springID)
+	if err != nil {
+		return err
+	}
+	contact := start.Add(endpointB.Position.Sub(endpointA.Position).Scale(values[1]))
 	position := contact.Add(normal.Scale(radius - values[0]))
 	velocity := wallSpringVelocityAtFraction(world, values[1]).Add(normal.Scale(values[2]))
 	mass := sim.Mass{ID: massID, Position: position, Velocity: velocity, Mass: 1}
 	if err := world.AddMass(mass); err != nil {
 		return err
 	}
+	w.wallSpringImpulses = map[int]sim.Vec2{massID: mass.Velocity}
 	w.wallSpringMomentumID = massID
 	w.wallSpringEnergy = totalMassKineticEnergy(world, 1, 2, massID)
 	w.wallSpringMomentum = totalMassMomentum(world, 1, 2, massID)
@@ -1511,6 +1559,10 @@ func assertMassRelativeNormalVelocity(w *world, example map[string]string) error
 		}
 	case "unchanged":
 		return assertFloat("relative normal velocity", velocity, 0)
+	case "released":
+		if velocity <= 0 {
+			return fmt.Errorf("relative normal velocity = %f, expected released", velocity)
+		}
 	default:
 		return fmt.Errorf("unsupported normal velocity behavior %q", behavior)
 	}

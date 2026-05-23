@@ -85,6 +85,11 @@ func init() {
 		"moving mass <mass_id> starts <penetration> inside floating wall spring <spring_id> at contact fraction <contact_fraction> with relative normal velocity <relative_normal_velocity>":                             createPersistentFloatingWallSpringPenetratingMass,
 		"the coder resolves persistent floating wall spring contact":                                                                                                                                                     advancePersistentFloatingWallSpringContact,
 		"mass <mass_id> relative normal velocity should be <normal_velocity_behavior>":                                                                                                                                   assertMassRelativeNormalVelocity,
+		"moving floating wall spring <spring_id> has RestLen <rest_len>":                                                                                                                                                 setFiniteMassFloatingWallSpringRestLength,
+		"moving floating wall spring <spring_id> endpoint distance is changed by contact to <distorted_length>":                                                                                                          distortFiniteMassFloatingWallSpringLength,
+		"the coder resolves persistent floating wall spring contact and restores wall spring lengths":                                                                                                                    advancePersistentFloatingWallSpringContact,
+		"the coder resolves persistent heated wall spring contact":                                                                                                                                                       advancePersistentFloatingWallSpringContact,
+		"wall spring <spring_id> endpoint distance should be <rest_len>":                                                                                                                                                 assertWallSpringEndpointRestLength,
 	} {
 		stepHandlers[step] = handler
 	}
