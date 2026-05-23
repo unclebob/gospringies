@@ -78,6 +78,18 @@ Examples:
   | spring_id | wall_x1 | wall_y1 | wall_x2 | wall_y2 | wall_vx | wall_vy | mass_id | mass_x | mass_y |
   | 1         | -5      | 0       | -5      | 100     | 10      | 0       | 3       | 0      | 50     |
 
+Scenario Outline: moving floating wall springs stop masses that cross the swept segment
+  Given floating wall spring <spring_id> moves from <previous_wall_x1>, <previous_wall_y1> and <previous_wall_x2>, <previous_wall_y2> to <current_wall_x1>, <current_wall_y1> and <current_wall_x2>, <current_wall_y2>
+  And moving mass <mass_id> moves from <previous_mass_x>, <previous_mass_y> to <current_mass_x>, <current_mass_y> with velocity <mass_vx>, <mass_vy>
+  When the coder resolves swept floating wall spring collision
+  Then mass <mass_id> should remain on the previous side of floating wall spring <spring_id>
+  And mass <mass_id> velocity should be resolved away from floating wall spring <spring_id>
+
+Examples:
+  | spring_id | previous_wall_x1 | previous_wall_y1 | previous_wall_x2 | previous_wall_y2 | current_wall_x1 | current_wall_y1 | current_wall_x2 | current_wall_y2 | mass_id | previous_mass_x | previous_mass_y | current_mass_x | current_mass_y | mass_vx | mass_vy |
+  | 12        | 503.734          | 569.167          | 673.282          | 531.518          | 503.744         | 570.380         | 672.926         | 528.675         | 23      | 620             | 540             | 620            | 539.719        | 0       | -10     |
+  | 12        | 503.734          | 569.167          | 673.282          | 531.518          | 503.744         | 570.380         | 672.926         | 528.675         | 26      | 620             | 510             | 620            | 509.719        | 0       | -10     |
+
 Scenario Outline: moving wall springs bounce off fixed wall endpoints
   Given fixed mass <fixed_mass> at <fixed_x>, <fixed_y> is an endpoint of wall spring <fixed_spring>
   And moving wall spring <moving_spring> spans from <moving_x1>, <moving_y1> to <moving_x2>, <moving_y2> with velocity <moving_vx>, <moving_vy>
@@ -116,6 +128,18 @@ Examples:
   | 1         | 1          | 2          | false   | false   | 3       | 0.25             | 0.75            | 0.25            |
   | 1         | 1          | 2          | false   | false   | 3       | 0.50             | 0.50            | 0.50            |
   | 1         | 1          | 2          | true    | false   | 3       | 0.25             | absorbed        | 0.25            |
+
+Scenario Outline: wall spring collision rebound uses configured elasticity
+  Given wall spring <spring_id> spans from mass <endpoint_a> to mass <endpoint_b>
+  And moving mass <mass_id> with elasticity <elasticity> collides with wall spring <spring_id> at normal speed <normal_speed>
+  When the coder resolves the wall spring collision
+  Then mass <mass_id> normal rebound speed should be <expected_rebound_speed>
+  And wall spring <spring_id> should receive collision impulse for rebound speed <expected_rebound_speed>
+
+Examples:
+  | spring_id | endpoint_a | endpoint_b | mass_id | elasticity | normal_speed | expected_rebound_speed |
+  | 1         | 1          | 2          | 3       | 0.8        | 10           | 8                      |
+  | 1         | 1          | 2          | 3       | 1.0        | 10           | 10                     |
 
 Scenario Outline: floating wall collisions conserve momentum with unequal endpoint masses
   Given a stationary floating wall with endpoint masses <endpoint_a_mass> and <endpoint_b_mass>
