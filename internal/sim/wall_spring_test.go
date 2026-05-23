@@ -139,6 +139,70 @@ func TestFloatingWallSpringCollisionDoesNotIncreaseEnergyWithElasticity(t *testi
 	}
 }
 
+func TestPostContactReconciliationKeepsMassInsideEnabledFixedWall(t *testing.T) {
+	world := NewWorld()
+	world.Bounds = Bounds{Width: 1000, Height: 500, Bottom: 400}
+	world.Parameters.EnableWall("bottom")
+	_ = world.AddMass(Mass{ID: 1, Position: Vec2{X: 620, Y: 404}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 2, Position: Vec2{X: 720, Y: 404}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 26, Position: Vec2{X: 670, Y: 399}, Velocity: Vec2{Y: -1}, Mass: 1})
+	_ = world.AddSpring(Spring{ID: 12, MassA: 1, MassB: 2, Wall: true})
+	beforeEnergy := wallSpringKineticEnergy(world, 1, 2, 26)
+
+	world.applyPostContactReconciliation()
+
+	mass, _ := world.MassByID(26)
+	if mass.Position.Y < world.Bounds.MinY() {
+		t.Fatalf("mass escaped enabled bottom wall: %#v", mass)
+	}
+	if wallSpringDistanceFromRadius(world, 12, mass) < -0.000001 {
+		t.Fatalf("mass remains inside floating wall spring: %#v", mass)
+	}
+	afterEnergy := wallSpringKineticEnergy(world, 1, 2, 26)
+	if afterEnergy > beforeEnergy+0.000001 {
+		t.Fatalf("kinetic energy increased from %f to %f", beforeEnergy, afterEnergy)
+	}
+}
+
+func TestPersistentWallSpringPenetrationRemovesClosingVelocityWithoutRestitution(t *testing.T) {
+	world := persistentWallSpringContactWorld(Mass{ID: 27, Position: Vec2{X: -0.5, Y: 99}, Velocity: Vec2{X: 2, Y: -85}, Mass: 1})
+	beforeEnergy := wallSpringKineticEnergy(world, 1, 2, 27)
+
+	world.reconcilePersistentWallSpringContacts()
+
+	mass, _ := world.MassByID(27)
+	if wallSpringDistanceFromRadius(world, 1, mass) < -0.000001 {
+		t.Fatalf("mass remains inside floating wall spring: %#v", mass)
+	}
+	if got := wallSpringRelativeNormalVelocity(world, 1, mass); got < -0.000001 {
+		t.Fatalf("normal velocity = %f, expected non-penetrating", got)
+	}
+	afterEnergy := wallSpringKineticEnergy(world, 1, 2, 27)
+	if afterEnergy > beforeEnergy+0.000001 {
+		t.Fatalf("kinetic energy increased from %f to %f", beforeEnergy, afterEnergy)
+	}
+}
+
+func TestPersistentWallSpringPenetrationLeavesZeroNormalVelocityUnchanged(t *testing.T) {
+	world := persistentWallSpringContactWorld(Mass{ID: 32, Position: Vec2{X: -1, Y: 12}, Velocity: Vec2{Y: -85}, Mass: 1})
+	beforeVelocity := world.Masses[2].Velocity
+	beforeEnergy := wallSpringKineticEnergy(world, 1, 2, 32)
+
+	world.reconcilePersistentWallSpringContacts()
+
+	mass, _ := world.MassByID(32)
+	if wallSpringDistanceFromRadius(world, 1, mass) < -0.000001 {
+		t.Fatalf("mass remains inside floating wall spring: %#v", mass)
+	}
+	if mass.Velocity != beforeVelocity {
+		t.Fatalf("zero normal velocity changed from %#v to %#v", beforeVelocity, mass.Velocity)
+	}
+	afterEnergy := wallSpringKineticEnergy(world, 1, 2, 32)
+	if afterEnergy > beforeEnergy+0.000001 {
+		t.Fatalf("kinetic energy increased from %f to %f", beforeEnergy, afterEnergy)
+	}
+}
+
 func TestFiniteWallSpringCollisionSeparatingIncludesZeroAndSmallPositiveVelocity(t *testing.T) {
 	for _, normalVelocity := range []float64{0, 0.5} {
 		if !finiteWallSpringCollisionSeparating(normalVelocity) {
@@ -1403,6 +1467,32 @@ func floatingWallEnergyCollisionWorld(endpointAVelocity, endpointBVelocity Vec2,
 	_ = world.AddMass(moving)
 	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, Wall: true})
 	return world
+}
+
+func persistentWallSpringContactWorld(moving Mass) *Simulation {
+	return floatingWallEnergyCollisionWorld(Vec2{Y: -85}, Vec2{Y: -85}, moving)
+}
+
+func wallSpringDistanceFromRadius(world *Simulation, springID int, mass Mass) float64 {
+	spring, _ := world.SpringByID(springID)
+	endpointA, _ := world.MassByID(spring.MassA)
+	endpointB, _ := world.MassByID(spring.MassB)
+	segment := endpointB.Position.Sub(endpointA.Position)
+	normal := Vec2{X: -segment.Y, Y: segment.X}.Normalize()
+	distance := math.Abs(dot(mass.Position.Sub(endpointA.Position), normal))
+	return distance - MassRadius(mass)
+}
+
+func wallSpringRelativeNormalVelocity(world *Simulation, springID int, mass Mass) float64 {
+	spring, _ := world.SpringByID(springID)
+	endpointA, _ := world.MassByID(spring.MassA)
+	endpointB, _ := world.MassByID(spring.MassB)
+	segment := endpointB.Position.Sub(endpointA.Position)
+	lengthSquared := dot(segment, segment)
+	contactFraction := closestFractionOnSegment(mass.Position, endpointA.Position, segment, lengthSquared)
+	normal := Vec2{X: -segment.Y, Y: segment.X}.Normalize()
+	side := sideSign(dot(mass.Position.Sub(endpointA.Position), normal))
+	return dot(mass.Velocity.Sub(wallSpringContactVelocity(&endpointA, &endpointB, contactFraction)), normal.Scale(side))
 }
 
 func wallSpringMomentum(world *Simulation, ids ...int) Vec2 {

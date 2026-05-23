@@ -77,6 +77,14 @@ func init() {
 		"the coder resolves the finite-mass floating wall spring collision":                                                                                                                                              advanceFiniteMassFloatingWallSpringCollision,
 		"the total kinetic energy of mass <mass_id> and floating wall spring <spring_id> should be <energy_behavior>":                                                                                                    assertFiniteMassFloatingWallSpringEnergy,
 		"the total momentum of mass <mass_id> and floating wall spring <spring_id> should be unchanged":                                                                                                                  assertFiniteMassFloatingWallSpringMomentum,
+		"fixed wall <fixed_wall> is enabled at boundary <wall_boundary>":                                                                                                                                                 enableFixedWallAtBoundary,
+		"moving mass <mass_id> starts between floating wall spring <spring_id> and fixed wall <fixed_wall> at <mass_x>, <mass_y> with velocity <mass_vx>, <mass_vy>":                                                     createMassBetweenFloatingWallSpringAndFixedWall,
+		"the coder resolves simultaneous floating wall and fixed wall contact":                                                                                                                                           advanceSimultaneousFloatingWallAndFixedWallContact,
+		"mass <mass_id> should remain inside fixed wall <fixed_wall>":                                                                                                                                                    assertMassInsideFixedWall,
+		"mass <mass_id> should remain outside floating wall spring <spring_id>":                                                                                                                                          assertMassOutsideFloatingWallSpring,
+		"moving mass <mass_id> starts <penetration> inside floating wall spring <spring_id> at contact fraction <contact_fraction> with relative normal velocity <relative_normal_velocity>":                             createPersistentFloatingWallSpringPenetratingMass,
+		"the coder resolves persistent floating wall spring contact":                                                                                                                                                     advancePersistentFloatingWallSpringContact,
+		"mass <mass_id> relative normal velocity should be <normal_velocity_behavior>":                                                                                                                                   assertMassRelativeNormalVelocity,
 	} {
 		stepHandlers[step] = handler
 	}

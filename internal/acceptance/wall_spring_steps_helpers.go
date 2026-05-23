@@ -1299,6 +1299,261 @@ func assertFiniteMassFloatingWallSpringMomentum(w *world, _ map[string]string) e
 	return assertMomentum("finite-mass floating wall collision momentum", totalMassMomentum(ensureDomainWorld(w), 1, 2, w.wallSpringMomentumID), w.wallSpringMomentum)
 }
 
+func enableFixedWallAtBoundary(w *world, example map[string]string) error {
+	wall, err := stringValue(example, "fixed_wall")
+	if err != nil {
+		return err
+	}
+	boundary, err := floatValue(example, "wall_boundary")
+	if err != nil {
+		return err
+	}
+	world := ensureDomainWorld(w)
+	world.Parameters.EnableWall(wall)
+	switch wall {
+	case "left":
+		world.Bounds.Left = boundary
+	case "right":
+		world.Bounds.Right = boundary
+	case "bottom":
+		world.Bounds.Bottom = boundary
+	case "top":
+		world.Bounds.Top = boundary
+	default:
+		return fmt.Errorf("unsupported fixed wall %q", wall)
+	}
+	return nil
+}
+
+func createMassBetweenFloatingWallSpringAndFixedWall(w *world, example map[string]string) error {
+	massID, err := intValue(example, "mass_id")
+	if err != nil {
+		return err
+	}
+	values, err := floatValues(example, "mass_x", "mass_y", "mass_vx", "mass_vy")
+	if err != nil {
+		return err
+	}
+	world := ensureDomainWorld(w)
+	mass := sim.Mass{ID: massID, Position: sim.Vec2{X: values[0], Y: values[1]}, Velocity: sim.Vec2{X: values[2], Y: values[3]}, Mass: 1}
+	if err := world.AddMass(mass); err != nil {
+		return err
+	}
+	if err := placeFloatingWallBetweenMassAndFixedWall(world, example, mass); err != nil {
+		return err
+	}
+	w.wallSpringMomentumID = massID
+	w.wallSpringEnergy = totalMassKineticEnergy(world, 1, 2, massID)
+	return nil
+}
+
+func placeFloatingWallBetweenMassAndFixedWall(world *sim.Simulation, example map[string]string, mass sim.Mass) error {
+	wall, err := stringValue(example, "fixed_wall")
+	if err != nil {
+		return err
+	}
+	radius := sim.MassRadius(mass)
+	switch wall {
+	case "bottom":
+		return placeHorizontalFloatingWallForCurrentStep(world, mass.Position.X, mass.Position.Y+radius-0.5)
+	case "top":
+		return placeHorizontalFloatingWallForCurrentStep(world, mass.Position.X, mass.Position.Y-radius+0.5)
+	case "left":
+		return placeVerticalFloatingWallForCurrentStep(world, mass.Position.X+radius-0.5, mass.Position.Y)
+	case "right":
+		return placeVerticalFloatingWallForCurrentStep(world, mass.Position.X-radius+0.5, mass.Position.Y)
+	default:
+		return fmt.Errorf("unsupported fixed wall %q", wall)
+	}
+}
+
+func placeHorizontalFloatingWallForCurrentStep(world *sim.Simulation, centerX, y float64) error {
+	return setFloatingWallEndpointCurrentPositions(world, sim.Vec2{X: centerX - 50, Y: y}, sim.Vec2{X: centerX + 50, Y: y})
+}
+
+func placeVerticalFloatingWallForCurrentStep(world *sim.Simulation, x, centerY float64) error {
+	return setFloatingWallEndpointCurrentPositions(world, sim.Vec2{X: x, Y: centerY - 50}, sim.Vec2{X: x, Y: centerY + 50})
+}
+
+func setFloatingWallEndpointCurrentPositions(world *sim.Simulation, endpointA, endpointB sim.Vec2) error {
+	setMassCurrentPositionPreservingVelocity(world, 1, endpointA)
+	setMassCurrentPositionPreservingVelocity(world, 2, endpointB)
+	return nil
+}
+
+func setMassCurrentPositionPreservingVelocity(world *sim.Simulation, massID int, currentPosition sim.Vec2) {
+	for i := range world.Masses {
+		if world.Masses[i].ID == massID {
+			world.Masses[i].Position = currentPosition.Sub(world.Masses[i].Velocity)
+			return
+		}
+	}
+}
+
+func advanceSimultaneousFloatingWallAndFixedWallContact(w *world, _ map[string]string) error {
+	return advanceDomainWorld(w, 1)
+}
+
+func assertMassInsideFixedWall(w *world, example map[string]string) error {
+	wall, err := stringValue(example, "fixed_wall")
+	if err != nil {
+		return err
+	}
+	massID, err := intValue(example, "mass_id")
+	if err != nil {
+		return err
+	}
+	world := ensureDomainWorld(w)
+	mass, ok := world.MassByID(massID)
+	if !ok {
+		return fmt.Errorf("mass %d not found", massID)
+	}
+	if fixedWallOutside(world, wall, mass.Position) {
+		return fmt.Errorf("mass %d position %#v escaped fixed wall %s", massID, mass.Position, wall)
+	}
+	return nil
+}
+
+func fixedWallOutside(world *sim.Simulation, wall string, position sim.Vec2) bool {
+	switch wall {
+	case "left":
+		return position.X < world.Bounds.MinX()
+	case "right":
+		return position.X > world.Bounds.MaxX()
+	case "bottom":
+		return position.Y < world.Bounds.MinY()
+	case "top":
+		return position.Y > world.Bounds.MaxY()
+	default:
+		return true
+	}
+}
+
+func assertMassOutsideFloatingWallSpring(w *world, example map[string]string) error {
+	massID, springID, err := intPair(example, "mass_id", "spring_id")
+	if err != nil {
+		return err
+	}
+	world := ensureDomainWorld(w)
+	mass, ok := world.MassByID(massID)
+	if !ok {
+		return fmt.Errorf("mass %d not found", massID)
+	}
+	distance, err := wallSpringMassDistance(world, springID, mass)
+	if err != nil {
+		return err
+	}
+	if distance+0.000001 < sim.MassRadius(mass) {
+		return fmt.Errorf("mass %d distance from wall spring %d = %f, expected at least radius %f", massID, springID, distance, sim.MassRadius(mass))
+	}
+	return nil
+}
+
+func createPersistentFloatingWallSpringPenetratingMass(w *world, example map[string]string) error {
+	massID, err := intValue(example, "mass_id")
+	if err != nil {
+		return err
+	}
+	values, err := floatValues(example, "penetration", "contact_fraction", "relative_normal_velocity")
+	if err != nil {
+		return err
+	}
+	world := ensureDomainWorld(w)
+	radius := sim.MassRadius(sim.Mass{Mass: 1})
+	springID, err := intValue(example, "spring_id")
+	if err != nil {
+		return err
+	}
+	normal, start, err := wallSpringNormalAndStart(world, springID)
+	if err != nil {
+		return err
+	}
+	contact := start.Add(sim.Vec2{Y: 100 * values[1]})
+	position := contact.Add(normal.Scale(radius - values[0]))
+	velocity := wallSpringVelocityAtFraction(world, values[1]).Add(normal.Scale(values[2]))
+	mass := sim.Mass{ID: massID, Position: position, Velocity: velocity, Mass: 1}
+	if err := world.AddMass(mass); err != nil {
+		return err
+	}
+	w.wallSpringMomentumID = massID
+	w.wallSpringEnergy = totalMassKineticEnergy(world, 1, 2, massID)
+	w.wallSpringMomentum = totalMassMomentum(world, 1, 2, massID)
+	return nil
+}
+
+func wallSpringVelocityAtFraction(world *sim.Simulation, fraction float64) sim.Vec2 {
+	endpointA, _ := world.MassByID(1)
+	endpointB, _ := world.MassByID(2)
+	return endpointA.Velocity.Scale(1 - fraction).Add(endpointB.Velocity.Scale(fraction))
+}
+
+func advancePersistentFloatingWallSpringContact(w *world, _ map[string]string) error {
+	return advanceDomainWorld(w, 0)
+}
+
+func assertMassRelativeNormalVelocity(w *world, example map[string]string) error {
+	behavior, err := stringValue(example, "normal_velocity_behavior")
+	if err != nil {
+		return err
+	}
+	massID, springID, err := intPair(example, "mass_id", "spring_id")
+	if err != nil {
+		return err
+	}
+	velocity, err := floatingWallSpringRelativeNormalVelocity(ensureDomainWorld(w), springID, massID)
+	if err != nil {
+		return err
+	}
+	switch behavior {
+	case "non-penetrating":
+		if velocity < -0.000001 {
+			return fmt.Errorf("relative normal velocity = %f, expected non-penetrating", velocity)
+		}
+	case "unchanged":
+		return assertFloat("relative normal velocity", velocity, 0)
+	default:
+		return fmt.Errorf("unsupported normal velocity behavior %q", behavior)
+	}
+	return nil
+}
+
+func wallSpringMassDistance(world *sim.Simulation, springID int, mass sim.Mass) (float64, error) {
+	endpointA, endpointB, _, err := wallSpringEndpointsAndNormal(world, springID)
+	if err != nil {
+		return 0, err
+	}
+	segment := endpointB.Position.Sub(endpointA.Position)
+	lengthSquared := dotAcceptance(segment, segment)
+	if lengthSquared == 0 {
+		return 0, fmt.Errorf("wall spring %d has zero length", springID)
+	}
+	projection := dotAcceptance(mass.Position.Sub(endpointA.Position), segment) / lengthSquared
+	projection = math.Min(1, math.Max(0, projection))
+	contact := endpointA.Position.Add(segment.Scale(projection))
+	delta := mass.Position.Sub(contact)
+	return math.Sqrt(dotAcceptance(delta, delta)), nil
+}
+
+func floatingWallSpringRelativeNormalVelocity(world *sim.Simulation, springID, massID int) (float64, error) {
+	mass, ok := world.MassByID(massID)
+	if !ok {
+		return 0, fmt.Errorf("mass %d not found", massID)
+	}
+	endpointA, endpointB, normal, err := wallSpringEndpointsAndNormal(world, springID)
+	if err != nil {
+		return 0, err
+	}
+	segment := endpointB.Position.Sub(endpointA.Position)
+	lengthSquared := dotAcceptance(segment, segment)
+	if lengthSquared == 0 {
+		return 0, fmt.Errorf("wall spring %d has zero length", springID)
+	}
+	fraction := math.Min(1, math.Max(0, dotAcceptance(mass.Position.Sub(endpointA.Position), segment)/lengthSquared))
+	side := sideSignAcceptance(dotAcceptance(mass.Position.Sub(endpointA.Position), normal))
+	wallVelocity := endpointA.Velocity.Scale(1 - fraction).Add(endpointB.Velocity.Scale(fraction))
+	return dotAcceptance(mass.Velocity.Sub(wallVelocity), normal.Scale(side)), nil
+}
+
 func createMovingMassOnWallSpringStartingSide(w *world, example map[string]string, xKey, yKey string) error {
 	id, err := intValue(example, "mass_id")
 	if err != nil {

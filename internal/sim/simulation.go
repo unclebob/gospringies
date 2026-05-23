@@ -326,6 +326,7 @@ func (s *Simulation) stepRK4(dt float64) {
 	s.applyMovingWallSpringFixedEndpointCollisions(dt, startPositions)
 	s.applyWallSpringCollisions(dt, startPositions)
 	s.applyMassCollisions()
+	s.applyPostContactReconciliation()
 }
 
 func massPositions(masses []Mass) []Vec2 {

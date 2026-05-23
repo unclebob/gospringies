@@ -37,6 +37,129 @@ func (s *Simulation) applyMassCollision(m1, m2 *Mass) {
 	applyCollisionVelocity(m2, *m1, m2Velocity, m1Velocity, geometry)
 }
 
+func (s *Simulation) applyPostContactReconciliation() {
+	s.reconcileEnabledWallContacts()
+	s.reconcilePersistentWallSpringContacts()
+	s.reconcileEnabledWallContacts()
+}
+
+func (s *Simulation) reconcileEnabledWallContacts() {
+	for i := range s.Masses {
+		s.reconcileEnabledWallContact(&s.Masses[i])
+	}
+}
+
+func (s *Simulation) reconcileEnabledWallContact(mass *Mass) {
+	for _, wall := range s.collisionWalls(mass) {
+		enabled, _ := s.Parameters.WallEnabled(wall.name)
+		if !enabled || !wall.outside(*wall.position) {
+			continue
+		}
+		*wall.position = wall.boundary
+		if wall.movingOutward(*wall.velocity) {
+			s.bounceOrStick(mass, wall)
+		}
+		return
+	}
+}
+
+func (s *Simulation) reconcilePersistentWallSpringContacts() {
+	for range 4 {
+		reconciled := false
+		for _, spring := range s.Springs {
+			aIndex, bIndex, ok := s.wallSpringEndpointIndexes(spring)
+			if !ok {
+				continue
+			}
+			for i := range s.Masses {
+				if s.shouldApplyWallSpringCollision(i, aIndex, bIndex) {
+					reconciled = s.reconcilePersistentWallSpringContact(&s.Masses[i], &s.Masses[aIndex], &s.Masses[bIndex]) || reconciled
+				}
+			}
+		}
+		if !reconciled {
+			return
+		}
+	}
+}
+
+func (s *Simulation) reconcilePersistentWallSpringContact(mass, endpointA, endpointB *Mass) bool {
+	contact, ok := persistentWallSpringContactFor(*mass, *endpointA, *endpointB)
+	if !ok {
+		return false
+	}
+	applyPersistentWallSpringPositionCorrection(mass, endpointA, endpointB, contact)
+	resolvePersistentWallSpringVelocity(mass, endpointA, endpointB, contact.normal, contact.fraction)
+	return true
+}
+
+type persistentWallSpringContact struct {
+	normal      Vec2
+	fraction    float64
+	penetration float64
+}
+
+func persistentWallSpringContactFor(mass, endpointA, endpointB Mass) (persistentWallSpringContact, bool) {
+	segment := endpointB.Position.Sub(endpointA.Position)
+	lengthSquared := dot(segment, segment)
+	if lengthSquared == 0 {
+		return persistentWallSpringContact{}, false
+	}
+	projection := dot(mass.Position.Sub(endpointA.Position), segment) / lengthSquared
+	if projection < 0 || projection > 1 {
+		return persistentWallSpringContact{}, false
+	}
+	normal := Vec2{X: -segment.Y, Y: segment.X}.Normalize()
+	side := dot(mass.Position.Sub(endpointA.Position), normal)
+	if side == 0 {
+		return persistentWallSpringContact{}, false
+	}
+	radius := MassRadius(mass)
+	distance := math.Abs(side)
+	if distance >= radius {
+		return persistentWallSpringContact{}, false
+	}
+	return persistentWallSpringContact{
+		normal:      normal.Scale(sideSign(side)),
+		fraction:    projection,
+		penetration: radius - distance,
+	}, true
+}
+
+func applyPersistentWallSpringPositionCorrection(mass, endpointA, endpointB *Mass, contact persistentWallSpringContact) {
+	shareA, shareB, inverseMass := wallSpringContactSharesAndInverseMass(*mass, *endpointA, *endpointB, contact.fraction)
+	if inverseMass == 0 {
+		return
+	}
+	correction := contact.normal.Scale(contact.penetration / inverseMass)
+	shareWallSpringPositionCorrection(mass, correction)
+	shareWallSpringPositionCorrection(endpointA, correction.Scale(-shareA))
+	shareWallSpringPositionCorrection(endpointB, correction.Scale(-shareB))
+}
+
+func resolvePersistentWallSpringVelocity(mass, endpointA, endpointB *Mass, normal Vec2, contactFraction float64) {
+	relativeVelocity := mass.Velocity.Sub(wallSpringContactVelocity(endpointA, endpointB, contactFraction))
+	normalVelocity := dot(relativeVelocity, normal)
+	if finiteWallSpringCollisionSeparating(normalVelocity) {
+		return
+	}
+	shareA, shareB, inverseMass := wallSpringContactSharesAndInverseMass(*mass, *endpointA, *endpointB, contactFraction)
+	if inverseMass == 0 {
+		return
+	}
+	impulse := normal.Scale(-normalVelocity / inverseMass)
+	shareWallSpringImpulse(mass, impulse)
+	shareWallSpringImpulse(endpointA, impulse.Scale(-shareA))
+	shareWallSpringImpulse(endpointB, impulse.Scale(-shareB))
+}
+
+func wallSpringContactSharesAndInverseMass(mass, endpointA, endpointB Mass, contactFraction float64) (float64, float64, float64) {
+	shareA := 1 - contactFraction
+	shareB := contactFraction
+	inverseMass := contactShareInverseMass(mass, 1) + contactShareInverseMass(endpointA, shareA) + contactShareInverseMass(endpointB, shareB)
+	return shareA, shareB, inverseMass
+}
+
 type collisionGeometry struct {
 	dx     float64
 	dy     float64
@@ -467,9 +590,7 @@ func resolveFiniteWallSpringCollision(mass, endpointA, endpointB *Mass, normal V
 	if finiteWallSpringCollisionSeparating(normalVelocity) {
 		return
 	}
-	shareA := 1 - contactFraction
-	shareB := contactFraction
-	inverseMass := contactShareInverseMass(*mass, 1) + contactShareInverseMass(*endpointA, shareA) + contactShareInverseMass(*endpointB, shareB)
+	shareA, shareB, inverseMass := wallSpringContactSharesAndInverseMass(*mass, *endpointA, *endpointB, contactFraction)
 	if inverseMass == 0 {
 		return
 	}
@@ -571,6 +692,12 @@ func wallSpringVelocitySeparating(normalVelocity float64, startingSide float64) 
 func shareWallSpringImpulse(endpoint *Mass, impulse Vec2) {
 	if !endpoint.Fixed {
 		endpoint.Velocity = endpoint.Velocity.Add(impulse.Scale(1 / effectiveCollisionMass(*endpoint)))
+	}
+}
+
+func shareWallSpringPositionCorrection(endpoint *Mass, correction Vec2) {
+	if !endpoint.Fixed {
+		endpoint.Position = endpoint.Position.Add(correction.Scale(1 / effectiveCollisionMass(*endpoint)))
 	}
 }
 
