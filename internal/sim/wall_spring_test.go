@@ -74,31 +74,31 @@ func TestWallSpringDoesNotBounceTangentialBoundaryMotion(t *testing.T) {
 func TestWallSpringBoundaryStartRequiresPenetratingVelocity(t *testing.T) {
 	endpointA := Mass{Position: Vec2{}}
 	endpointB := Mass{Position: Vec2{X: 100}}
-	if !wallSpringBoundaryStartPenetrating(Mass{Position: Vec2{X: 50, Y: -1}, Velocity: Vec2{Y: -10}}, endpointA, endpointB, Vec2{X: 50}, endpointA.Position) {
+	if !wallSpringBoundaryStartPenetrating(Mass{Position: Vec2{X: 50, Y: -1}, Velocity: Vec2{Y: -10}}, endpointA, endpointB, Vec2{X: 50}, endpointA.Position, endpointB.Position) {
 		t.Fatal("penetrating boundary-start motion was not allowed")
 	}
-	if !wallSpringBoundaryStartPenetrating(Mass{Position: Vec2{X: 0.5, Y: -1}, Velocity: Vec2{Y: -10}}, endpointA, Mass{Position: Vec2{X: 1}}, Vec2{X: 0.5}, endpointA.Position) {
+	if !wallSpringBoundaryStartPenetrating(Mass{Position: Vec2{X: 0.5, Y: -1}, Velocity: Vec2{Y: -10}}, endpointA, Mass{Position: Vec2{X: 1}}, Vec2{X: 0.5}, endpointA.Position, Vec2{X: 1}) {
 		t.Fatal("unit wall penetrating boundary-start motion was not allowed")
 	}
-	if !wallSpringBoundaryStartPenetrating(Mass{Position: Vec2{X: 50, Y: 1}, Velocity: Vec2{Y: 10}}, endpointA, endpointB, Vec2{X: 50}, endpointA.Position) {
+	if !wallSpringBoundaryStartPenetrating(Mass{Position: Vec2{X: 50, Y: 1}, Velocity: Vec2{Y: 10}}, endpointA, endpointB, Vec2{X: 50}, endpointA.Position, endpointB.Position) {
 		t.Fatal("positive side-one penetrating boundary-start motion was not allowed")
 	}
-	if !wallSpringBoundaryStartPenetrating(Mass{Position: Vec2{X: 0.5, Y: 1}, Velocity: Vec2{Y: 10}}, endpointA, Mass{Position: Vec2{X: 1}}, Vec2{X: 0.5}, endpointA.Position) {
+	if !wallSpringBoundaryStartPenetrating(Mass{Position: Vec2{X: 0.5, Y: 1}, Velocity: Vec2{Y: 10}}, endpointA, Mass{Position: Vec2{X: 1}}, Vec2{X: 0.5}, endpointA.Position, Vec2{X: 1}) {
 		t.Fatal("unit wall positive side-one boundary-start motion was not allowed")
 	}
-	if wallSpringBoundaryStartPenetrating(Mass{Position: Vec2{X: 50, Y: 1}}, endpointA, endpointB, Vec2{X: 50}, endpointA.Position) {
+	if wallSpringBoundaryStartPenetrating(Mass{Position: Vec2{X: 50, Y: 1}}, endpointA, endpointB, Vec2{X: 50}, endpointA.Position, endpointB.Position) {
 		t.Fatal("zero-velocity boundary-start motion was allowed")
 	}
-	if wallSpringBoundaryStartPenetrating(Mass{Position: Vec2{X: 50}, Velocity: Vec2{Y: -10}}, endpointA, endpointB, Vec2{X: 50}, endpointA.Position) {
+	if wallSpringBoundaryStartPenetrating(Mass{Position: Vec2{X: 50}, Velocity: Vec2{Y: -10}}, endpointA, endpointB, Vec2{X: 50}, endpointA.Position, endpointB.Position) {
 		t.Fatal("current boundary motion was allowed")
 	}
-	if wallSpringBoundaryStartPenetrating(Mass{Position: Vec2{X: 50, Y: -1}, Velocity: Vec2{Y: -10}}, endpointA, endpointB, Vec2{X: 50, Y: 1}, endpointA.Position) {
+	if wallSpringBoundaryStartPenetrating(Mass{Position: Vec2{X: 50, Y: -1}, Velocity: Vec2{Y: -10}}, endpointA, endpointB, Vec2{X: 50, Y: 1}, endpointA.Position, endpointB.Position) {
 		t.Fatal("previous off-wall motion was allowed")
 	}
-	if wallSpringBoundaryStartPenetrating(Mass{Position: Vec2{X: 150, Y: -1}, Velocity: Vec2{Y: -10}}, endpointA, endpointB, Vec2{X: 150}, endpointA.Position) {
+	if wallSpringBoundaryStartPenetrating(Mass{Position: Vec2{X: 150, Y: -1}, Velocity: Vec2{Y: -10}}, endpointA, endpointB, Vec2{X: 150}, endpointA.Position, endpointB.Position) {
 		t.Fatal("off-segment boundary-start motion was allowed")
 	}
-	if wallSpringBoundaryStartPenetrating(Mass{Position: Vec2{X: 50, Y: -1}, Velocity: Vec2{Y: -10}}, endpointA, endpointA, Vec2{X: 50}, endpointA.Position) {
+	if wallSpringBoundaryStartPenetrating(Mass{Position: Vec2{X: 50, Y: -1}, Velocity: Vec2{Y: -10}}, endpointA, endpointA, Vec2{X: 50}, endpointA.Position, endpointA.Position) {
 		t.Fatal("zero-length wall boundary motion was allowed")
 	}
 }
@@ -129,6 +129,49 @@ func TestMovingWallSpringStopsStationaryMassCrossingSegment(t *testing.T) {
 	if endpointA.Velocity.X > 0.000001 || endpointB.Velocity.X > 0.000001 {
 		t.Fatalf("wall spring endpoint velocities still penetrate mass: %#v %#v", endpointA.Velocity, endpointB.Velocity)
 	}
+}
+
+func TestRotatingFloatingWallSpringStopsMassCrossingSweptSegment(t *testing.T) {
+	world := NewWorld()
+	_ = world.AddMass(Mass{ID: 35, Position: Vec2{X: 503.744, Y: 570.380}, Velocity: Vec2{X: 0.010, Y: 1.213}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 21, Position: Vec2{X: 672.926, Y: 528.675}, Velocity: Vec2{X: -0.356, Y: -2.843}, Mass: 1})
+	_ = world.AddMass(Mass{ID: 23, Position: Vec2{X: 620, Y: 539.719}, Velocity: Vec2{Y: -10}, Mass: 1})
+	_ = world.AddSpring(Spring{ID: 12, MassA: 35, MassB: 21, Wall: true})
+	starts := []Vec2{
+		{X: 503.734, Y: 569.167},
+		{X: 673.282, Y: 531.518},
+		{X: 620, Y: 540},
+	}
+
+	world.applyWallSpringCollisions(1, starts)
+
+	mass, _ := world.MassByID(23)
+	previousSide := rotatingFloatingWallPreviousSide(starts[0], starts[1], starts[2])
+	currentSide := rotatingFloatingWallSide(world, mass.Position)
+	if currentSide*previousSide < 0 {
+		t.Fatalf("mass crossed swept wall spring: mass=%#v side=%f started=%f", mass, currentSide, previousSide)
+	}
+	normal := rotatingFloatingWallNormal(world)
+	wallVelocity := wallSpringContactVelocity(&world.Masses[0], &world.Masses[1], 0.68)
+	if dot(mass.Velocity.Sub(wallVelocity), normal)*previousSide < 0 {
+		t.Fatalf("mass velocity still penetrates swept wall spring: %#v wall=%#v normal=%#v", mass.Velocity, wallVelocity, normal)
+	}
+}
+
+func rotatingFloatingWallPreviousSide(endpointA, endpointB, position Vec2) float64 {
+	segment := endpointB.Sub(endpointA)
+	normal := Vec2{X: -segment.Y, Y: segment.X}.Normalize()
+	return dot(position.Sub(endpointA), normal)
+}
+
+func rotatingFloatingWallSide(world *Simulation, position Vec2) float64 {
+	normal := rotatingFloatingWallNormal(world)
+	return dot(position.Sub(world.Masses[0].Position), normal)
+}
+
+func rotatingFloatingWallNormal(world *Simulation) Vec2 {
+	segment := world.Masses[1].Position.Sub(world.Masses[0].Position)
+	return Vec2{X: -segment.Y, Y: segment.X}.Normalize()
 }
 
 func TestMovingWallSpringSegmentBouncesOffFixedWallEndpointMass(t *testing.T) {
@@ -595,6 +638,27 @@ func TestWallSpringContactFractionRejectsOutsideSegment(t *testing.T) {
 				t.Fatal("contact fraction accepted outside segment")
 			}
 		})
+	}
+}
+
+func TestWallSpringCollisionContactRejectsCurrentCenterOnWall(t *testing.T) {
+	fraction, side, ok := wallSpringCollisionContact(Vec2{X: 5, Y: 2}, Vec2{Y: 8}, Vec2{Y: 10}, 100, 5, 0, 3, false)
+	if ok || fraction != 0 || side != 0 {
+		t.Fatalf("contact = %f, %f, %t, expected rejected zero contact", fraction, side, ok)
+	}
+}
+
+func TestWallSpringCollisionContactUsesPositiveBoundaryRadius(t *testing.T) {
+	fraction, side, ok := wallSpringCollisionContact(Vec2{X: 5, Y: 2}, Vec2{X: 2, Y: 8}, Vec2{Y: 10}, 100, 5, 2, 3, false)
+	if !ok || side != 1 || !closeWallSpringLength(fraction, 0.6) {
+		t.Fatalf("contact = %f, %f, %t, expected positive radius crossing at 0.6", fraction, side, ok)
+	}
+}
+
+func TestWallSpringCollisionContactUsesNegativeBoundaryRadius(t *testing.T) {
+	fraction, side, ok := wallSpringCollisionContact(Vec2{X: -5, Y: 2}, Vec2{X: -2, Y: 8}, Vec2{Y: 10}, 100, -5, -2, 3, false)
+	if !ok || side != -1 || !closeWallSpringLength(fraction, 0.6) {
+		t.Fatalf("contact = %f, %f, %t, expected negative radius crossing at 0.6", fraction, side, ok)
 	}
 }
 
