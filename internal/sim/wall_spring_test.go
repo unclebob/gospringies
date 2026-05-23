@@ -115,6 +115,27 @@ func TestFloatingWallSpringCollisionConservesMomentumWithUnequalEndpointMasses(t
 	}
 }
 
+func TestFloatingWallSpringCollisionDoesNotIncreaseEnergyWithElasticity(t *testing.T) {
+	world := floatingWallEnergyCollisionWorld(
+		Vec2{X: -3351.821, Y: 1287.498},
+		Vec2{X: -322.615, Y: 129.493},
+		Mass{ID: 32, Position: Vec2{X: -2, Y: 3.946}, Velocity: Vec2{X: -7.286, Y: 9.837}, Mass: 1, Elasticity: 0.8},
+	)
+	beforeEnergy := wallSpringKineticEnergy(world, 1, 2, 32)
+	beforeMomentum := wallSpringMomentum(world, 1, 2, 32)
+
+	world.applyWallSpringCollision(world.Springs[0], &world.Masses[2], &world.Masses[0], &world.Masses[1], Vec2{X: -5, Y: 3.946}, world.Masses[0].Position, world.Masses[1].Position, false)
+
+	afterEnergy := wallSpringKineticEnergy(world, 1, 2, 32)
+	afterMomentum := wallSpringMomentum(world, 1, 2, 32)
+	if afterEnergy > beforeEnergy+0.000001 {
+		t.Fatalf("kinetic energy increased from %f to %f", beforeEnergy, afterEnergy)
+	}
+	if !closeWallSpringLength(afterMomentum.X, beforeMomentum.X) || !closeWallSpringLength(afterMomentum.Y, beforeMomentum.Y) {
+		t.Fatalf("momentum = %#v, expected %#v", afterMomentum, beforeMomentum)
+	}
+}
+
 func TestMovingWallSpringStopsStationaryMassCrossingSegment(t *testing.T) {
 	world := movingWallSpringCollisionWorld()
 
@@ -126,8 +147,9 @@ func TestMovingWallSpringStopsStationaryMassCrossingSegment(t *testing.T) {
 	}
 	endpointA, _ := world.MassByID(1)
 	endpointB, _ := world.MassByID(2)
-	if endpointA.Velocity.X > 0.000001 || endpointB.Velocity.X > 0.000001 {
-		t.Fatalf("wall spring endpoint velocities still penetrate mass: %#v %#v", endpointA.Velocity, endpointB.Velocity)
+	wallVelocity := wallSpringContactVelocity(&endpointA, &endpointB, 0.5)
+	if wallVelocity.X-mass.Velocity.X > 0.000001 {
+		t.Fatalf("wall spring contact still penetrates mass: wall=%#v mass=%#v", wallVelocity, mass.Velocity)
 	}
 }
 
@@ -800,7 +822,7 @@ func expectedTemperatureKick(height float64, temperature float64, seed int64) Ve
 func assertWallSpringTemperatureKick(t *testing.T, world *Simulation, temperature float64, seed int64, description string) {
 	t.Helper()
 	mass, _ := world.MassByID(3)
-	kick := mass.Velocity.Sub(Vec2{X: -10})
+	kick := mass.Velocity.Sub(Vec2{X: -10.0 / 3.0})
 	expected := expectedTemperatureKick(world.Bounds.Height, temperature, seed)
 	if !closeWallSpringLength(kick.X, expected.X) || !closeWallSpringLength(kick.Y, expected.Y) {
 		t.Fatalf("%s = %#v, expected %#v", description, kick, expected)
@@ -816,10 +838,10 @@ func TestWallSpringTemperatureKickDoesNotChangeEndpointImpulseShare(t *testing.T
 
 	a, _ := world.MassByID(1)
 	b, _ := world.MassByID(2)
-	if !closeWallSpringLength(a.Velocity.X, 10) || !closeWallSpringLength(a.Velocity.Y, 0) {
+	if !closeWallSpringLength(a.Velocity.X, 20.0/3.0) || !closeWallSpringLength(a.Velocity.Y, 0) {
 		t.Fatalf("endpoint A velocity = %#v, expected collision impulse only", a.Velocity)
 	}
-	if !closeWallSpringLength(b.Velocity.X, 10) || !closeWallSpringLength(b.Velocity.Y, 0) {
+	if !closeWallSpringLength(b.Velocity.X, 20.0/3.0) || !closeWallSpringLength(b.Velocity.Y, 0) {
 		t.Fatalf("endpoint B velocity = %#v, expected collision impulse only", b.Velocity)
 	}
 }
@@ -839,7 +861,7 @@ func TestWallSpringTemperatureZeroAndNonWallApplyNoKick(t *testing.T) {
 		mass, _ := world.MassByID(3)
 		expectedX := 10.0
 		if wall {
-			expectedX = -10
+			expectedX = -10.0 / 3.0
 		}
 		if !closeWallSpringLength(mass.Velocity.X, expectedX) || !closeWallSpringLength(mass.Velocity.Y, 0) {
 			t.Fatalf("wall=%t velocity=%#v, expected no temperature kick", wall, mass.Velocity)
@@ -1324,6 +1346,15 @@ func unequalEndpointMassWallSpringCollisionWorld() *Simulation {
 	return world
 }
 
+func floatingWallEnergyCollisionWorld(endpointAVelocity, endpointBVelocity Vec2, moving Mass) *Simulation {
+	world := NewWorld()
+	_ = world.AddMass(Mass{ID: 1, Position: Vec2{}, Velocity: endpointAVelocity, Mass: 1})
+	_ = world.AddMass(Mass{ID: 2, Position: Vec2{Y: 100}, Velocity: endpointBVelocity, Mass: 1})
+	_ = world.AddMass(moving)
+	_ = world.AddSpring(Spring{ID: 1, MassA: 1, MassB: 2, Wall: true})
+	return world
+}
+
 func wallSpringMomentum(world *Simulation, ids ...int) Vec2 {
 	total := Vec2{}
 	for _, id := range ids {
@@ -1336,6 +1367,19 @@ func wallSpringMomentum(world *Simulation, ids ...int) Vec2 {
 			massValue = 1
 		}
 		total = total.Add(mass.Velocity.Scale(massValue))
+	}
+	return total
+}
+
+func wallSpringKineticEnergy(world *Simulation, ids ...int) float64 {
+	total := 0.0
+	for _, id := range ids {
+		mass, ok := world.MassByID(id)
+		if !ok {
+			continue
+		}
+		massValue := effectiveCollisionMass(mass)
+		total += 0.5 * massValue * dot(mass.Velocity, mass.Velocity)
 	}
 	return total
 }

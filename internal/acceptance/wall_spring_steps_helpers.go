@@ -906,15 +906,16 @@ func assertMassNormalReboundSpeed(w *world, example map[string]string) error {
 	if err != nil {
 		return err
 	}
-	return assertFloat("mass normal rebound speed", dotAcceptance(mass.Velocity, normal), expected)
-}
-
-func assertWallSpringReceivesReboundImpulse(w *world, example map[string]string) error {
-	normalSpeed, expectedRebound, endpointImpulse, massImpulse, err := wallSpringReboundImpulseBalance(w, example)
+	wallVelocity, err := wallSpringVelocity(world, springID)
 	if err != nil {
 		return err
 	}
-	if err := assertFloat("wall spring rebound impulse", -endpointImpulse, normalSpeed+expectedRebound); err != nil {
+	return assertFloat("mass relative normal rebound speed", math.Abs(dotAcceptance(mass.Velocity.Sub(wallVelocity), normal)), expected)
+}
+
+func assertWallSpringReceivesReboundImpulse(w *world, example map[string]string) error {
+	_, _, endpointImpulse, massImpulse, err := wallSpringReboundImpulseBalance(w, example)
+	if err != nil {
 		return err
 	}
 	return assertFloat("wall spring and mass impulse balance", endpointImpulse+massImpulse, 0)
@@ -1089,10 +1090,15 @@ func assertTemperatureKickBehavior(behavior string, kick sim.Vec2, worldHeight f
 }
 
 func expectedWallSpringCollisionVelocity(example map[string]string) sim.Vec2 {
-	if _, ok := example["contact_fraction"]; ok {
-		return sim.Vec2{X: -10}
+	if _, ok := example["contact_fraction"]; !ok {
+		return sim.Vec2{X: 10}
 	}
-	return sim.Vec2{X: 10}
+	fraction, err := floatValue(example, "contact_fraction")
+	if err != nil {
+		return sim.Vec2{X: -10.0 / 3.0}
+	}
+	inverseMass := 1 + (1-fraction)*(1-fraction) + fraction*fraction
+	return sim.Vec2{X: 10 - 20/inverseMass}
 }
 
 func withContactFraction(example map[string]string, contactFraction string) map[string]string {
@@ -1200,6 +1206,91 @@ func assertFloatingWallMomentumUnchanged(w *world, _ map[string]string) error {
 	return assertMomentum("floating wall collision momentum", totalMassMomentum(ensureDomainWorld(w), 1, 2, w.wallSpringMomentumID), w.wallSpringMomentum)
 }
 
+func createFiniteMassFloatingWallSpring(w *world, example map[string]string) error {
+	springID, err := intValue(example, "spring_id")
+	if err != nil {
+		return err
+	}
+	endpointMasses, err := floatValues(example, "endpoint_a_mass", "endpoint_b_mass")
+	if err != nil {
+		return err
+	}
+	world := ensureDomainWorld(w)
+	if err := world.AddMass(sim.Mass{ID: 1, Position: sim.Vec2{}, Mass: endpointMasses[0]}); err != nil {
+		return err
+	}
+	if err := world.AddMass(sim.Mass{ID: 2, Position: sim.Vec2{Y: 100}, Mass: endpointMasses[1]}); err != nil {
+		return err
+	}
+	return world.AddSpring(sim.Spring{ID: springID, MassA: 1, MassB: 2, Wall: true})
+}
+
+func setFiniteMassFloatingWallSpringVelocities(w *world, example map[string]string) error {
+	values, err := floatValues(example, "endpoint_a_vx", "endpoint_a_vy", "endpoint_b_vx", "endpoint_b_vy")
+	if err != nil {
+		return err
+	}
+	world := ensureDomainWorld(w)
+	setMassPositionAndVelocityForCurrentStep(world, 1, sim.Vec2{}, sim.Vec2{X: values[0], Y: values[1]})
+	setMassPositionAndVelocityForCurrentStep(world, 2, sim.Vec2{Y: 100}, sim.Vec2{X: values[2], Y: values[3]})
+	return nil
+}
+
+func createFiniteMassFloatingWallCollidingMass(w *world, example map[string]string) error {
+	massID, err := intValue(example, "mass_id")
+	if err != nil {
+		return err
+	}
+	values, err := floatValues(example, "moving_mass", "elasticity", "contact_fraction", "mass_vx", "mass_vy")
+	if err != nil {
+		return err
+	}
+	current := sim.Vec2{X: -2, Y: 100 * values[2]}
+	velocity := sim.Vec2{X: values[3], Y: values[4]}
+	mass := sim.Mass{ID: massID, Position: current.Sub(velocity), Velocity: velocity, Mass: values[0], Elasticity: values[1]}
+	world := ensureDomainWorld(w)
+	if err := world.AddMass(mass); err != nil {
+		return err
+	}
+	w.wallSpringMomentumID = massID
+	w.wallSpringMomentum = totalMassMomentum(world, 1, 2, massID)
+	w.wallSpringEnergy = totalMassKineticEnergy(world, 1, 2, massID)
+	return nil
+}
+
+func setMassPositionAndVelocityForCurrentStep(world *sim.Simulation, massID int, currentPosition, velocity sim.Vec2) {
+	for i := range world.Masses {
+		if world.Masses[i].ID == massID {
+			world.Masses[i].Position = currentPosition.Sub(velocity)
+			world.Masses[i].Velocity = velocity
+			return
+		}
+	}
+}
+
+func advanceFiniteMassFloatingWallSpringCollision(w *world, _ map[string]string) error {
+	return advanceDomainWorld(w, 1)
+}
+
+func assertFiniteMassFloatingWallSpringEnergy(w *world, example map[string]string) error {
+	behavior, err := stringValue(example, "energy_behavior")
+	if err != nil {
+		return err
+	}
+	if behavior != "not increased" {
+		return fmt.Errorf("unsupported energy behavior %q", behavior)
+	}
+	energy := totalMassKineticEnergy(ensureDomainWorld(w), 1, 2, w.wallSpringMomentumID)
+	if energy > w.wallSpringEnergy+0.000001 {
+		return fmt.Errorf("floating wall collision kinetic energy = %f, expected not above %f", energy, w.wallSpringEnergy)
+	}
+	return nil
+}
+
+func assertFiniteMassFloatingWallSpringMomentum(w *world, _ map[string]string) error {
+	return assertMomentum("finite-mass floating wall collision momentum", totalMassMomentum(ensureDomainWorld(w), 1, 2, w.wallSpringMomentumID), w.wallSpringMomentum)
+}
+
 func createMovingMassOnWallSpringStartingSide(w *world, example map[string]string, xKey, yKey string) error {
 	id, err := intValue(example, "mass_id")
 	if err != nil {
@@ -1233,6 +1324,22 @@ func totalMassMomentum(world *sim.Simulation, ids ...int) sim.Vec2 {
 			massValue = 1
 		}
 		total = total.Add(mass.Velocity.Scale(massValue))
+	}
+	return total
+}
+
+func totalMassKineticEnergy(world *sim.Simulation, ids ...int) float64 {
+	total := 0.0
+	for _, id := range ids {
+		mass, ok := world.MassByID(id)
+		if !ok {
+			continue
+		}
+		massValue := mass.Mass
+		if massValue == 0 {
+			massValue = 1
+		}
+		total += 0.5 * massValue * dotAcceptance(mass.Velocity, mass.Velocity)
 	}
 	return total
 }

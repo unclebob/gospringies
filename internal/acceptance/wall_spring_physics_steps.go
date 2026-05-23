@@ -71,6 +71,12 @@ func init() {
 		"the coder resolves swept floating wall spring collision":                                                                                                                                                        advanceSweptFloatingWallSpringCollision,
 		"mass <mass_id> should remain on the previous side of floating wall spring <spring_id>":                                                                                                                          assertMassOnStartingWallSpringSide,
 		"mass <mass_id> velocity should be resolved away from floating wall spring <spring_id>":                                                                                                                          assertMassVelocityResolvedAwayFromWallSpring,
+		"moving floating wall spring <spring_id> has endpoint masses <endpoint_a_mass> and <endpoint_b_mass>":                                                                                                            createFiniteMassFloatingWallSpring,
+		"moving floating wall spring <spring_id> endpoint velocities are <endpoint_a_vx>, <endpoint_a_vy> and <endpoint_b_vx>, <endpoint_b_vy>":                                                                          setFiniteMassFloatingWallSpringVelocities,
+		"moving mass <mass_id> with mass <moving_mass> and elasticity <elasticity> collides with floating wall spring <spring_id> at contact fraction <contact_fraction> with velocity <mass_vx>, <mass_vy>":             createFiniteMassFloatingWallCollidingMass,
+		"the coder resolves the finite-mass floating wall spring collision":                                                                                                                                              advanceFiniteMassFloatingWallSpringCollision,
+		"the total kinetic energy of mass <mass_id> and floating wall spring <spring_id> should be <energy_behavior>":                                                                                                    assertFiniteMassFloatingWallSpringEnergy,
+		"the total momentum of mass <mass_id> and floating wall spring <spring_id> should be unchanged":                                                                                                                  assertFiniteMassFloatingWallSpringMomentum,
 	} {
 		stepHandlers[step] = handler
 	}
