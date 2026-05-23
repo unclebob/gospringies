@@ -203,6 +203,96 @@ func TestPersistentWallSpringPenetrationLeavesZeroNormalVelocityUnchanged(t *tes
 	}
 }
 
+func TestPersistentWallSpringContactRejectsDegenerateAndExternalContacts(t *testing.T) {
+	endpointA := Mass{Position: Vec2{}, Mass: 1}
+	endpointB := Mass{Position: Vec2{Y: 100}, Mass: 1}
+
+	for _, test := range []struct {
+		name      string
+		mass      Mass
+		endpointB Mass
+	}{
+		{name: "zero length", mass: Mass{Position: Vec2{X: -0.5, Y: 50}, Mass: 1}, endpointB: endpointA},
+		{name: "before start", mass: Mass{Position: Vec2{X: -0.5, Y: -1}, Mass: 1}, endpointB: endpointB},
+		{name: "after end", mass: Mass{Position: Vec2{X: -0.5, Y: 101}, Mass: 1}, endpointB: endpointB},
+		{name: "on center line", mass: Mass{Position: Vec2{Y: 50}, Mass: 1}, endpointB: endpointB},
+		{name: "outside radius", mass: Mass{Position: Vec2{X: -3, Y: 50}, Mass: 1}, endpointB: endpointB},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if _, ok := persistentWallSpringContactFor(test.mass, endpointA, test.endpointB); ok {
+				t.Fatal("contact was accepted")
+			}
+		})
+	}
+}
+
+func TestPersistentWallSpringContactAcceptsEndpointFractionsAndInsideRadius(t *testing.T) {
+	endpointA := Mass{Position: Vec2{}, Mass: 1}
+	endpointB := Mass{Position: Vec2{Y: 100}, Mass: 1}
+
+	for _, test := range []struct {
+		name     string
+		position Vec2
+		fraction float64
+	}{
+		{name: "start", position: Vec2{X: -0.5}, fraction: 0},
+		{name: "middle", position: Vec2{X: -0.5, Y: 50}, fraction: 0.5},
+		{name: "end", position: Vec2{X: -0.5, Y: 100}, fraction: 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			contact, ok := persistentWallSpringContactFor(Mass{Position: test.position, Mass: 1}, endpointA, endpointB)
+			if !ok {
+				t.Fatal("contact was rejected")
+			}
+			if contact.fraction != test.fraction {
+				t.Fatalf("fraction = %f, expected %f", contact.fraction, test.fraction)
+			}
+			if contact.penetration != 2.5 {
+				t.Fatalf("penetration = %f, expected 2.5", contact.penetration)
+			}
+		})
+	}
+}
+
+func TestPersistentWallSpringContactReportsWhetherItChangedState(t *testing.T) {
+	mass := Mass{Position: Vec2{X: -3, Y: 50}, Velocity: Vec2{X: 10}, Mass: 1}
+	endpointA := Mass{Position: Vec2{}, Mass: 1}
+	endpointB := Mass{Position: Vec2{Y: 100}, Mass: 1}
+	if reconcilePersistentWallSpringContact := NewWorld().reconcilePersistentWallSpringContact(&mass, &endpointA, &endpointB); reconcilePersistentWallSpringContact {
+		t.Fatal("non-contact reported a reconciliation")
+	}
+
+	fixedMass := Mass{Position: Vec2{X: -0.5, Y: 50}, Velocity: Vec2{X: 10}, Mass: 1, Fixed: true}
+	fixedEndpointA := Mass{Position: Vec2{}, Mass: 1, Fixed: true}
+	fixedEndpointB := Mass{Position: Vec2{Y: 100}, Mass: 1, Fixed: true}
+	if NewWorld().reconcilePersistentWallSpringContact(&fixedMass, &fixedEndpointA, &fixedEndpointB) {
+		t.Fatal("all-fixed contact reported a reconciliation")
+	}
+
+	movingMass := Mass{Position: Vec2{X: -0.5, Y: 50}, Velocity: Vec2{X: 10}, Mass: 1}
+	if !NewWorld().reconcilePersistentWallSpringContact(&movingMass, &endpointA, &endpointB) {
+		t.Fatal("penetrating moving contact did not report a reconciliation")
+	}
+}
+
+func TestPersistentWallSpringVelocityResolutionReportsOnlyAppliedImpulses(t *testing.T) {
+	endpointA := Mass{Position: Vec2{}, Mass: 1}
+	endpointB := Mass{Position: Vec2{Y: 100}, Mass: 1}
+
+	separatingMass := Mass{Position: Vec2{X: -0.5, Y: 50}, Velocity: Vec2{X: -1}, Mass: 1}
+	if resolvePersistentWallSpringVelocity(&separatingMass, &endpointA, &endpointB, Vec2{X: -1}, 0.5) {
+		t.Fatal("separating velocity reported an applied impulse")
+	}
+
+	approachingMass := Mass{Position: Vec2{X: -0.5, Y: 50}, Velocity: Vec2{X: 1}, Mass: 1}
+	if !resolvePersistentWallSpringVelocity(&approachingMass, &endpointA, &endpointB, Vec2{X: -1}, 0.5) {
+		t.Fatal("approaching velocity did not report an applied impulse")
+	}
+	if got := dot(approachingMass.Velocity.Sub(wallSpringContactVelocity(&endpointA, &endpointB, 0.5)), Vec2{X: -1}); got < -0.000001 {
+		t.Fatalf("normal velocity = %f, expected non-penetrating", got)
+	}
+}
+
 func TestFiniteWallSpringCollisionSeparatingIncludesZeroAndSmallPositiveVelocity(t *testing.T) {
 	for _, normalVelocity := range []float64{0, 0.5} {
 		if !finiteWallSpringCollisionSeparating(normalVelocity) {

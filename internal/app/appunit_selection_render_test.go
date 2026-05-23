@@ -73,6 +73,44 @@ func TestAppUnitGridPointsFollowGridSnap(t *testing.T) {
 	}
 }
 
+func TestAppUnitGridHelpersIncludeBottomBoundaryAndRejectZeroSize(t *testing.T) {
+	if validGridSnapSize(0) {
+		t.Fatal("zero grid size was valid")
+	}
+	if !validGridSnapSize(1) {
+		t.Fatal("positive grid size was invalid")
+	}
+
+	game := NewGame()
+	_, _, _, maxY := game.canvasWorldBounds()
+	game.World().Parameters.Set("grid snap", formatControlFloat(maxY))
+	points := game.gridPoints()
+	if len(points) == 0 {
+		t.Fatal("expected a grid row on the bottom boundary")
+	}
+	foundBottom := false
+	for _, point := range points {
+		if point.Y == maxY {
+			foundBottom = true
+		}
+	}
+	if !foundBottom {
+		t.Fatalf("grid points %#v did not include bottom boundary %f", points, maxY)
+	}
+}
+
+func TestAppUnitSpringDrawColorDistinguishesHotWallSprings(t *testing.T) {
+	if springDrawColor(sim.Spring{}) != springColor {
+		t.Fatal("ordinary spring color mismatch")
+	}
+	if springDrawColor(sim.Spring{Wall: true}) != wallSpringColor {
+		t.Fatal("wall spring color mismatch")
+	}
+	if springDrawColor(sim.Spring{Wall: true, Temperature: 1}) != hotWallColor {
+		t.Fatal("hot wall spring color mismatch")
+	}
+}
+
 func TestAppUnitPendingSpringLineStates(t *testing.T) {
 	game := appUnitGameWithMasses(sim.Mass{ID: 1, Position: sim.Vec2{X: 100, Y: 120}})
 
@@ -124,5 +162,18 @@ func TestAppUnitSelectionGeometryStates(t *testing.T) {
 	lines := game.selectedSpringLines()
 	if len(lines) != 1 || lines[0] != (selectionLine{x1: 10, y1: 20, x2: 30, y2: 40}) {
 		t.Fatalf("selected spring lines = %#v, want one complete endpoint line", lines)
+	}
+}
+
+func TestAppUnitSelectedSpringLinesSkipMissingEitherEndpoint(t *testing.T) {
+	game := appUnitGameWithMasses(sim.Mass{ID: 1, Position: sim.Vec2{X: 10, Y: 20}})
+	game.world.simulation.Springs = []sim.Spring{
+		{ID: 1, MassA: 1, MassB: 99},
+		{ID: 2, MassA: 99, MassB: 1},
+	}
+	game.editing().SelectedSprings = map[int]bool{1: true, 2: true}
+
+	if lines := game.selectedSpringLines(); len(lines) != 0 {
+		t.Fatalf("selected spring lines with missing endpoints = %#v, want none", lines)
 	}
 }

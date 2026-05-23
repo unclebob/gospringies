@@ -150,6 +150,11 @@ func TestAppUnitSmallPointerHelpers(t *testing.T) {
 	if !game.pointer.rightMousePressed || !game.overlays.massMenu.Open {
 		t.Fatalf("right pointer state pressed=%t menu=%#v", game.pointer.rightMousePressed, game.overlays.massMenu)
 	}
+	game.pointer.selectionDrag = true
+	game.handleRightPointer(true, 120, 120)
+	if !game.pointer.selectionDrag {
+		t.Fatal("held right pointer cancelled placement gesture again")
+	}
 	game.handleRightPointer(false, 100, 900)
 	if game.pointer.rightMousePressed {
 		t.Fatal("right pointer release stayed pressed")
@@ -191,5 +196,42 @@ func TestAppUnitSmallPointerHelpers(t *testing.T) {
 	second, _ = game.World().MassByID(2)
 	if first.Position != (sim.Vec2{X: 120, Y: 110}) || second.Position != (sim.Vec2{X: 140, Y: 100}) {
 		t.Fatalf("moved selected positions = %#v %#v", first.Position, second.Position)
+	}
+}
+
+func TestAppUnitReleasePointerClearsGestureAndRepeatState(t *testing.T) {
+	game := appUnitGameWithMasses(sim.Mass{ID: 1, Position: sim.Vec2{X: 100, Y: 100}, Mass: 1})
+	game.pointer.draggingMassID = 1
+	game.pointer.dragMoved = true
+	game.pointer.selectionDrag = true
+	game.controls.activeSlider = "speed slider"
+	game.controls.activeNumericStep = "mass increment"
+	game.controls.numericStepTicks = 7
+	game.controls.activeValueStep = 0.1
+	game.controls.valueStepTicks = 9
+
+	game.releasePointer(sim.Vec2{X: 120, Y: 120})
+
+	if game.pointer.draggingMassID != 0 || game.pointer.dragMoved || game.pointer.selectionDrag {
+		t.Fatalf("pointer state not cleared: %#v", game.pointer)
+	}
+	if game.controls.activeSlider != "" || game.controls.activeNumericStep != "" || game.controls.numericStepTicks != 0 || game.controls.activeValueStep != 0 || game.controls.valueStepTicks != 0 {
+		t.Fatalf("control repeat state not cleared: %#v", game.controls)
+	}
+}
+
+func TestAppUnitContinueControlPressRepeatsValueDialogStep(t *testing.T) {
+	game := NewGame()
+	game.overlays.value.Open = true
+	game.overlays.value.Text = "1"
+	game.overlays.value.Min = 0
+	game.overlays.value.Max = 10
+	game.controls.activeValueStep = 0.1
+	game.controls.valueStepTicks = numericStepHoldDelayTicks - 1
+
+	game.continuePointerPress(sim.Vec2{}, 0)
+
+	if game.overlays.value.Text != "1.1" || game.controls.valueStepTicks != numericStepHoldDelayTicks {
+		t.Fatalf("value dialog repeat text=%q ticks=%d", game.overlays.value.Text, game.controls.valueStepTicks)
 	}
 }
